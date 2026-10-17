@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { hasItem, menuButton, menuPanel, openMenu, pick } from "./menu-helper";
+import { readSvg } from "../helpers/pixels";
 
 const demo = JSON.parse(readFileSync("demo/layout.json", "utf8"));
 
@@ -1555,9 +1556,11 @@ const FIRST_OPENING_A: [number, number] = [600, 600], FIRST_OPENING_B: [number, 
 const OPENING_MID_X = (FIRST_OPENING_A[0] + FIRST_OPENING_B[0]) / 2; // 650
 const ROOM_FILL_LIGHT: [number, number, number] = [0x4a, 0x6f, 0xa5]; // Office's own colour, demo/layout.json
 const WALL_LIGHT: [number, number, number] = [0x1a, 0x19, 0x17]; // --fp-wall-external, light theme
-function closeToRgb(px: [number, number, number, number], rgb: [number, number, number]) {
+function closeToRgb(px: number[], rgb: [number, number, number]) {
   return Math.abs(px[0] - rgb[0]) <= 2 && Math.abs(px[1] - rgb[1]) <= 2 && Math.abs(px[2] - rgb[2]) <= 2;
 }
+/** The colour under each screen point, from the card's svg rasterised in the page (tests/helpers/pixels.ts), not page.screenshot. Truncated to a whole pixel, as `pixelAt` was. */
+const cardPixels = (page: Page, at: { x: number; y: number }[]) => readSvg(page, { host: "floorplan-studio-card", svg: "svg", client: true }, at.map((q) => [Math.trunc(q.x), Math.trunc(q.y)]));
 async function cardScreenOf(page: Page, x: number, y: number) {
   return page.locator("floorplan-studio-card").evaluate((el, [px, py]) => {
     const svg = (el as any).shadowRoot.querySelector("svg") as SVGSVGElement;
@@ -1569,13 +1572,10 @@ async function cardScreenOf(page: Page, x: number, y: number) {
 test("S8.11 fix 1 (card): the mask cut has square ends — 1.5cm inside a is a hole, 1.5cm outside a is still wall", async ({ page }) => {
   await open(page);
   await configure(page, { layout: demo, floor: "first", theme: "light" }, { states: {} });
-  const { decodePng, pixelAt } = await import("../core/util/png");
 
   const insideA = await cardScreenOf(page, FIRST_OPENING_A[0] + 1.5, 600);
   const outsideA = await cardScreenOf(page, FIRST_OPENING_A[0] - 1.5, 600);
-  const png = decodePng(await page.screenshot({ fullPage: true }));
-  const insidePx = pixelAt(png, insideA.x, insideA.y);
-  const outsidePx = pixelAt(png, outsideA.x, outsideA.y);
+  const [insidePx, outsidePx] = await cardPixels(page, [insideA, outsideA]);
 
   expect(closeToRgb(insidePx, WALL_LIGHT), `1.5cm inside a (${insidePx}) must not be the wall colour`).toBe(false);
   expect(closeToRgb(outsidePx, WALL_LIGHT), `1.5cm outside a (${outsidePx}) should still be the external wall colour`).toBe(true);
@@ -1614,11 +1614,9 @@ const GREEN_FILL: [number, number, number] = [0x2f, 0x8f, 0x3f]; // room-b's own
 test("S8.11 review (card): the internal opening's centre, between two differently-coloured rooms, is a real room fill — not white, not a blend", async ({ page }) => {
   await open(page);
   await configure(page, { layout: SEAM_LAYOUT, floor: "test", theme: "light" }, { states: {} });
-  const { decodePng, pixelAt } = await import("../core/util/png");
 
   const centre = await cardScreenOf(page, 300, 200); // the opening's own centre: wall centreline x, mid-length y
-  const png = decodePng(await page.screenshot({ fullPage: true }));
-  const centrePx = pixelAt(png, centre.x, centre.y);
+  const [centrePx] = await cardPixels(page, [centre]);
 
   expect(closeToRgb(centrePx, GREEN_FILL), `opening centre (${centrePx}) should be a real room fill, not background or a blend`).toBe(true);
 });
@@ -1648,7 +1646,6 @@ function shiftFirstFloor(floor: any, dx: number, dy: number) {
 test("S8.11 fix (blocker, card): a wall far from the origin, seen through a zoomed viewBox that excludes 0,0, is still wall colour", async ({ page }) => {
   await open(page);
   await configure(page, { layout: demo, floor: "first", theme: "light" }, { states: {} });
-  const { decodePng, pixelAt } = await import("../core/util/png");
 
   // A small window well away from 0,0, over a stretch of the same external wall as the opening but far from it
   // (x=450..550, nowhere near the 600-700 opening), so only the missing-mask-region bug — not the opening itself —
@@ -1658,8 +1655,7 @@ test("S8.11 fix (blocker, card): a wall far from the origin, seen through a zoom
     svg.setAttribute("viewBox", "450 550 100 100");
   });
   const zoomedWall = await cardScreenOf(page, 500, 600);
-  const png = decodePng(await page.screenshot({ fullPage: true }));
-  const px = pixelAt(png, zoomedWall.x, zoomedWall.y);
+  const [px] = await cardPixels(page, [zoomedWall]);
   expect(closeToRgb(px, WALL_LIGHT), `wall at (500,600), viewed through a viewBox excluding 0,0 (${px}) should still be the external wall colour`).toBe(true);
 });
 
@@ -1675,12 +1671,10 @@ test("S8.11 fix (blocker, card): a floor offset by +5000 still shows its walls",
   const layout = structuredClone(demo);
   layout.floors.first = shiftFirstFloor(layout.floors.first, 5000, 5000);
   await configure(page, { layout, floor: "first", theme: "light" }, { states: {} });
-  const { decodePng, pixelAt } = await import("../core/util/png");
 
   // The same far-from-the-opening wall point as above, shifted by the same +5000,+5000.
   const shiftedWall = await cardScreenOf(page, 5000 + 500, 5000 + 600);
-  const png = decodePng(await page.screenshot({ fullPage: true }));
-  const px = pixelAt(png, shiftedWall.x, shiftedWall.y);
+  const [px] = await cardPixels(page, [shiftedWall]);
   expect(closeToRgb(px, WALL_LIGHT), `wall at (5500,5600) on a floor offset by +5000 (${px}) should still be the external wall colour`).toBe(true);
 });
 
@@ -1698,7 +1692,6 @@ test("S8.11 fix (blocker, card): a floor offset by +5000 still shows its walls",
 test("S8.11 fix (halo seam, card): the cut no longer coincides with the wall's own halo edge, so no faint blended line survives along the hole", async ({ page }) => {
   await open(page);
   await configure(page, { layout: demo, floor: "first", theme: "light" }, { states: {} });
-  const { decodePng, pixelAt } = await import("../core/util/png");
 
   // Zoomed in over the opening (empirically confirmed to expose the coincident-edge artifact reliably, unlike the
   // card's own coarser default fit).
@@ -1710,8 +1703,7 @@ test("S8.11 fix (halo seam, card): the cut no longer coincides with the wall's o
   // the old, too-narrow cut used to end too, coincident with the halo's own edge. Widening the cut moves the hole's
   // edge a further 2cm out, so this row now sits solidly inside the hole with a real margin, not on a seam.
   const seamPoint = await cardScreenOf(page, OPENING_MID_X, 589);
-  const png = decodePng(await page.screenshot({ fullPage: true }));
-  const px = pixelAt(png, seamPoint.x, seamPoint.y);
+  const [px] = await cardPixels(page, [seamPoint]);
 
   expect(closeToRgb(px, ROOM_FILL_LIGHT), `the old halo/cut coincidence row (${px}) should be plain room fill, not a blended halo line`).toBe(true);
 });
