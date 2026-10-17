@@ -16,6 +16,7 @@ import { heatRange, plugThreshold, powerHeat, wattsOf } from "./power";
 import { meanReading } from "./readings";
 import { roomHeat, type HeatKind } from "./heat";
 import { badges } from "./rollup";
+import { carStatus } from "./car-status";
 import { attentionDevices, type AttentionSource } from "./attention";
 // S24.R: the one rule for what Layers leaves out; the Studio's pick asks it too.
 import { devsHave, layerHides, type LayerId, type PlanSel } from "./layers";
@@ -832,6 +833,8 @@ export function classOf(d: Device, o: RenderOpts): Cls {
   // (unavailable/unknown are already handled above) counts.
   if (d.type === "tv") return s.state === "off" || s.state === "standby" ? "off" : "on";
   if (d.type === "person") return s.state === "home" ? "on" : "off";
+  // S35.3: a car is on while it charges (a charging car is something running in the house); where it is shows as home or away.
+  if (d.type === "car") return carStatus(d, o.state).charging ? "on" : "off";
   // S18.14: an alarm panel is on in every state but disarmed: armed_*, arming, pending, triggered.
   if (d.type === "alarm") return s.state === "disarmed" ? "off" : "on";
   // S7.10: docked/idle/paused read idle grey like an off device; cleaning and returning are both active (the
@@ -856,6 +859,7 @@ function vacuumSpinClass(d: Device, o: RenderOpts): string {
 /** S7.8: the extra class a person wears. `home` when home; `away` for any other live state (not_home, a zone's name);
  *  nothing with no state or a dead one, which reads like every other device. */
 function personClass(d: Device, o: RenderOpts, cls: Cls): string {
+  if (d.type === "car") { const p = cls === "unavailable" ? "none" : carStatus(d, o.state).place; return p === "home" || p === "away" ? ` ${p}` : ""; } // S35.3
   if (d.type !== "person" || !o.state?.[d.entity] || cls === "unavailable") return "";
   return cls === "on" ? " home" : " away";
 }
@@ -1128,7 +1132,7 @@ export interface DeviceMarkup {
 export function deviceMarkup(f: Floor, d: Device, o: RenderOpts, now: number, floorAt: Pt): DeviceMarkup {
     // Value sensors in a garden room are outdoor sensors. Motion and contact keep their own state colours.
     const outdoor = (d.type === "temp" || d.type === "humidity") && f.rooms.some((r) => r.kind === "garden" && inside(floorAt, r.pts));
-    const base = classOf(d, o), person = d.type === "person";
+    const base = classOf(d, o), person = d.type === "person" || d.type === "car";
     const cls = base + (outdoor ? " outdoor" : "") + personClass(d, o, base) + vacuumSpinClass(d, o) + (isSiren(d) && base === "on" ? " siren" : "");
     const s = o.state?.[d.entity];
     const style: string[] = [];

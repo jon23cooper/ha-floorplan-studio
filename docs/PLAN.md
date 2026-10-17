@@ -4473,7 +4473,7 @@ Lane schema:
       moved tests.
 
 Lane status:
-- [ ] S35.3 Car status and the per-type decisions (Sonnet, **judgement**: the role rules at their edges). Spec C5. In
+- [x] S35.3 Car status and the per-type decisions (Sonnet, **judgement**: the role rules at their edges). Spec C5. In
       `src/core/car.ts` (own section; coordinate with S35.2 by committing it after S35.2's first commit, or in a
       separate `src/core/car-status.ts` if S35.2 is not merged yet): `carStatus(m, states)`, `carText`. `pieceDevice`
       reports a car piece with a main entity as `{ type: "car", entity, attached }`; `classOf` of a car is on while

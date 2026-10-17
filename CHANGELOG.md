@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Core (S35.3): what a car's entities say. `carStatus` reads home or away from the first `device_tracker.*`, charging (a `battery_charging` binary sensor that is on, or a sensor reading `charging` or `charge_in_progress`), the battery or fuel percent, and an alert (an unlocked lock, an open door or window sensor), by domain, device class and state. `carText` prints `Away · Work · Charging · 78 %`. A car piece with an entity or attached entities is now a linked piece (`pieceDevice`); a car is on while it charges and in the Active list only then; a car icon on a tracker fades and wears the away mark like a person; `car` never toggles from the popup. The new `car` class names are inert until the car is drawn (S35.4).
+
 ## 0.32.0 - 2026-10-17
 
 - Card (S34 review): the Edit-card form read the websocket reply as the layout itself, so on a real dashboard the floor list and the Favourites choices stayed empty; it now reads `{ layout }` as the card does. A favourite that is not a light, switch, input_boolean or fan (a lock, a cover, a group, ...) asks (Confirm unlock, Confirm open, ...) before it acts, turn on included; only those four act on one tap. With the heat map on, the room panel prints the number the plan prints, and the legend says "no readings" when no room on the floor has one. When 3D falls back to 2D the legend moves to the top so it no longer overlaps the note. The Studio's status-bar ramp blends in oklch like the card's.
