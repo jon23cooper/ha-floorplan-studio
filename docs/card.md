@@ -287,6 +287,7 @@ editor and fails on a control that has no row here, so a new one gets a decision
 | `#saveView` Save current view | no | authoring: it writes a view into the layout, which a card never does |
 | `#viewsNone` No saved views on this floor | no | the empty-state note of the Studio's submenu |
 | `#copyCardView` Copy card view | no | authoring: it writes the card's `center` and `zoom_level` |
+| `#heatSub` Heat map (Off, Temperature, Humidity) | yes | the Heat map radios of the ⋯ menu, same three choices; kept per viewer; config `heat_map`. Not in 3D. Inside Home Assistant both show live readings; standalone the Studio has none, so no room is heated and its status bar says so |
 | `#detailSub` Detail (Auto, Full, Minimal) | yes | the Detail radios of the ⋯ menu, same three choices; kept per viewer; config `detail`. The Studio starts on Full, the card on Auto. Not in 3D |
 | `#tabLayers` Layers (hide a family) | yes | the Layers section of the ⋯ menu has a check per family: a pick hides it, Alt-click shows it alone; kept per viewer. Not in 3D |
 | Plan view, Tilt, Walls | card only | the View radios, the Tilt presets (flat to steep) and the Walls radios of the ⋯ menu. The studio has no 2.5D since 0.14 (S12.1); the card keeps 2D and 2.5D, and gets 3D |

@@ -16,6 +16,15 @@ Newest first. A change supersedes; nothing is edited.
 - Spec H8. A select `#heat_map` after Detail, options from core's `HEAT_KINDS`, read through `heatKindOf` so junk shows Off and fires nothing (the form does not warn; the card does). `off` is the default, so `_set` drops the key. `EditorConfig` gains `heat_map` locally, as it did for `favourites`, since the card's config type gets the key in S34.8.
 - Proof. One test in `tests/card/config-editor.spec.ts` failed first (no `#heat_map`); `--repeat-each=10` 10 of 10. No screenshots: the form is not in `npm run shots`.
 
+## 2026-10-17: S34.10 the heat map in the Studio (Sonnet)
+
+- Spec H9. View, `#heatSub` (Off, Temperature, Humidity, `data-heat`), after Detail. The pick is `EditorState.heat`, in `ViewMemory.heat`: `parseViewMemory` takes it through `heatKindOf` and leaves it out when `off` or junk, so storage that says `"<b>lava</b>"` opens on Off. It is in `viewKey`, so a pick is written like a floor or Layers change. No undo step, no layout change.
+- Outside the task's file list, on purpose: `src/editor/state.ts` (the field, `exportView`, `importView`; the memory is exported from there, so the field cannot live only in the host).
+- The status bar's words come from `heatText()` in the host: `Heat map: 16 °C to 26 °C` while any room of the floor on show has a `roomHeat`, else `Heat map: no readings`. It asks `roomHeat`, the call the plan is drawn from, so words and colours cannot disagree. `statusFacts` takes them as `heat?: string` and stays pure. A small ramp swatch (`.sb-ramp`, the legend's three tokens) follows the text; it is `aria-hidden`, the text is the legend.
+- Judgement, the words are per floor, not per house: a Studio on the ground floor with only first-floor sensors says "no readings" there, and the plan agrees (nothing is coloured).
+- Parity. The row `heatSub` -> `heat:temperature` is in `tests/card/view-parity.spec.ts` and `docs/card.md`. Its card half (the menu item) needs S34.8; until it merges, "every control the card is said to have is on a 2.5D card" fails on `heat:temperature`, and nothing else in that file fails.
+- Proof. `tests/editor/heat-map.spec.ts` (5 tests) all failed first (no `#heatSub`); 50 of 50 with `--repeat-each=10`. Looked at in light, ha with a dark scheme and blueprint, temperature on the ground floor and humidity on the first: the room, its value and the swatch read in each.
+
 ## 2026-10-17: S34.4 the Favourites section (Sonnet)
 
 - The section is `_favouriteSection()` in the card, placed above `list` (Attention, Active) in the Overview content only, so a floor or a room level never shows it, and kiosk / `active_list: false` have no sheet (spec F2, F9). It is a `_catGroup("f", "favourites", ...)`, so it folds like a category and the fold is kept with the others in `fp-active-cats:` (the spec says `fp-active-panel:`; that key holds the panel's own fold, the category folds are in `fp-active-cats:`, which is where every other group's fold lives).

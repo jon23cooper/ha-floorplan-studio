@@ -4355,7 +4355,7 @@ Wave 3, after wave 2:
       Humidity); `off` drops the key. Test, failing first, in `tests/card/config-editor.spec.ts`: pick Humidity, the
       config gains `heat_map: humidity`; back to Off, the key is gone; junk shows Off and fires nothing.
       Files: `src/card/config-editor.ts`, `tests/card/config-editor.spec.ts`.
-- [ ] S34.10 The heat map in the Studio (Sonnet). After S34.7; its parity row after S34.8 merges. Spec H9: View,
+- [x] S34.10 The heat map in the Studio (Sonnet). After S34.7; its parity row after S34.8 merges. Spec H9: View,
       `#heatSub` (Off, Temperature, Humidity), kept in `view-memory.ts`, passed to `renderFloor`; the status bar shows
       `heatLegend`, or "Heat map: no readings" when no room is heated. Test, failing first, new
       `tests/editor/heat-map.spec.ts`: criterion 14 with real clicks, panel harness with states and standalone; the
