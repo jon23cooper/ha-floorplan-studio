@@ -2,6 +2,11 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: the card size cap is raised to 118,000 gz for Sprint 34 (Diego)
+
+Favourites and the heat map grew the card from 113,334 to 117,118 gzipped. No cheap trimming got back under 115,000.
+`CARD_GROWTH_LIMIT` in `tests/card/size-budget.spec.ts` is 27,220 over the pre-3D 90,780 card, a cap of 118,000.
+
 ## 2026-10-17: Sprint 34 Opus review fixes (Sonnet)
 
 - M1: the Edit-card form's websocket mock returned a bare layout; `websocket.py` sends `{ layout }`. The form now unwraps `r?.layout` as the card does; the new test stubs the reply with that shape (finding 21).
