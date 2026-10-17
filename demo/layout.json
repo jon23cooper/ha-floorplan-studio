@@ -461,6 +461,24 @@
           "rot": 0,
           "w": 160,
           "h": 90
+        },
+        {
+          "id": "furniture-ground-3",
+          "symbol": "car",
+          "x": 992.5,
+          "y": 180,
+          "rot": 90,
+          "w": 360,
+          "h": 165,
+          "name": "Car",
+          "model": "citycar",
+          "entity": "device_tracker.demo_car",
+          "attached": [
+            "sensor.demo_car_battery",
+            "binary_sensor.demo_car_charging",
+            "lock.demo_car_doors",
+            "sensor.demo_car_range"
+          ]
         }
       ],
       "unlinked": []

@@ -2,6 +2,20 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S35.4 the car in 2D and 2.5D (Sonnet)
+
+Spec C4, C5, C7. One draw path: `renderFloor` and `furnitureSolid`, so the card and Studio match.
+
+- `carLook` (in `src/core/car.ts`) gives the group's classes (`furn-car`, `away`, `charging`, `alert`), its `--fp-car-body` style (only a `#rrggbb` that passed `HEX`) and the marks group (away mark, gone mark, bolt, level). The CSS is in `FLOORPLAN_CSS`, class rules only (finding 18), each with a computed-style pair in `tests/card/car-css.spec.ts`, reverted once each.
+- Charging beats alert on the stroke. Away is opacity .35 on the group. `--fp-dev-car` is green in light, midnight and solarized, `devFor` in the rest.
+- 2.5D: two prisms, the body to the belt and the cabin on it with a roof lid; the cabin sides are glass.
+- `structuralPoints` counts a car by its four turned corners (rounded to 1e-6), not its centre, so a car at the plan's edge is inside the frame. Other furniture is unchanged.
+- The demo car is a citycar at 992.5/180, rot 90, east of the house wall and clear of the garden. The demo's ground view box grows 1040 to 1215 cm wide, so tests that pinned it moved: auto scale 1.04 to 1.215, three `viewBoxFor` widths, the editor spawn point 1050 to 1230, and the furniture indices (the car is piece 2, the bed 3).
+- Moved test premise: `solids-objects` (a car has two lids and a cabin, not one box).
+- Open, call developer: the card file is 120,035 gz against the 119,000 cap (+1,514 against the 400 asked). The CSS block and the marks are most of it. Proposed: raise the cap to 120,500 in S35.8, or drop the level value and the alert outline first (the plan's drop order).
+- Open: `tests/card/card-3d-popup.spec.ts` "a hold opens more-info ..." fails with the demo car. The 3D camera frames the car, the icon moves, and the taller popup covers it, so the second tap hits Turn off. S35.5 owns 3D; it needs its premise moved there.
+- Shots: three car states at 4x (light, blueprint, midnight, 2D and 2.5D) and a test-only 3 x 3 floor of the nine models.
+
 ## 2026-10-17: S35.3 car status and the per-type decisions (coder)
 
 Spec C5. Card and Studio: core only, so both. Pure code in `src/core/car-status.ts`, not in `car.ts`, so it does not wait for S35.2.

@@ -103,7 +103,7 @@ const COLOR_VAR: Partial<Record<DeviceType, string>> = {
   light: "--fp-dev-light", motion: "--fp-dev-motion", contact: "--fp-dev-contact", heater: "--fp-dev-heater",
   climate: "--fp-dev-climate", tv: "--fp-dev-tv", media: "--fp-dev-media",
   plug: "--fp-dev-plug", computer: "--fp-dev-computer", camera: "--fp-ink", person: "--fp-dev-person",
-  vacuum: "--fp-dev-vacuum", fan: "--fp-dev-fan", speaker: "--fp-dev-speaker", radar: "--fp-dev-radar",
+  vacuum: "--fp-dev-vacuum", fan: "--fp-dev-fan", car: "--fp-dev-car", speaker: "--fp-dev-speaker", radar: "--fp-dev-radar",
   siren: "--fp-danger", alarm: "--fp-danger", // no token of their own: the danger red every theme already has
 };
 

@@ -67,7 +67,7 @@ test("the Filter menu is gone; a Layers tab sits beside Outline with one eye per
   for (const b of await eyes.all()) await expect(b).toHaveAttribute("aria-pressed", "true");
   // a count per family on this floor; a family with nothing here is listed, dimmed
   await expect(eye(page, "lights").locator(".lc")).toHaveText("2");
-  await expect(eye(page, "furniture").locator(".lc")).toHaveText("2");
+  await expect(eye(page, "furniture").locator(".lc")).toHaveText("3");
   await expect(eye(page, "media").locator(".lc")).toHaveText("0");
   await expect(eye(page, "media")).toHaveClass(/\bempty\b/);
   await expect(eye(page, "lights")).not.toHaveClass(/\bempty\b/);
@@ -94,7 +94,7 @@ test("one click hides lights: no light icon drawn, the rest stay, and the toolba
   await expect(page.locator(`${EDITOR} #layersNote`)).toHaveText("Layers: furniture hidden");
   await clickAt(page, `${EDITOR} #layersShowAll`);
   await expect(page.locator(`${EDITOR} #layersNote`)).toHaveCount(0);
-  await expect(plan(page).locator("g.furn")).toHaveCount(2);
+  await expect(plan(page).locator("g.furn")).toHaveCount(3);
 });
 
 test("alt-click shows only that family; alt-click again shows all", async ({ page }) => {
@@ -252,7 +252,7 @@ test("S24.R8: a click never picks what Layers hides: a small tv piece under hidd
     ed.layout = l;
   }, EDITOR);
   const furn = plan(page).locator("g.furn");
-  await expect(furn).toHaveCount(3);
+  await expect(furn).toHaveCount(4);
   const sel = () => page.evaluate((tag) => (document.querySelector(tag) as any).st.sel as { t: string; i: number } | null, EDITOR);
   // Every tap measures the plan where it is at that moment (tapPlan): a layer toggle or a search changes the status line, and on a
   // font wide enough to wrap the toolbar that changes the toolbar's height and moves the plan under a point measured earlier.
@@ -267,9 +267,9 @@ test("S24.R8: a click never picks what Layers hides: a small tv piece under hidd
   await expect(furn).toHaveCount(0);
   // shown again, the same click picks it: the point is right
   await clickAt(page, `${EDITOR} #layersPanel [data-layer="furniture"]`);
-  await expect(furn).toHaveCount(3);
+  await expect(furn).toHaveCount(4);
   await tapPlan(page, ...TV);
-  expect(await sel()).toEqual({ t: "furn", i: 2 });
+  expect(await sel()).toEqual({ t: "furn", i: 3 });
   // found by search while hidden: the plan keeps it drawn, so it stays pickable; let go, it is gone and not pickable
   await clickAt(page, `${EDITOR} #layersPanel [data-layer="furniture"]`);
   await expect(furn).toHaveCount(0);
@@ -280,7 +280,7 @@ test("S24.R8: a click never picks what Layers hides: a small tv piece under hidd
   await page.keyboard.press("Enter");
   await expect(furn).toHaveCount(1);
   await tapPlan(page, ...TV); // search centred the plan on it; again below the body
-  expect(await sel()).toEqual({ t: "furn", i: 2 });
+  expect(await sel()).toEqual({ t: "furn", i: 3 });
   await expect(furn).toHaveCount(1);
   await tapPlan(page, ...AWAY);
   await expect(furn).toHaveCount(0);

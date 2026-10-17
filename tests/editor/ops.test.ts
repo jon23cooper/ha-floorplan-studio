@@ -28,7 +28,7 @@ describe("spawnPoint", () => {
   });
 
   it("uses the demo outline: 800 wide, top at 0", () => {
-    expect(spawnPoint(ground(), FALLBACK)).toEqual([1050, 0]); // the demo's own devices reach x 900, further right than the outline (800)
+    expect(spawnPoint(ground(), FALLBACK)).toEqual([1230, 0]); // the demo car's corner reaches x 1075 (S35.4), further right than the outline (800)
   });
 
   it("returns the fallback for an outline of fewer than three points", () => {

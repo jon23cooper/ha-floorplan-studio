@@ -1334,8 +1334,8 @@ describe("FloorplanStudioCard", () => {
   // `auto = max(1, longest side of the fit view box / 1000)` — the same box `render()` already computes with
   // `viewBoxFor`. A synthetic floor whose outline is 1880 cm square gives, after the fixed 60 cm pad on every
   // side, a view box exactly 2000x2000 — auto = 2 on the nose, so the expected scale is exact, not approximate.
-  // The demo's own ground floor gives auto = 1.04, not 1: its garden and pond sit outside the outline (0.12.14
-  // fix, `viewBoxFor` bounds on every point on the floor, not the outline alone), so its fit view box is 1040 cm
+  // The demo's own ground floor gives auto = 1.215, not 1: its garden and pond sit outside the outline (0.12.14
+  // fix, `viewBoxFor` bounds on every point on the floor, not the outline alone), so its fit view box is 1215 cm (the demo car's corner reaches x 1075, S35.4)
   // on its longest side, not 1000.
   describe("S9.2: icons stay visible on large plans", () => {
     /** A floor whose fit view box (outline + the fixed 60 cm pad) is exactly `side` cm square, so `auto` comes
@@ -1355,12 +1355,12 @@ describe("FloorplanStudioCard", () => {
       return l;
     }
 
-    it("the demo (auto 1.04, no icon_size) renders with scale 1 / 1.04", async () => {
+    it("the demo (auto 1.215, no icon_size) renders with scale 1 / 1.215", async () => {
       const el = await mount();
       el.setConfig({ layout: structuredClone(L), floor: "ground" });
       el.hass = stubHass() as never;
       await el.updateComplete;
-      expect(lastRenderState().scale).toBeCloseTo(1 / 1.04, 10);
+      expect(lastRenderState().scale).toBeCloseTo(1 / 1.215, 10);
     });
 
     it("a 2000 cm plan (view box exactly 2000 cm on its longest side) scales the icon group 2x, i.e. scale 0.5", async () => {
@@ -1371,39 +1371,39 @@ describe("FloorplanStudioCard", () => {
       expect(lastRenderState().scale).toBeCloseTo(0.5, 10);
     });
 
-    it("icon_size 1.5 on the demo (auto 1.04) gives scale 1/(1.04*1.5)", async () => {
+    it("icon_size 1.5 on the demo (auto 1.215) gives scale 1/(1.215*1.5)", async () => {
       const el = await mount();
       el.setConfig({ layout: structuredClone(L), floor: "ground", icon_size: 1.5 });
       el.hass = stubHass() as never;
       await el.updateComplete;
-      expect(lastRenderState().scale).toBeCloseTo(1 / (1.04 * 1.5), 10);
+      expect(lastRenderState().scale).toBeCloseTo(1 / (1.215 * 1.5), 10);
     });
 
-    it("icon_size 0 and -1 clamp to 0.5, so scale is 1/(1.04*0.5) on the demo", async () => {
+    it("icon_size 0 and -1 clamp to 0.5, so scale is 1/(1.215*0.5) on the demo", async () => {
       for (const bad of [0, -1]) {
         const el = await mount();
         el.setConfig({ layout: structuredClone(L), floor: "ground", icon_size: bad });
         el.hass = stubHass() as never;
         await el.updateComplete;
-        expect(lastRenderState().scale, `icon_size ${bad}`).toBeCloseTo(1 / (1.04 * 0.5), 10);
+        expect(lastRenderState().scale, `icon_size ${bad}`).toBeCloseTo(1 / (1.215 * 0.5), 10);
       }
     });
 
-    it("icon_size 10 clamps to 3, so scale is 1/(1.04*3) on the demo", async () => {
+    it("icon_size 10 clamps to 3, so scale is 1/(1.215*3) on the demo", async () => {
       const el = await mount();
       el.setConfig({ layout: structuredClone(L), floor: "ground", icon_size: 10 });
       el.hass = stubHass() as never;
       await el.updateComplete;
-      expect(lastRenderState().scale).toBeCloseTo(1 / (1.04 * 3), 10);
+      expect(lastRenderState().scale).toBeCloseTo(1 / (1.215 * 3), 10);
     });
 
-    it('icon_size "big" (non-numeric) and NaN fall back to the default 1, so scale is 1/1.04 on the demo', async () => {
+    it('icon_size "big" (non-numeric) and NaN fall back to the default 1, so scale is 1/1.215 on the demo', async () => {
       for (const bad of ["big" as unknown as number, NaN] as const) {
         const el = await mount();
         el.setConfig({ layout: structuredClone(L), floor: "ground", icon_size: bad });
         el.hass = stubHass() as never;
         await el.updateComplete;
-        expect(lastRenderState().scale, `icon_size ${String(bad)}`).toBeCloseTo(1 / 1.04, 10);
+        expect(lastRenderState().scale, `icon_size ${String(bad)}`).toBeCloseTo(1 / 1.215, 10);
       }
     });
   });
