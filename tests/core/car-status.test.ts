@@ -148,8 +148,8 @@ describe("S35.3 pieceDevice reports a car piece", () => {
     expect(pieceDevice(piece({ attached: [] }))).toBeNull();
   });
   it("junk attached never throws", () => {
-    expect(pieceDevice(piece({ attached: "x" }))).toBeNull();
-    expect(pieceDevice(piece({ entity: "device_tracker.c", attached: [5, null] }))?.entity).toBe("device_tracker.c");
+    expect(pieceDevice(piece({ attached: "x" as never }))).toBeNull();
+    expect(pieceDevice(piece({ entity: "device_tracker.c", attached: [5, null] as never }))?.entity).toBe("device_tracker.c");
   });
   it("a sofa with an entity is still not linked", () => {
     expect(pieceDevice(piece({ symbol: "sofa", entity: "light.x" }))).toBeNull();
