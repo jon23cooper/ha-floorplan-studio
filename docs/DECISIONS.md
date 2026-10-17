@@ -2,6 +2,20 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S35.5 the car in 3D (Sonnet)
+
+Spec C4, C6, C7. Diego's answers apply: glass and tyres near-black in every theme; body colour is the piece's `color`, default the theme's furniture colour.
+
+- New `Shape` member `loft` (`base`, `top`, `z0`, `z1`): two rings of equal length, the greenhouse. `loftTriangles` (mesh.ts) gives two lids and two triangles a side, outward whatever the winding; `Picker` hits it (Moller-Trumbore on the sides, point-in-polygon on the lids). Not a wall for the cut.
+- Parts per `carSolids` in scene-build: body 18 cm off the ground to the belt, loft from the belt to 4 cm under the top, 4 cm roof, four tyre boxes, grille (none on electric). Tyre outer face is 0.3 cm inside the body side (S35.2 asked for an inset: flush z-fights); the grille stands 1 cm proud. Every part carries the piece's index and entity, so any part taps as the car.
+- Away: each car part gets a depth-only twin (colorWrite off, depthWrite on, renderOrder 1, hidden at home). The part turns transparent at 0.35, depthWrite off, renderOrder 2. Without the twin the far wheels show through the body. All by property, no rebuild. A Playwright pixel test fails with the twin never shown.
+- `LivePiece` carries `away`, `charging`, `alert`, `level` for a car (others still `{ on }`). Charging lights the glass (`car-charge` plus emissive 0.55); alert paints the roof the open-door colour.
+- Palette roles `car-body`, `car-glass`, `car-tyre`, `car-trim`, `car-charge`. `car-charge` reads `--fp-dev-car` with a fallback to `--fp-active` until S35.4 adds the token.
+- The overlay draws the badge with its own CSS from `--fp-*` variables; text through textContent.
+- Not done: the gone mark (dead main entity) in 3D. A car with no entity renders and is not live.
+- Moved tests: `scene.test.ts` "decides every FurnitureSymbol" now treats `car` as several solids of one piece; `scene-shift.test.ts` narrowing for the new union member (types only).
+- Sizes (gzip -9): card 118,521 to 118,961 (+440; `carParts`, `carSpec`, `carStatus` now reached from `three-deps`), 3D chunk 156,003 to 158,439 (limit 200 KB). Cap 119,000.
+
 ## 2026-10-17: S35.3 car status and the per-type decisions (coder)
 
 Spec C5. Card and Studio: core only, so both. Pure code in `src/core/car-status.ts`, not in `car.ts`, so it does not wait for S35.2.

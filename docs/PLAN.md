@@ -4505,7 +4505,7 @@ Lane plan:
       `demo/layout.v1.json`, `scripts/shots.mjs`, the two new tests, `shots/` baseline.
 
 Lane 3D:
-- [ ] S35.5 The car in 3D (Sonnet, **judgement**: the depth pre-pass and how the parts read at the 3D camera's angles).
+- [x] S35.5 The car in 3D (Sonnet, **judgement**: the depth pre-pass and how the parts read at the 3D camera's angles).
       After S35.2 and S35.3. Spec C4, C6, C7. `Shape` gains `loft`; `scene-build.ts` emits the car's parts for its model
       (index, entity, role on each); the viewer meshes a loft, builds a car's parts as piece bodies, and applies
       `Live3D.pieces[i]` `{ on, away, charging, alert }` (`live-build.ts`) in place: charging lights the greenhouse, alert
