@@ -13,7 +13,7 @@ const f = floor({
   furniture: [{ id: "f", symbol: "cabinet", x: 300, y: 250, rot: 0, w: 60, h: 40 }],
   devices: [{ id: "d", type: "light", entity: "light.x", x: 100, y: 120 } as never],
 });
-const pts = (s: ReturnType<typeof buildScene>["solids"][number]): number[][] => (s.shape.type === "prism" ? s.shape.base : [s.shape.at]);
+const pts = (s: ReturnType<typeof buildScene>["solids"][number]): number[][] => (s.shape.type === "point" ? [s.shape.at] : s.shape.base);
 
 describe("scene: shift (S27.7)", () => {
   it("moves every point of every solid by [dx, dy] and leaves z alone", () => {
@@ -57,7 +57,7 @@ const tf = floor({
   furniture: [{ id: "t", symbol: "tree", x: 450, y: 300, rot: 33, w: 120, h: 70 }, { id: "c", symbol: "cabinet", x: 300, y: 250, rot: 0, w: 60, h: 40 }],
   devices: [{ id: "d", type: "light", entity: "light.x", x: 100, y: 120 } as never],
 });
-const all = (sc: ReturnType<typeof buildScene>) => sc.solids.map((s) => (s.shape.type === "prism" ? s.shape.base : [s.shape.at]));
+const all = (sc: ReturnType<typeof buildScene>) => sc.solids.map((s) => (s.shape.type === "point" ? [s.shape.at] : s.shape.base));
 
 describe("scene: turn (S29.4)", () => {
   const stored = buildScene(tf), turned = buildScene(tf, { turn: place.turn, shift: place.shift, elevation: -295 });
@@ -78,7 +78,7 @@ describe("scene: turn (S29.4)", () => {
     expect(holes, "the stairwell hole is turned too").toBeGreaterThan(4);
   });
   it("names the slab corner, a wall end, a stair step corner and a crown centre", () => {
-    const at = (sc: typeof stored, pick: (s: (typeof stored)["solids"][number]) => boolean) => sc.solids.filter(pick).flatMap((s) => (s.shape.type === "prism" ? s.shape.base : [s.shape.at]));
+    const at = (sc: typeof stored, pick: (s: (typeof stored)["solids"][number]) => boolean) => sc.solids.filter(pick).flatMap((s) => (s.shape.type === "point" ? [s.shape.at] : s.shape.base));
     const slab = at(turned, (s) => s.kind === "floor")[1]!; // [600, 0]
     expect(slab[0]).toBeCloseTo(600 * Math.cos((4 * Math.PI) / 180) + 83, 6);
     expect(slab[1]).toBeCloseTo(600 * Math.sin((4 * Math.PI) / 180) - 41, 6);

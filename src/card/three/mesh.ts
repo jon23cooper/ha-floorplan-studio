@@ -151,3 +151,35 @@ export function prismTriangles(base: unknown, z0: number, z1: number, out: Trian
   if (out.position.length === before) return false;
   return true;
 }
+
+/**
+ * S35.5: the loft from the convex ring `base` at `z0` to the ring `top` at `z1`, same number of points, as flat-shaded triangles:
+ * a lid each and two triangles per side, each facing out of the ring whichever way it is wound. Returns whether anything was
+ * added; rings of unequal length, fewer than three points, a non-finite or huge coordinate, or a flat height add nothing.
+ * A car's greenhouse: the windscreen and rear glass slope in toward the roof.
+ */
+export function loftTriangles(base: unknown, top: unknown, z0: number, z1: number, out: Triangles): boolean {
+  if (!Array.isArray(base) || !Array.isArray(top) || base.length < 3 || top.length !== base.length || !base.every(finitePt) || !top.every(finitePt)) return false;
+  if (!(typeof z0 === "number" && typeof z1 === "number" && Math.abs(z0) <= LIMIT && Math.abs(z1) <= LIMIT && z1 > z0)) return false;
+  const b = base as Pt[], t = top as Pt[], n = b.length, before = out.position.length;
+  const at = (q: Pt, z: number) => [q[0], z, q[1]];
+  const mid = (r: Pt[]): Pt => [r.reduce((s, q) => s + q[0], 0) / n, r.reduce((s, q) => s + q[1], 0) / n];
+  const cb = mid(b), ct = mid(t);
+  for (let i = 1; i + 1 < n; i++) {
+    emit(out, at(t[0], z1), at(t[i], z1), at(t[i + 1], z1), [0, 1, 0]);
+    emit(out, at(b[0], z0), at(b[i], z0), at(b[i + 1], z0), [0, -1, 0]);
+  }
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n, a = at(b[i], z0), c = at(b[j], z0), d = at(t[j], z1), e = at(t[i], z1);
+    // The side faces away from the middle of the ring: the way from the centre to the edge's middle, in the plan, picks the sign.
+    const ox = (b[i][0] + b[j][0] + t[i][0] + t[j][0]) / 4 - (cb[0] + ct[0]) / 2, oy = (b[i][1] + b[j][1] + t[i][1] + t[j][1]) / 4 - (cb[1] + ct[1]) / 2;
+    for (const tri of [[a, c, d], [a, d, e]]) {
+      const u = [tri[1][0] - tri[0][0], tri[1][1] - tri[0][1], tri[1][2] - tri[0][2]], v = [tri[2][0] - tri[0][0], tri[2][1] - tri[0][1], tri[2][2] - tri[0][2]];
+      const nx = u[1] * v[2] - u[2] * v[1], ny = u[2] * v[0] - u[0] * v[2], nz = u[0] * v[1] - u[1] * v[0], len = Math.hypot(nx, ny, nz);
+      if (!(len > 1e-9)) continue;
+      const s = nx * ox + nz * oy < 0 ? -1 : 1; // three's z is the plan's y
+      emit(out, tri[0], tri[1], tri[2], [(s * nx) / len, (s * ny) / len, (s * nz) / len]);
+    }
+  }
+  return out.position.length > before;
+}
