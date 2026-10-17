@@ -170,3 +170,11 @@ describe("roomHeat, sources (Q2: own list first, else the sensors standing in th
     expect(roomHeat(g, 1, "temperature", sh)?.t).toBe(0.5);
   });
 });
+
+describe("roomHeat drops impossible readings from placed sensors (H3 bounds)", () => {
+  it("averages 120 and 22 degC placed sensors to 22, not 71", () => {
+    const f = floor([room("A", sq(0, 0, 400, 400))], [dev("temp", "sensor.bad", 100, 100), dev("temp", "sensor.ok", 200, 200)]);
+    const h = roomHeat(f, 0, "temperature", { "sensor.bad": st("120", "°C"), "sensor.ok": st("22", "°C") });
+    expect(h?.text).toBe(`22${N}°C`);
+  });
+});
