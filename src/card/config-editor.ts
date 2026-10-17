@@ -1,6 +1,6 @@
 import { LitElement, css, html } from "lit";
-import { DEFAULT_TILT, pieceDevice, DETAIL_LABELS, DETAIL_MODES, parseDetailMode, THEMES, WALLS_LABELS, WALLS_MODES, wallsModeOf, clampTilt, migrate, validate } from "../core";
-import type { DetailMode, Layout, Theme, WallsMode } from "../core";
+import { DEFAULT_TILT, HEAT_KINDS, heatKindOf, pieceDevice, DETAIL_LABELS, DETAIL_MODES, parseDetailMode, THEMES, WALLS_LABELS, WALLS_MODES, wallsModeOf, clampTilt, migrate, validate } from "../core";
+import type { DetailMode, HeatKind, Layout, Theme, WallsMode } from "../core";
 import type { FloorplanStudioCardConfig, Hass } from "./floorplan-studio-card";
 import { defineElement } from "./define";
 import { MAX_FAVOURITES, favouritesOf } from "./favourites";
@@ -8,7 +8,7 @@ import { holdActionOf, tapActionOf, type HoldAction, type TapAction } from "./ta
 import { BELOW_LABELS, BELOW_MODES, ROTATION_STEP, belowModeOf, normaliseRotation } from "./view-state";
 
 /** The form edits the card's own config type; every key it shows is one the card reads (S7.5 kiosk, S7.6 night and sun). */
-export type EditorConfig = FloorplanStudioCardConfig & { favourites?: string[]; favorites?: unknown };
+export type EditorConfig = FloorplanStudioCardConfig & { favourites?: string[]; favorites?: unknown; heat_map?: HeatKind };
 
 type ZoomChoice = "on" | "wheel" | "off";
 
@@ -202,6 +202,11 @@ export class FloorplanStudioCardEditor extends LitElement {
 
   private _onDetail(e: Event): void {
     this._set("detail", parseDetailMode((e.target as HTMLSelectElement).value), "auto");
+  }
+
+  // Junk reads as Off; the form's own warning would only repeat the card's.
+  private _onHeatMap(e: Event): void {
+    this._set("heat_map", heatKindOf((e.target as HTMLSelectElement).value).kind, "off");
   }
 
   private _onGhost(e: Event): void {
@@ -611,6 +616,13 @@ export class FloorplanStudioCardEditor extends LitElement {
         <label class="main" for="detail">Detail</label>
         <select id="detail" title="How much of the plan is drawn at each zoom" @change=${this._onDetail}>
           ${DETAIL_MODES.map((m) => html`<option value=${m} ?selected=${this._detail() === m}>${m === "auto" ? "Auto (follow the zoom)" : `Always ${DETAIL_LABELS[m].toLowerCase()}`}</option>`)}
+        </select>
+      </div>
+
+      <div class="row">
+        <label class="main" for="heat_map">Heat map</label>
+        <select id="heat_map" title="Fill the rooms by the current temperature or humidity" @change=${this._onHeatMap}>
+          ${HEAT_KINDS.map((k) => html`<option value=${k} ?selected=${heatKindOf(this._config.heat_map).kind === k}>${k === "off" ? "Off" : k === "temperature" ? "Temperature" : "Humidity"}</option>`)}
         </select>
       </div>
 

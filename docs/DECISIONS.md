@@ -11,6 +11,11 @@ Newest first. A change supersedes; nothing is edited.
 - Proof. `tests/card/card-heat-map.spec.ts`, 22 tests: the first 21 written, 19 failed first (no Heat map section; the two that passed were "absent, null and off do not warn" and "a forged menu value changes nothing", which cannot fail without the feature); the `active_list: false` test was added after the section's condition was decided. `--repeat-each=10` with `card-menu.spec.ts`: 460 of 460. `parseStoredView` in `tests/card/view-state.test.ts` fails with its line removed. Looked at: light, midnight, blueprint, 2D and 2.5D, 1280 and 380 wide, both floors, legend in each (scratch shots, not in the repo).
 - Size: the card file gz is 117,175 after this task; `size-budget.spec.ts` was red before it (limit 115,000) and is not touched.
 
+## 2026-10-17: S34.9 heat map in the Edit-card form (Sonnet)
+
+- Spec H8. A select `#heat_map` after Detail, options from core's `HEAT_KINDS`, read through `heatKindOf` so junk shows Off and fires nothing (the form does not warn; the card does). `off` is the default, so `_set` drops the key. `EditorConfig` gains `heat_map` locally, as it did for `favourites`, since the card's config type gets the key in S34.8.
+- Proof. One test in `tests/card/config-editor.spec.ts` failed first (no `#heat_map`); `--repeat-each=10` 10 of 10. No screenshots: the form is not in `npm run shots`.
+
 ## 2026-10-17: S34.4 the Favourites section (Sonnet)
 
 - The section is `_favouriteSection()` in the card, placed above `list` (Attention, Active) in the Overview content only, so a floor or a room level never shows it, and kiosk / `active_list: false` have no sheet (spec F2, F9). It is a `_catGroup("f", "favourites", ...)`, so it folds like a category and the fold is kept with the others in `fp-active-cats:` (the spec says `fp-active-panel:`; that key holds the panel's own fold, the category folds are in `fp-active-cats:`, which is where every other group's fold lives).

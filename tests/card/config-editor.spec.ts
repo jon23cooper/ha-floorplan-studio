@@ -645,3 +645,27 @@ test("Favourites field: the cap is refused, and the datalist is text, never mark
   expect(values).toContain("light.demo_living");
   expect(new Set(values).size).toBe(values.length);
 });
+
+test("Heat map select: Humidity writes heat_map, Off drops the key, junk shows Off and fires nothing", async ({ page }) => {
+  await open(page);
+  await mount(page, { layout: demo });
+  const editor = page.locator("#editor");
+  const select = editor.locator("select#heat_map");
+  await expect(select).toHaveValue("off");
+  expect(await select.locator("option").evaluateAll((os) => os.map((o) => [o.getAttribute("value"), o.textContent!.trim()]))).toEqual([["off", "Off"], ["temperature", "Temperature"], ["humidity", "Humidity"]]);
+
+  await select.selectOption("humidity");
+  let detail = (await events(page)).at(-1) as { config: Record<string, unknown> };
+  expect(detail.config.heat_map).toBe("humidity");
+  await select.selectOption("temperature");
+  detail = (await events(page)).at(-1) as { config: Record<string, unknown> };
+  expect(detail.config.heat_map).toBe("temperature");
+  await select.selectOption("off");
+  detail = (await events(page)).at(-1) as { config: Record<string, unknown> };
+  expect("heat_map" in detail.config).toBe(false);
+
+  await page.evaluate(() => document.getElementById("editor")!.remove());
+  await mount(page, { layout: demo, heat_map: "plasma" });
+  await expect(page.locator("#editor select#heat_map")).toHaveValue("off");
+  expect(await events(page)).toEqual([]);
+});

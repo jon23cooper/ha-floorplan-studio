@@ -4351,7 +4351,7 @@ Wave 3, after wave 2:
       `tests/card/view-state.test.ts` for `parseStoredView`. Screenshots of the legend at 1280 and 380 wide, blueprint
       and light, looked at.
       Files: `src/card/floorplan-studio-card.ts`, `src/card/view-state.ts`, the new spec, `tests/card/view-state.test.ts`.
-- [ ] S34.9 Heat map in the Edit-card form (Sonnet). After S34.5 (same file). A Heat map select (Off, Temperature,
+- [x] S34.9 Heat map in the Edit-card form (Sonnet). After S34.5 (same file). A Heat map select (Off, Temperature,
       Humidity); `off` drops the key. Test, failing first, in `tests/card/config-editor.spec.ts`: pick Humidity, the
       config gains `heat_map: humidity`; back to Off, the key is gone; junk shows Off and fires nothing.
       Files: `src/card/config-editor.ts`, `tests/card/config-editor.spec.ts`.
