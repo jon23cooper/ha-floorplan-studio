@@ -133,9 +133,9 @@ class, rounded. A car is drawn, not measured; the user can type any size after (
 | `wagon` | Wagon | 478 x 183 x 150 | Passat Variant, Volvo V60 |
 | `suv` | SUV | 465 x 188 x 168 | VW Tiguan, Toyota RAV4, Volvo XC60 |
 | `offroad` | Off-road | 480 x 196 x 195 | Land Rover Defender 110, Jeep Wrangler 4-door |
-| `truck` | Pickup truck | 540 x 195 x 185 | Toyota Hilux double cab, Ford Ranger |
+| `truck` | Pickup truck | 590 x 203 x 196 | Ford F-150 SuperCrew (Diego, 2026-10-17: truck is the F-150, a full-size pickup with an open bed) |
 | `van` | Van | 495 x 195 x 197 | VW Transporter, Ford Transit Custom |
-| `utility` | Utility van | 445 x 185 x 182 | Citroen Berlingo, VW Caddy, Renault Kangoo |
+| `utility` | Utility (hatchback) | 429 x 179 x 148 | VW Golf (Diego, 2026-10-17: utility is a golf, a compact hatchback with a short, near-vertical tail, not a van) |
 | `citycar` | City car | 360 x 165 x 150 | Fiat 500, VW up! |
 | `electric` | Electric (Tesla-like) | 472 x 185 x 144 | Tesla Model 3 |
 
@@ -442,6 +442,14 @@ Size and suite:
 - **Profile numbers** are judgement. A model that looks wrong is a number in one table; the shots are the check.
 - **Integration drift.** Charging states are read by value (`charging`, `charge_in_progress`); a new integration with
   another word reads "not charging" until a word is added. The table is one list, tested.
+
+## Answers (Diego, 2026-10-17)
+
+Defaults accepted for 1, 2, 3, 5, 7 and 9; 4 yes. Q1: the card size cap is 119,000 gz. Q6 changed: `truck` is a Ford F-150
+pickup (open bed), `utility` is a VW Golf (hatchback); the footprints above are those cars'. Q8 changed: the body colour
+is user-selected (any hex, the layout's palette offered, default the theme's furniture colour); tyres are black and the
+glass is black (`car-tyre`, `car-glass` stay near-black in every theme, never themed light). The builders use these
+answers; the "Other" options below are not built.
 
 ## Open questions for Diego (each with the default this spec builds)
 

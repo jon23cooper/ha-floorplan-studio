@@ -4577,8 +4577,8 @@ The spec's Q1 to Q9, in one line each.
 3. **Tap and hold.** Default: tap more-info of the main entity, hold the chooser; `tap_action` stays for icons only.
 4. **Kiosk.** Default: a tap on any linked piece does nothing in kiosk (fixes a leak).
 5. **Custom car card in a popover.** Default: not now; Later, card YAML only, the card's own sheet.
-6. **`truck` and `utility`.** Default: pickup with a bed; compact van.
+6. **`truck` and `utility`.** Diego: truck is a Ford F-150 pickup; utility is a VW Golf hatchback.
 7. **On the plan.** Default: away fade and mark, charging green with a bolt, alert outline, level %; nothing in
    Attention.
-8. **Body colour.** Default: theme furniture colour, any hex per car, palette offered.
+8. **Body colour.** Diego: user-selected (any hex, palette offered, default theme furniture colour); tyres black, glass black.
 9. **Default model.** Default: sedan; existing car pieces lose the old box.
