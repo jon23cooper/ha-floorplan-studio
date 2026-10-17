@@ -2,6 +2,15 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S34.8 the heat map in the card (Sonnet)
+
+- Spec H7, H8. `heat_map` is read by `heatKindOf`; junk is off with one `console.warn` per card (`_warnHeat`, from `setConfig`, as `tap_action`). `_pickedHeat` holds the viewer's pick, `StoredView.heat` stores it (`parseStoredView` drops anything but the three words), `heat_map` is in `_viewStorageKey`, Reset view clears it and `_modified` counts it. An explicit Off beats a YAML `temperature`.
+- Judgement, where the section shows. The spec says it stays under `view_switch: false`, is hidden in 3D, and kiosk has no menu. It takes Detail's and Layers' own condition (`_activeListVisible()`, a floor, no live 3D), so `active_list: false` has no Heat map items either; the YAML key still heats the plan and draws the legend there. The alternative (show it under `active_list: false`) made the menu appear on a card the existing test pins as menu-less (`view_switch: false`, `rotate_switch: false`, `active_list: false`). Say if you want it shown.
+- The legend is card chrome from `heatLegend` (`.fp-heat-legend`: two text ends and a ramp, `linear-gradient(in oklch, tokens)`), at the stage's bottom left over the plan, `pointer-events:none`, only when the plan is flat (`!_shows3d()`). It shows the pure ramp; the rooms carry it mixed 55 % into the kind's colour (S34.7), so a room is a softer version of the strip, on purpose.
+- Outside the task's file list, on purpose: `tests/card/card-menu.spec.ts`, one line. The "roles and order" test listed every `menuitemradio`; the new section adds Off, Temperature, Humidity at the end of that list. The expectation grew; nothing else changed.
+- Proof. `tests/card/card-heat-map.spec.ts`, 22 tests: the first 21 written, 19 failed first (no Heat map section; the two that passed were "absent, null and off do not warn" and "a forged menu value changes nothing", which cannot fail without the feature); the `active_list: false` test was added after the section's condition was decided. `--repeat-each=10` with `card-menu.spec.ts`: 460 of 460. `parseStoredView` in `tests/card/view-state.test.ts` fails with its line removed. Looked at: light, midnight, blueprint, 2D and 2.5D, 1280 and 380 wide, both floors, legend in each (scratch shots, not in the repo).
+- Size: the card file gz is 117,175 after this task; `size-budget.spec.ts` was red before it (limit 115,000) and is not touched.
+
 ## 2026-10-17: S34.4 the Favourites section (Sonnet)
 
 - The section is `_favouriteSection()` in the card, placed above `list` (Attention, Active) in the Overview content only, so a floor or a room level never shows it, and kiosk / `active_list: false` have no sheet (spec F2, F9). It is a `_catGroup("f", "favourites", ...)`, so it folds like a category and the fold is kept with the others in `fp-active-cats:` (the spec says `fp-active-panel:`; that key holds the panel's own fold, the category folds are in `fp-active-cats:`, which is where every other group's fold lives).
