@@ -2,6 +2,40 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: Sprint 35 planned: the car (developer)
+
+Diego asked for a better car: attached entities, nine models, a tap that opens Home Assistant's dialog, a real fade when
+away, and a recommendation on a custom card in a popover. Spec `docs/specs/car-s35.md`, plan "Sprint 35" in
+`docs/PLAN.md`. Waits for Diego's yes. Supersedes S16.1 and S16.2, planned 2026-10-06 and never built.
+
+- C1. The car is the furniture piece `car`: it already has a footprint, a turn and a height. Device and unlinked cars keep
+  working; `car` joins `NO_TOGGLE`; a `device_tracker` car device fades when away. Convert to car piece is a Studio action.
+- C2. Schema: `model`, `color` (`#rrggbb`) and `attached` (at most 24) on a car piece only. `validate` reports junk and
+  never throws; `migrate` drops it. No version bump: an older card ignores the keys and draws the old box.
+- C3. Nine models with real footprints (sedan 470 x 182 x 145 cm the default). Picking a model sets `w`, `h` and drops
+  `height`, one undo step.
+- C4. One table in `src/core/car.ts` drives 2D, 2.5D and 3D, so the views cannot disagree. Low-poly: prisms and a loft,
+  box wheels.
+- C5. Status from attached entities: tracker home or away, charging (Renault, Tesla, Tessie, Volvo values), level,
+  alert. Charging is the car's `on`. New token `--fp-dev-car`.
+- C6. Away in 3D: opacity 0.35, `depthWrite` false, after a depth-only pre-pass twin, so a faded car does not show its
+  own wheels through the body. Same 35 % as a person in 2D.
+- C7. Body colour through `--fp-car-body`; colours stay in `--fp-*` (finding 9).
+- C8. Tap: more-info of the main entity. Hold: the chooser with every attached entity. Kiosk: a tap on any linked piece
+  does nothing; today it leaks the dialog. `tap_action` stays for device icons.
+- C9. Studio: a Car block in the furniture panel, with same-device suggestions and "Add all from this car".
+- C10. Parity: the plan through `renderFloor` in both; gestures and 3D card only; panel Studio only. No View control.
+- C11. Custom car card in a popover: not now. `loadCardHelpers` and `show-dialog` are private frontend APIs; hosting a
+  third-party card adds size and support risk. Recorded under "Later, not planned" with a design.
+
+Why the furniture piece and not the device: a car is a large object with a real footprint and a 3D body; the device is an
+icon. Why no GPS fallback: Home Assistant already turns GPS into zones.
+
+Open, each with the default the plan builds: card cap 119,000 gz (Q1, about 1,250 gz needed, 883 free); the piece is the
+car (Q2); tap and hold as C8 (Q3); kiosk gate on all linked pieces (Q4); custom card later (Q5); `truck` a pickup and
+`utility` a compact van (Q6); fade, charging, alert and level on the plan (Q7); theme colour by default (Q8); sedan the
+default model (Q9). Drop first if the sprint runs long: level and alert, then Convert, then the 2.5D cabin.
+
 ## 2026-10-17: the card size cap is raised to 118,000 gz for Sprint 34 (Diego)
 
 Favourites and the heat map grew the card from 113,334 to 117,118 gzipped. No cheap trimming got back under 115,000.

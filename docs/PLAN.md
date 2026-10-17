@@ -2377,6 +2377,8 @@ Diego, 2026-10-06. Four items. Each task starts with its failing test (CLAUDE.md
 
 - [ ] S16.1 A car you attach things to. Today `car` is an unlinked type and a furniture symbol with no state. It becomes a device that takes an `attached` list, as a speaker does: doors and windows (`binary_sensor`, `lock`), engine or ignition, battery level, charging, fuel, range, locked, plus the `device_tracker`. Add > Unlinked device > Car, the panel offers a car's entities first, the popup and tap open the chooser when it has several (`moreInfoOf`), the Active list shows it while the engine runs or it charges. Acceptance: a car with five attached entities lists them in the chooser; a door open draws the alert colour on the car; a layout with no car is unchanged; `validate` never throws on a car with junk attachments (finding 1); every `DEVICE_TYPES` and `NO_TOGGLE` decision for it is written down (findings 17, 20).
 - [ ] S16.2 Home and away by position. One attached `device_tracker` (or the car's own) decides: `home` draws the car where it is parked on the plan; any other state draws it away, faded to 35 % with the away mark, as a person is (S7.8), and the popup names the zone. A tracker with GPS and no zone state: home when inside the layout's `home` zone radius, otherwise away (assumption: HA's own `home` state is used first, GPS only when it is missing). Acceptance: states `home`, `not_home`, a zone name, `unavailable`, no state, each drawn and tested in 2D, 2.5D and 3D; the car is never moved on the plan by GPS.
+  Superseded 2026-10-17 by Sprint 35 (`docs/specs/car-s35.md`): S16.1 and S16.2 were never built; the car is now the
+  furniture piece, and the GPS fallback is dropped (Home Assistant resolves zones itself).
 - [ ] S16.3 Camera thumbnail. A small live picture floats beside each camera icon, in 2D, 2.5D and 3D. View menu (studio and card option `camera_thumb`): Off / On, Size (small, medium, large), Position relative to the camera (above, below, left, right). Default off. Source: the camera's `entity_picture` through Home Assistant's own authenticated proxy, refreshed on an interval that the card pauses while the tab is hidden. No third-party request, no stored image, and a failed load draws nothing, not a broken icon (finding 9: no runtime network beyond HA). Acceptance: real-pointer tap on the thumbnail opens the camera's more-info; with the option off no image request is made; the thumbnail stays inside the card; `shots` for both themes (finding 16). Privacy: doc images use the demo camera with a stub picture only.
 - [ ] S16.4 Vacuum path, research first. Roborock, Dreame and Roomba differ: in Home Assistant core none exposes the path as coordinates; the map is an image entity or a camera, and Dreame's custom integration puts a path on its map camera. Task: write down, per integration, which entity or attribute carries position and path, from its docs and a real example state (Diego's HA, read only), and what we can draw. Output: a note in `docs/DECISIONS.md` and a yes or no for S16.5. Not coded before that.
 - [ ] S16.5 Draw the path, if S16.4 finds usable data. A polyline over the plan, in the vacuum's own colour, clipped to the room, new points while it cleans, cleared when it docks; a map calibration (two points) if the data is in the robot's own frame. Spec and acceptance written after S16.4.
@@ -2385,6 +2387,8 @@ Choices confirmed by Diego, 2026-10-06 (defaults accepted): whether the car keep
 
 ## Later, not planned
 
+- A custom car card (a vendor's own Lovelace card) in a popover on the car tap. Design in `docs/specs/car-s35.md` C11: a
+  `car_cards` map in card YAML, created through `window.loadCardHelpers`, shown in the card's own sheet. Not now.
 - Vacuum position from an integration that exposes coordinates (none of the common ones does today).
 - Per-room presence heat map over a day.
 - Import from ha-floorplan SVGs.
@@ -2625,6 +2629,7 @@ Review basis: a seeded stress house (3 floors, 46 rooms, 437 devices, 718 entiti
 | 32 | 0.30.0 | 3D framing in the card: the house fits after a resize, above the phone's bottom sheet, and a room pick focuses the room (Diego, 2026-10-14: "fix all 3") | `tests/card/card-3d-framing.spec.ts`, every case green, four sizes |
 | 33 | 0.31.0 | Extras, part 1: fan type, `tap_action` and `hold_action`, saved views in the layout, dashboard strategy (split 2026-10-15, spec `docs/specs/extras-s33.md`, waits for Diego's yes) | One acceptance test each, criteria 1 to 12 |
 | 34 | 0.32.0 | Extras, part 2: favourites, then a temperature heat map (presence over a day dropped) | Written after Q2 and Q3 |
+| 35 | 0.33.0 | The car: nine models in 2D, 2.5D and 3D, body colour, attached entities, charging and away, tap more-info, hold chooser, Studio car panel (spec `docs/specs/car-s35.md`, waits for Diego's yes) | One acceptance test each, criteria 1 to 18 |
 
 Separate product, not in this repo: the FloorPlan Digital Twin iOS app. A RoomPlan spike (T0) after sprint 24, in its own repo, after its own design and spec.
 
@@ -4398,3 +4403,182 @@ The spec's Q1 to Q3.
    Other: the mean of both.
 3. **Paint and night in a heat mode.** Default: the heat covers a painted room and the night veil is not drawn. Other:
    paint and veil stay.
+
+## Sprint 35: Release 0.33.0, the car
+
+Branch `task/s35-car`. Lanes branch off it as `task/s35-<lane>`, each in its own worktree with its own `PW_PORT`, and
+merge back. Spec: `docs/specs/car-s35.md` (decisions C1 to C11, criteria 1 to 18, questions Q1 to Q9). Diego,
+2026-10-17: a better car with attached entities, nine models, a tap that opens Home Assistant's dialog, a real fade
+when away, and a question about a custom car card in a popover. Supersedes S16.1 and S16.2 (planned, never built).
+
+**Waits for Diego's yes.** The plan builds the defaults. Q1 (the cap) gates S35.4, S35.6 and S35.8; Q2 shapes S35.1
+and S35.7; Q3 and Q4 shape S35.6; Q6 sets two rows of S35.2's table; Q7 sets S35.4's level and alert; Q9 S35.4's old
+symbol. Q5 (custom card) adds no task.
+
+Exit test: one acceptance test per criterion, green with no `test.fail()` left: `tests/core/car-schema.test.ts` (1),
+`tests/core/car-parts.test.ts` (2), `tests/core/car-status.test.ts` (3, 4), `tests/core/render-car.test.ts` (5, 6),
+`tests/card/car-css.spec.ts` (7), the shots (8), `tests/core/scene-car.test.ts` and `tests/card/card-3d-car.spec.ts`
+(9 to 11), `tests/card/card-car.spec.ts` (12 to 15), `tests/editor/car-panel.test.ts` and
+`tests/editor/car-panel.spec.ts` (16), `size-budget.spec.ts` (17); then the full suite (18).
+
+Rules. As Sprint 34: each task one outcome, its failing test written first and watched failing, the report says how it
+failed (finding 5); real `page.mouse` at real coordinates on the real top element (finding 3); a new Playwright test
+runs `--repeat-each=10`, no `waitForTimeout` (finding 13); each command bare, `$?` on its own line (finding 14); layout
+files are untrusted, `validate` and `migrate` never throw and `migrate`'s output passes `validate` (finding 1); every
+interpolated string escaped, tested with `"><script>` (finding 2); a writer never commits an invalid layout, tested
+over every combination of its inputs (finding 12); a per-member table iterates its union (`DEVICE_TYPES`,
+`CAR_MODELS`) so a new member fails until decided (findings 17, 20); every CSS rule that matters gets a
+`getComputedStyle` pair that fails with the rule removed (finding 10); a change to `render.ts` or a stylesheet runs
+`npm run shots` and is looked at (finding 16); a test that pins a theme sets it first, and a changed default moves the
+tests that pinned it, each named (finding 19); a stubbed state is copied from what the integration sends, and the test
+says which (finding 21).
+
+Size. The card file is 117,117 gz; the cap is 118,000 until Diego answers Q1 (default 119,000). Every task that touches
+a file in the card bundle (`src/core/*` but `scene-build.ts` and `live-build.ts`, `src/card/*` but `three/`) reports
+`gzip -9 -c dist/floorplan-studio-card.js | wc -c` before and after. Only S35.8 changes `CARD_GROWTH_LIMIT`, and only
+to the number Diego gave. The 3D work belongs in the chunk.
+
+Schema: three optional keys on a car piece, no version bump. The Opus pass reads `validate` and `migrate` for the car
+as untrusted input.
+
+Studio parity (memory rule). The car on the plan: both, through `renderFloor`. The car panel and Convert: Studio only
+(editing). Tap, hold, chooser, 3D: card only (a Studio click selects; the Studio has no 3D). No new View control, so no
+`view-parity.spec.ts` row. Each DECISIONS line says which.
+
+Out of scope: a custom card in a popover (C11, Later); GPS placement; car alerts in Attention; car commands from the
+card; cylinder wheels, opening doors, lights; a Studio 2.5D or 3D preview.
+
+Models. Coders are Sonnet. **Judgement** tasks carry the spec section in the brief, and the coordinator reads the
+coder's note before accepting. The docs part of S35.8 may go to Haiku. Opus reviews the integrated build once.
+
+Wave 1, pure core, two lanes:
+
+Lane schema:
+- [ ] S35.1 Car keys in the schema (Sonnet). Spec C2. `CarModel`, `CAR_MODELS`, `MAX_CAR_ATTACHED` in
+      `src/core/schema.ts`; `Furniture` gains `model`, `color`, `attached`; `validate` reports each junk shape, car only;
+      `migrate` keeps the good parts and drops the rest; `attachedEntities` counts a car's `attached`. Test, failing
+      first, new `tests/core/car-schema.test.ts`: criterion 1, every junk case through `validate` (no throw, the piece
+      named) and through `migrate` then `validate` (passes, good parts kept); a layout with the keys round-trips;
+      `attachedEntities` lists a car's attached. `npm run docs:schema`.
+      Files: `src/core/schema.ts`, `src/core/migrate.ts`, `src/core/bind.ts`, new `tests/core/car-schema.test.ts`,
+      `docs/schema.md`.
+- [ ] S35.2 Car models and shape (Sonnet, **judgement**: the profile numbers and the `truck` and `utility` reading, Q6,
+      tuned by looking at the shots). After S35.1 (the union). Spec C3, C4. New `src/core/car.ts`: `CAR_SPEC` (footprint,
+      height, profile), `carParts(model)` (unit-frame polygons: outline, rear glass, roof, windscreen, mirrors, bed,
+      wheels, grille), `carTop(model)` (the 2D markup in the 100 x 100 symbol frame, paths built from the polygons).
+      `FURNITURE.car` becomes 470 x 182; `furnitureHeight` of a car with no `height` is its model's H. Test, failing
+      first, new `tests/core/car-parts.test.ts`: criterion 2 iterating `CAR_MODELS`; `carTop` holds only numbers and
+      fixed class names; an unknown model is the sedan. The tests that pinned 450 x 180 or 150 move, each named.
+      Files: new `src/core/car.ts`, `src/core/icons.ts`, `src/core/heights.ts`, `src/core/index.ts`, the new test, the
+      moved tests.
+
+Lane status:
+- [ ] S35.3 Car status and the per-type decisions (Sonnet, **judgement**: the role rules at their edges). Spec C5. In
+      `src/core/car.ts` (own section; coordinate with S35.2 by committing it after S35.2's first commit, or in a
+      separate `src/core/car-status.ts` if S35.2 is not merged yet): `carStatus(m, states)`, `carText`. `pieceDevice`
+      reports a car piece with a main entity as `{ type: "car", entity, attached }`; `classOf` of a car is on while
+      charging; `personClass` gives `away` to a car whose entity is a `device_tracker`; `stateText` for `car` is
+      `carText`; `car` joins `NO_TOGGLE`; `ACTIVE_LIST_RULE.car` is `on`. Test, failing first, new
+      `tests/core/car-status.test.ts`: criteria 3 and 4, states copied from the integrations' value lists in the spec
+      (Renault `battery_charging`, Tesla Fleet and Volvo enum `charging`, Renault `charge_in_progress`, `stopped`);
+      the per-type test iterates `DEVICE_TYPES` against C5's table; `no-toggle-types` and `active` tests move to the
+      new premise, each named.
+      Files: `src/core/car.ts` or new `src/core/car-status.ts`, `src/core/solids.ts` (`pieceDevice`),
+      `src/core/render.ts` (`classOf`, `personClass` only), `src/core/state-text.ts`, `src/core/active.ts`,
+      `src/card/actions.ts` (`NO_TOGGLE` only), the new test, the moved tests.
+
+Wave 2, after wave 1. Three lanes; the card file takes one task at a time:
+
+Lane plan:
+- [ ] S35.4 The car in 2D and 2.5D (Sonnet, **judgement**: how each model and state reads, in every theme). After S35.2
+      and S35.3. Spec C4, C5, C7. `renderFloor` draws `carTop` for a car piece, the body colour through
+      `--fp-car-body`, the classes `away`, `charging`, `alert`, the away mark and bolt badge, the level value (hidden at
+      far detail); 2.5D draws the body and cabin prisms. `--fp-dev-car` in light, midnight and solarized, `devFor` in
+      the rest. The demo gains a car on the ground floor's outside ground with `device_tracker.demo_car`,
+      `sensor.demo_car_battery`, `binary_sensor.demo_car_charging`, `lock.demo_car_doors`, `sensor.demo_car_range` (in
+      `demo/layout.json` and `demo/layout.v1.json`, as the fan was). Tests, failing first: new
+      `tests/core/render-car.test.ts` (criteria 5 and 6, a `"><script>` name and a forged `color` that `migrate`
+      dropped) and new `tests/card/car-css.spec.ts` (criterion 7, every theme in `THEMES`, each pair reverted once).
+      `scripts/shots.mjs`: the three demo states and a test-only floor with the nine models (criterion 8). `npm run
+      shots`, looked at at 4x before `--accept`. Card size before and after.
+      Files: `src/core/render.ts`, `src/core/solids.ts` (the car's 2.5D), the theme files, `demo/layout.json`,
+      `demo/layout.v1.json`, `scripts/shots.mjs`, the two new tests, `shots/` baseline.
+
+Lane 3D:
+- [ ] S35.5 The car in 3D (Sonnet, **judgement**: the depth pre-pass and how the parts read at the 3D camera's angles).
+      After S35.2 and S35.3. Spec C4, C6, C7. `Shape` gains `loft`; `scene-build.ts` emits the car's parts for its model
+      (index, entity, role on each); the viewer meshes a loft, builds a car's parts as piece bodies, and applies
+      `Live3D.pieces[i]` `{ on, away, charging, alert }` (`live-build.ts`) in place: charging lights the greenhouse, alert
+      the roof, away the 0.35 fade with depth twins. The overlay draws the car's badge and level from the same markup as
+      2D. New roles in `src/card/three/palette.ts`. Tests, failing first: new `tests/core/scene-car.test.ts` (criterion
+      9's scene half, every model, `electric` without a grille, a junk piece never throws) and new
+      `tests/card/card-3d-car.spec.ts` (criteria 9 to 11 with real taps on body, wheel and glass; the pixel test of
+      criterion 10 through the `__fp3d` hook, which gains a way to hide the wheels; home again with no rebuild). Chunk
+      size before and after; the card file must not grow from this task.
+      Files: `src/core/scene-build.ts`, `src/core/live-build.ts`, `src/core/three-deps.ts`, `src/card/three/mesh.ts`,
+      `src/card/three/view3d.ts`, `src/card/three/overlay.ts`, `src/card/three/palette.ts`, the two new tests.
+
+Lane card and Studio:
+- [ ] S35.6 Tap, hold and kiosk for the car (Sonnet). After S35.3. Spec C8. In `bindDeviceActions`, a car piece: tap is
+      more-info of the main entity, hold the chooser titled with the name and `carText`, rows main first then
+      `attached`; kiosk taps on every linked piece do nothing. The chooser's title shows `carText`. Test, failing first,
+      new `tests/card/card-car.spec.ts`: criteria 12 to 15 with real clicks and a real 600 ms hold, `hass-more-info`
+      events recorded; criterion 13 fails on 0.32.0 (say so in the report); a `hass` update with the chooser open.
+      Card size before and after.
+      Files: `src/card/actions.ts`, `src/card/floorplan-studio-card.ts` (chooser title only), the new spec.
+- [ ] S35.7 The Studio's car panel (Sonnet, **judgement**: the order of the attached suggestions). After S35.1 and
+      S35.2. Spec C9. The furniture panel's Car block: Model select with the `carTop` swatch, Colour (palette, input,
+      Theme colour), main entity (trackers first), Attached with device-first suggestions and Add all from this car,
+      Convert to car piece on a device or unlinked `car`. Tests, failing first: new `tests/editor/car-panel.test.ts`
+      (every writer over every combination of its inputs, `validate` after each and after Undo and Redo; one step each,
+      none for an unchanged value) and new `tests/editor/car-panel.spec.ts` (criterion 16 with real clicks, panel
+      harness with an entity registry whose `dev` groups a car's entities, copied in shape from `hass-pickers.ts`'s
+      `EntityReg`). Screenshots of the panel at 1280 and 380 wide, light and blueprint, looked at.
+      Files: `src/editor/panels.ts`, `src/editor/state.ts`, the two new tests.
+
+Wave 3, on `task/s35-car`:
+- [ ] S35.8 Exit, docs, shots, size (Sonnet; the docs part may go to Haiku). Every exit-test file green,
+      `--repeat-each=10` on each new Playwright file. `size-budget.spec.ts`: `CARD_GROWTH_LIMIT` to the cap Diego gave
+      (Q1), and the measured card and chunk sizes in DECISIONS. Docs: `docs/card.md` (What a device looks like: the car;
+      Tap, hold and hover: the car piece row; Kiosk: linked pieces), `docs/editor.md` (the Car block, Convert),
+      `docs/SPEC.md` (schema `model`, `color`, `attached` on a car piece; the car's state rules), `docs/schema.md`,
+      README feature list, CHANGELOG under Unreleased (the older-card note: a card older than 0.33.0 draws a car piece as
+      the old box and ignores the three keys), DECISIONS (each default that held or changed). "Later, not planned"
+      keeps the custom-card item. `npm run shots`, looked at in three themes before `--accept`. `npm run lint`,
+      `npm test`, `npx playwright test`, each bare with `$?` on its own line.
+      Files: the docs, `tests/card/size-budget.spec.ts` (the limit only), `shots/` baseline.
+
+Review: one Opus pass on the integrated build, against `docs/WORKFLOW.md`'s checklist plus: can a junk car key throw,
+or survive `migrate` and fail `validate`; can a car's colour or name reach a style or markup unescaped; do 2D, 2.5D and
+3D put the nose the same way at every `rot`; does an away car show its own wheels through its body from any camera;
+does any car gesture switch anything, or reach Home Assistant's dialog in kiosk; does every per-type table name `car`
+as C5 says; is the card file within the cap. Fixes with their tests, then the re-check.
+
+- [ ] S35.9 Release 0.33.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+      ending with the version read back from Home Assistant, Diego's car tapped on his phone (more-info opens), held
+      (the chooser lists its entities), and seen away in 2D and 3D.
+
+Dependencies: S35.1 at once; S35.2 after S35.1's union; S35.3 at once (its file per the note); S35.4 after S35.2 and
+S35.3; S35.5 after S35.2 and S35.3; S35.6 after S35.3, and after S35.4 if both touch the card file in the same week;
+S35.7 after S35.1 and S35.2; S35.8 after all; S35.9 after the review.
+
+Size of the sprint, honestly: seven build tasks, three of them judgement, in three waves; larger than Sprint 34's
+pure-code lanes because it spans schema, 2D, 2.5D, 3D, card gestures and the Studio. The 3D task (S35.5) is the
+largest and the riskiest. Drop first, in order: the level value and the alert outline (S35.4, C5) and their 3D twins;
+then Convert to car piece (S35.7); then the 2.5D cabin prism (one box again). Never dropped: the schema, the models in
+2D and 3D, the tap, the away fade.
+
+### Open questions for Diego (each with the default this plan builds)
+
+The spec's Q1 to Q9, in one line each.
+
+1. **Card cap.** Default: 119,000 gz. Other: hold 118,000 and drop level, alert and the 2.5D cabin.
+2. **Which object is the car.** Default: the furniture piece; device and unlinked cars keep working, Convert offered.
+3. **Tap and hold.** Default: tap more-info of the main entity, hold the chooser; `tap_action` stays for icons only.
+4. **Kiosk.** Default: a tap on any linked piece does nothing in kiosk (fixes a leak).
+5. **Custom car card in a popover.** Default: not now; Later, card YAML only, the card's own sheet.
+6. **`truck` and `utility`.** Diego: truck is a Ford F-150 pickup; utility is a VW Golf hatchback.
+7. **On the plan.** Default: away fade and mark, charging green with a bolt, alert outline, level %; nothing in
+   Attention.
+8. **Body colour.** Diego: user-selected (any hex, palette offered, default theme furniture colour); tyres black, glass black.
+9. **Default model.** Default: sedan; existing car pieces lose the old box.
