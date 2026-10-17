@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import demo from "../../demo/layout.json";
 import { migrate } from "../../src/core/migrate";
 import type { Layout } from "../../src/core/schema";
 import { buildSearchIndex, entryDetail, layoutEntries, normalize, searchIndex, type SearchEntry } from "../../src/core/search";
@@ -167,5 +168,50 @@ describe("S24.1 untrusted layout (finding 1)", () => {
     expect(() => searchIndex(buildSearchIndex(es), "ok proto")).not.toThrow();
     expect(() => layoutEntries({ floors: 5 } as unknown as Layout, undefined)).not.toThrow();
     expect(() => layoutEntries(null as unknown as Layout, undefined)).not.toThrow();
+  });
+});
+
+// S34.3 (F6, criterion 7): a favourite entity ranks first within its tier. `first` is the card's favourites; the Studio passes none.
+describe("S34.3 favourites rank first", () => {
+  const dev = (id: string, name: string, entity: string): SearchEntry => ({ kind: "device", id, name, entity, floor: "g", type: "light", typeLabel: "Light" });
+  // "Library reading lamp" is the longer name, so length alone puts "Lido lamp" first; both are tier 1 for "li".
+  const es = [dev("short", "Lido lamp", "light.lido"), dev("fav", "Library reading lamp", "light.library")];
+  const ix = buildSearchIndex(es);
+
+  it("lists a favourite before a shorter-named non-favourite of the same tier", () => {
+    expect(searchIndex(ix, "li").map((e) => e.id)).toEqual(["short", "fav"]);
+    expect(searchIndex(ix, "li", Infinity, new Set(["light.library"])).map((e) => e.id)).toEqual(["fav", "short"]);
+  });
+
+  it("never lifts a favourite above a better tier", () => {
+    const more = [...es, dev("exact", "Li", "light.li")];
+    expect(searchIndex(buildSearchIndex(more), "li", Infinity, new Set(["light.library"])).map((e) => e.id)).toEqual(["exact", "fav", "short"]);
+  });
+
+  it("limit applies after the ranking; a junk `first` is no favourites, never a throw", () => {
+    expect(searchIndex(ix, "li", 1, new Set(["light.library"])).map((e) => e.id)).toEqual(["fav"]);
+    for (const junk of [null, 5, "light.library", {}, [] as unknown]) {
+      expect(() => searchIndex(ix, "li", Infinity, junk as never)).not.toThrow();
+      expect(searchIndex(ix, "li", Infinity, junk as never).map((e) => e.id)).toEqual(["short", "fav"]);
+    }
+  });
+
+  it("without `first`, or with an empty one, the demo's order is today's, entry for entry", () => {
+    const demoIx = buildSearchIndex(layoutEntries(migrate(demo as never) as Layout, undefined));
+    const today: Record<string, string[]> = {
+      li: ["room-ground-1", "light-living", "heater-living", "temp-living", "light-kitchen", "light-bedroom", "cover-hall-blind", "plug-living"],
+      light: ["light-living", "light-kitchen", "light-bedroom"],
+      a: ["person-alex", "ap-hall", "room-ground-3", "room-ground-5", "room-ground-6", "room-first-2", "cover-hall-blind", "room-ground-7", "switch-hall", "motion-hall", "camera-hall", "fan-bedroom", "printer-hall", "radar-office", "computer-hall", "room-ground-4", "media-office", "heater-living", "humidity-bathroom", "temp-living", "temp-bedroom"],
+    };
+    for (const [query, ids] of Object.entries(today)) {
+      expect(searchIndex(demoIx, query).map((e) => e.id)).toEqual(ids);
+      expect(searchIndex(demoIx, query, Infinity, new Set()).map((e) => e.id)).toEqual(ids);
+    }
+  });
+
+  it("on the demo a favourite lifts only within its tier", () => {
+    const demoIx = buildSearchIndex(layoutEntries(migrate(demo as never) as Layout, undefined));
+    const ids = searchIndex(demoIx, "light", Infinity, new Set([layoutEntries(migrate(demo as never) as Layout, undefined).find((e) => e.id === "light-bedroom")!.entity!])).map((e) => e.id);
+    expect(ids[0]).toBe("light-bedroom");
   });
 });

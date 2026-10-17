@@ -2,6 +2,108 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: Sprint 34 Opus review fixes (Sonnet)
+
+- M1: the Edit-card form's websocket mock returned a bare layout; `websocket.py` sends `{ layout }`. The form now unwraps `r?.layout` as the card does; the new test stubs the reply with that shape (finding 21).
+- D1, by Diego's own S33 rule: a Favourites row acts at once only for `TOGGLE_AT_ONCE` (light, switch, input_boolean, fan). A lock, a cover and anything else goes through the confirm step, text `Confirm <label lower-cased>` (Confirm unlock, Confirm open); a Turn off that already asked keeps its own text. The list is the card's one `TOGGLE_AT_ONCE`, not copied. Supersedes S34.4's "acts at once unless a turn OFF".
+- m5 (H2): in a heat mode, a picked room's panel Temperature or Humidity is the plan's `roomHeat` text, when the room has one; the panel's own mean did not drop faulty readings. A room with no heat keeps the panel's own line.
+- m2: new `anyRoomHeated` in core, used by the Studio's status bar and the card's legend. The card legend then reads "Heat map: no readings" with no ramp.
+- m3: the Studio ramp is `linear-gradient(to right in oklch, ...)`, as the card's.
+- m4: with the 3D fallback note up, the legend sits at the top left of the plan (`fp-heat-legend-up`), not under the note.
+- m1: a test only, `roomHeat` with placed sensors at 120 and 22 °C gives 22 °C. Red with the filter removed (read 71).
+- `config-editor.ts` takes `HEAT_LABELS` from `view-state.ts`. Card gz (`gzip -9`): 116,924 before, 117,118 after all the review fixes (measured on the final branch). `size-budget.spec.ts` still red, not touched.
+
+## 2026-10-17: S34.11 exit, docs, shots (Sonnet)
+
+- Q1 to Q3 held as the spec's defaults (Diego, 2026-10-17): fixed scale (16 to 26 °C, 30 to 70 %, no key); the room's own list when readable, else the sensor devices in the room; the heat covers paint and there is no night veil. Nothing changed from the spec except what the entries below say.
+- Documented in `docs/card.md`, `docs/editor.md`, `docs/SPEC.md` and the README, from the builders' entries: the card's Heat map items follow Detail and Layers (`_activeListVisible()`), so they are hidden with `active_list: false` and in kiosk, while `heat_map` in YAML still heats the plan and draws the legend there (S34.8; supersedes the spec's "shown under `active_list: false`" reading); an explicit Off beats a YAML mode; a bad sensor is left out alone, not the whole mean (S34.6); the heat text always carries a unit, a unit-less sensor prints the scale's (S34.7, supersedes S34.6); the Studio's status words are per floor on show (S34.10); the Favourites fold is kept with the category folds in `fp-active-cats:`, not `fp-active-panel:` (S34.4); the Edit-card form reuses `favouritesOf` for what an id is (S34.5); a favourite is a tap target on its row, and the Confirm step takes its own line (S34.4).
+- Found by looking at the card at 3x, not by a test: with the heat map on, Living's room badge plate (1 light, 1 motion) sat on its heat value. `badges` steps below `roomReadout`, and a room fed by a placed sensor has none, though the heat value is a readout too. Fix: `BadgeCtx.hasValue`, passed `heated.has(i)` by `renderFloor`. Outside the task's file list, on purpose: `src/core/rollup.ts`, `src/core/render.ts`, `tests/core/render-heat.test.ts` (one test; it failed first, `expected 210 to be greater than 223`). With heat off the markup is unchanged (the byte-for-byte test passes).
+- Shots: `scripts/shots.mjs` gains the card with a favourite (sheet opened by a real click, light, blueprint, ha-dark), the card with `heat_map` temperature and humidity in the same three, and a 3x crop of Living with heat in the card (`cropRoom`). Looked at every one before `--accept`, with the S34.7 plan shots (`heat-*`). The humidity card shots on the ground floor show no heated room, as there is no humidity sensor there; the first floor is in the `heat-first-*` plan shots.
+- Not changed: schema, `DEVICE_TYPES`, `NO_TOGGLE`, `RoomKind`. Size: the card is over `size-budget.spec.ts`'s 115,000 gz (Diego's call, not touched).
+
+## 2026-10-17: S34.8 the heat map in the card (Sonnet)
+
+- Spec H7, H8. `heat_map` is read by `heatKindOf`; junk is off with one `console.warn` per card (`_warnHeat`, from `setConfig`, as `tap_action`). `_pickedHeat` holds the viewer's pick, `StoredView.heat` stores it (`parseStoredView` drops anything but the three words), `heat_map` is in `_viewStorageKey`, Reset view clears it and `_modified` counts it. An explicit Off beats a YAML `temperature`.
+- Judgement, where the section shows. The spec says it stays under `view_switch: false`, is hidden in 3D, and kiosk has no menu. It takes Detail's and Layers' own condition (`_activeListVisible()`, a floor, no live 3D), so `active_list: false` has no Heat map items either; the YAML key still heats the plan and draws the legend there. The alternative (show it under `active_list: false`) made the menu appear on a card the existing test pins as menu-less (`view_switch: false`, `rotate_switch: false`, `active_list: false`). Say if you want it shown.
+- The legend is card chrome from `heatLegend` (`.fp-heat-legend`: two text ends and a ramp, `linear-gradient(in oklch, tokens)`), at the stage's bottom left over the plan, `pointer-events:none`, only when the plan is flat (`!_shows3d()`). It shows the pure ramp; the rooms carry it mixed 55 % into the kind's colour (S34.7), so a room is a softer version of the strip, on purpose.
+- Outside the task's file list, on purpose: `tests/card/card-menu.spec.ts`, one line. The "roles and order" test listed every `menuitemradio`; the new section adds Off, Temperature, Humidity at the end of that list. The expectation grew; nothing else changed.
+- Proof. `tests/card/card-heat-map.spec.ts`, 22 tests: the first 21 written, 19 failed first (no Heat map section; the two that passed were "absent, null and off do not warn" and "a forged menu value changes nothing", which cannot fail without the feature); the `active_list: false` test was added after the section's condition was decided. `--repeat-each=10` with `card-menu.spec.ts`: 460 of 460. `parseStoredView` in `tests/card/view-state.test.ts` fails with its line removed. Looked at: light, midnight, blueprint, 2D and 2.5D, 1280 and 380 wide, both floors, legend in each (scratch shots, not in the repo).
+- Size: the card file gz is 117,175 after this task; `size-budget.spec.ts` was red before it (limit 115,000) and is not touched.
+
+## 2026-10-17: S34.9 heat map in the Edit-card form (Sonnet)
+
+- Spec H8. A select `#heat_map` after Detail, options from core's `HEAT_KINDS`, read through `heatKindOf` so junk shows Off and fires nothing (the form does not warn; the card does). `off` is the default, so `_set` drops the key. `EditorConfig` gains `heat_map` locally, as it did for `favourites`, since the card's config type gets the key in S34.8.
+- Proof. One test in `tests/card/config-editor.spec.ts` failed first (no `#heat_map`); `--repeat-each=10` 10 of 10. No screenshots: the form is not in `npm run shots`.
+
+## 2026-10-17: S34.10 the heat map in the Studio (Sonnet)
+
+- Spec H9. View, `#heatSub` (Off, Temperature, Humidity, `data-heat`), after Detail. The pick is `EditorState.heat`, in `ViewMemory.heat`: `parseViewMemory` takes it through `heatKindOf` and leaves it out when `off` or junk, so storage that says `"<b>lava</b>"` opens on Off. It is in `viewKey`, so a pick is written like a floor or Layers change. No undo step, no layout change.
+- Outside the task's file list, on purpose: `src/editor/state.ts` (the field, `exportView`, `importView`; the memory is exported from there, so the field cannot live only in the host).
+- The status bar's words come from `heatText()` in the host: `Heat map: 16 °C to 26 °C` while any room of the floor on show has a `roomHeat`, else `Heat map: no readings`. It asks `roomHeat`, the call the plan is drawn from, so words and colours cannot disagree. `statusFacts` takes them as `heat?: string` and stays pure. A small ramp swatch (`.sb-ramp`, the legend's three tokens) follows the text; it is `aria-hidden`, the text is the legend.
+- Judgement, the words are per floor, not per house: a Studio on the ground floor with only first-floor sensors says "no readings" there, and the plan agrees (nothing is coloured).
+- Parity. The row `heatSub` -> `heat:temperature` is in `tests/card/view-parity.spec.ts` and `docs/card.md`. Its card half (the menu item) needs S34.8; until it merges, "every control the card is said to have is on a 2.5D card" fails on `heat:temperature`, and nothing else in that file fails.
+- Proof. `tests/editor/heat-map.spec.ts` (5 tests) all failed first (no `#heatSub`); 50 of 50 with `--repeat-each=10`. Looked at in light, ha with a dark scheme and blueprint, temperature on the ground floor and humidity on the first: the room, its value and the swatch read in each.
+
+## 2026-10-17: S34.4 the Favourites section (Sonnet)
+
+- The section is `_favouriteSection()` in the card, placed above `list` (Attention, Active) in the Overview content only, so a floor or a room level never shows it, and kiosk / `active_list: false` have no sheet (spec F2, F9). It is a `_catGroup("f", "favourites", ...)`, so it folds like a category and the fold is kept with the others in `fp-active-cats:` (the spec says `fp-active-panel:`; that key holds the panel's own fold, the category folds are in `fp-active-cats:`, which is where every other group's fold lives).
+- A row is the Active row (`_ovRow`, so a tap goes to the thing) beside a button from `_popupOp` and `_runOp`. `_favAsk` holds the entity at its confirm step. It is card state, kept through `hass`, dropped by `setConfig`. If the entity's state changes so that Turn off no longer asks (it went off), the confirm step is not drawn.
+- Judgement, where the confirm sits on a phone. Confirm turn off and Cancel take their own line under the row (flex-basis 100 %, side by side, indented under the name), not beside the name. Beside it, at 390 px the name wraps to one word a line. Checked in light, blueprint and midnight at 390 and at the side sheet's 1280; a test measures it (inside the sheet, under the row, side by side).
+- Unavailable or unknown: the row is at 50 % opacity and has no button (`popupOp` already returns none). A thing in the favourites that is also on stays in Active (F5).
+- Search: `<fp-search>` gets a `first` property, the card passes the cleaned ids. Outside the task's file list, on purpose: `src/card/search-box.ts` (the property) and `src/card/touch-css.ts` (the two buttons get the 44 px rule of S31.9).
+- One `console.warn` per card from `setConfig`, as `tap_action` does. `favouritesOf` runs once per `setConfig`.
+- Proof. `tests/card/card-favourites.spec.ts` (17 tests, 190 runs with `--repeat-each=10`): all 16 then written failed first (no section). Removing `.first` from the search box fails the criterion 7 test. The popup-match test walks `DEVICE_TYPES` in three states. Two tests were flaky at 390 px (a click at a point read while the sheet was still moving); the helper now uses Playwright's click, which waits for the box to settle.
+
+## 2026-10-17: S34.5 favourites in the Edit-card form (Sonnet)
+
+- Spec F7. The form reuses `favouritesOf` as the one rule for what an entity id is (`favouritesOf({favourites:[raw]})`), so the form and the card cannot disagree. Add trims, and Enter in the field adds. Refused with a line, nothing fired: empty, not an entity id (a capital too), a repeat, a 25th. An id that is a valid entity but not on the plan is accepted: it is valid YAML, and the card leaves it out (F4).
+- Judgement, the datalist names use the device's own name, else HA's `friendly_name` from `hass`, else the id, the card's `nameFor` order. `nameFor` is not exported from core, and the task names no core file, so the order is repeated in six lines here. Linked pieces count (`pieceDevice`). Text through Lit's bindings, so a `"><script>` name is text.
+- The alias shows as rows, fires nothing on load, and goes only when the person adds or removes. `EditorConfig` gains `favourites` and `favorites` locally (an intersection), since the card's config interface gets the key in S34.4.
+- Proof. Two tests in `tests/card/config-editor.spec.ts` failed first (no `#favourites_input`); `--repeat-each=10` 20 of 20; with `delete next.favorites` removed the add test fails.
+
+## 2026-10-17: S34.2 favourites on the plan (Sonnet)
+
+- `favouriteRefs(layout, ids, floors)`, spec F4. Output follows the list, not the layout. Per entity the first thing in layout order wins: floors in key order, a floor's devices before its linked pieces (`pieceDevice`); so a device beats a piece on the same entity. `floors` are layout keys; a floor not listed is not searched. Floors are read through `Object.keys`, so a floor named `__proto__` or `toString` is an ordinary one. Rows that are not objects, and lists that are not lists, are skipped; a layout that is not a layout gives `[]`. A getter that throws gives `[]`, not a throw. Test: `tests/card/favourites.test.ts`; 11 tests failed first (`favouriteRefs is not a function`), and with first-wins removed 2 fail.
+
+## 2026-10-17: S34.1 the favourites reader (Sonnet)
+
+- `favouritesOf(config)` in `src/card/favourites.ts`, spec F1. `favourites` wins over `favorites`; a key that is `null` or `undefined` counts as absent, so the alias still applies. An item must be a string that, trimmed, is `domain.object_id` (lower case, digits, `_`). Repeats and junk are dropped; the list stops at `MAX_FAVOURITES` (24) and says so. `warn` is true when anything was dropped or the value is not a list; absent is silent. The loop stops at item 25, so a 10,000-item list costs 25 reads. A getter or proxy that throws is junk, never a throw. Card only, on purpose (F8). Test: `tests/card/favourites.test.ts`; failed first (module missing), and with the cap removed 2 tests fail.
+
+## 2026-10-17: S34.3 favourites rank first in Search (Sonnet)
+
+- `searchIndex(index, query, limit, first?)`: `first` is a set of entity ids. The sort is tier, then favourite, then name length, then entry order (spec F6). A favourite never beats a better tier.
+- A `first` that is not a `Set` (card YAML is untrusted) or is empty means no favourites: the same code path as before. The Studio passes none, so its search is as before; shared code, no Studio change, on purpose (F8).
+- Proof. 4 of 5 new tests in `tests/core/search.test.ts` failed first (the asymmetric case: the favourite's name is longer than the other's). The demo's order for "li", "light" and "a" is pinned as literals taken before the change.
+
+## 2026-10-17: S34.7 heat in renderFloor, the humidity tokens and the mix share (Sonnet)
+
+- Judgement, read off `npm run shots` (light, blueprint, midnight, ha-dark; 4x crops of the hottest, coldest, driest and wettest room; the `off` shots as the before). Humidity tokens: `--fp-hum-dry #d8b36a` (sand), `--fp-hum-mid #7fc79a` (pale green), `--fp-hum-wet #2b6fcf` (blue). Dry 28 % reads as a deeper sand than an unheated room, wet 72 % as a clear blue, and neither is mistaken for temperature (`--fp-heat-cool #2f86c9`, `--fp-heat-mid #f0a020`, `--fp-heat-hot #d63a2a`: blue, amber, red) because the middle is green, not amber. Wet blue is close to the cool blue and to water; the legend and the readout unit tell them apart, and I did not spend a fourth hue on it.
+- Judgement, the mix share is 55 % ramp into the kind's colour, in oklch. At 55 % a garden or pond still reads as a garden or a pond; at higher shares the heated rooms flatten into one colour field and the kind is lost. Checked at 4x: the room's name and value stay legible on the halo in every theme, so `underOf` needed no change.
+- Heat beats glow, paint, texture, the paint-dim filter and water's own rule through one rule, `.room.heat[data-r]` (0,3,0), equal to the glow and paint rules and later in the source. No night veil in a heat mode: a heated room is as light at night as by day (shot `heat-ground-temperature-night-blueprint.png`).
+- The readout line shows the heat value for the mode's kind, also under `labels: false`, class `heat-val`. A plug that is on takes the temperature ramp through `--fp-heat` too.
+- Supersedes the S34.6 unit line: the heat text now always carries a unit. A sensor with no unit prints the scale's (`°C`, `%`), where S34.6 printed none; `°F` stays `°F`. The readout and the colour then say the same thing.
+- Shots: the card and the Studio have no heat option yet (S34.8, S34.10), so `scripts/shots.mjs` bundles `render.ts` with esbuild and calls `renderFloor` directly with `heat` set; the images are `shots/current/heat-*`. `shots/` is gitignored; there is no baseline to accept.
+- Proof. `tests/core/render-heat.test.ts` (12) failed first; byte for byte with heat omitted against a pre-change matrix of about 7 MB. `tests/card/heat-css.spec.ts` (4 computed-style pairs, `--repeat-each=10` 40 of 40): each failed when its rule was reverted.
+
+## 2026-10-17: S34.6 heat maths, the unit and bounds rules at the edges (Sonnet)
+
+- Built to spec H2 and H3 in `src/core/heat.ts`; `meanValue` in `readings.ts` is the number and unit behind `meanReading`, which only formats it (its tests are untouched). Core only; the card and Studio draw it in S34.7 onwards.
+- Judgement, a bad reading is left out per sensor, not per mean. The range and unit tests run on each sensor before the first unit is picked (`keep` in `meanValue`). So a faulty 95 °C or 200 °F in a list of two does not colour the room, and does not choose the unit either: the other sensor is read. Whole-mean rejection would blank a room for one broken probe.
+- Judgement, the bounds. Temperature: -60 to 90 °C, ends included, checked after the °F conversion (200 °F is 93 °C: out; 95 °F is 35 °C: in). Humidity: 0 to 100, ends included. Units: temperature takes `°C`, `°F` and none (taken as °C); humidity takes `%` and none. Any other unit (`K`, `%` on a temperature, `°C` on a humidity) is not a reading. A unit is matched exactly, as the readout does.
+- Judgement, mixed units. The first readable unit in the list wins and the others are left out, as `meanReading` does. `""` and `°C` are two units for this, so a list of one unit-less and one `°C` sensor reads the first's group only. The printed text keeps the sensors' unit (°F stays °F, none prints none); `t` is on the °C (or %) scale, clamped to 0..1, rounded to 0.001 so 75.2 °F is 0.8 and not 0.8000000000000004.
+- Judgement, the scale is linear and the middle is the half-way point (21 °C, 50 %), so `t` 0.5 is the mid token. Values past an end clamp; the number printed is the real one.
+- Judgement, `heatKindOf` is exact: `temperature`, `humidity`, `off`. Absent and `null` (an empty YAML key) are `off` with no warning; every other value, `Temperature` and `__proto__` included, is `off` with `warn` set. `HEAT_KINDS.find`, never a property lookup on the input, so a prototype name cannot match.
+- One difference from the plain readout is deliberate. The readout (`roomReadout`) means every readable sensor, in range or not; the heat text means only those in range. A room with one faulty 95 °C sensor and a good 23 °C one prints `23 °C` in heat mode and the readout's own mean beside it. S34.7 prints the heat value for the mode's kind (spec H5), so the colour and the heat number always agree.
+- `heat.ts` imports `roomAt`, `roomList` and `ROOM_OWNS` from `render.ts` and not `deviceCentre` from `room-info.ts` (it reads its own point). `render.ts` will import `heat.ts` in S34.7; the cycle is safe because each side uses the other only inside functions, and `room-info.ts` (which reads render's constants at load) is kept out of it.
+- Proof. `tests/core/heat.test.ts`, 21 tests: the file failed first (module `heat` not found), 21 of 21 pass after. Reverting the `ROOM_OWNS` gate fails the RoomKind test; replacing `keep` with accept-all fails the faulty-sensor test.
+
+## 2026-10-17: CI failure in the saved-views Rename and Delete spec (Sonnet)
+
+- Cause. Rename and Delete are `.keep` items, so the Options menu stays open after them. At a narrow window its box covers Undo, and Playwright refused the click ("subtree intercepts pointer events"). It fails at 950x700 and 900x700 and passes at 1050x800 and wider. The spec sets 1280x800; the CI runner's fonts wrap the toolbar so that Undo sits under the box there. Not reproducible at 1280x800 locally.
+- Two defects. The test never closed the menu. The product left the keyboard stranded: after Enter in the rename field, or after Delete, the focused control left the DOM, focus fell to the body, and Escape (heard on the editor host) no longer closed the menu.
+- Fix. `keepViewFocus` puts focus on Save current view after a rename, a save and a delete, so Escape closes the menu. The test runs at 900x700, so the overlap is deterministic, and closes the menu with Escape before each Undo. Menu stays open after Rename and Delete on purpose (several in a row).
+- Proof. 900x700 without the Escape step: Undo intercepted; without `keepViewFocus`: Escape does nothing and the test fails; both 10/10 green with the fix. The other tests in the file pass at 900x700.
+
 ## 2026-10-15: S33 Opus review fixes (Sonnet)
 
 - 1, blocker. `tap_action: toggle` ran any op without a confirm at once: a lock's Unlock, a cover's Open and an off siren's Turn on. Supersedes the S33.4 rule "ON acts at once". Now `TOGGLE_AT_ONCE` (card) lists the entity domains that act at once: `light`, `switch`, `input_boolean`, `fan`. Every other domain opens the popup. Domains checked against `SWITCHABLE` and `popupOp`: lock and cover (no confirm, a physical door: popup), siren (loud: popup), climate, humidifier, water_heater (a setpoint device, not a lamp), automation (Turn off disables it), remote, media_player, group (`homeassistant.turn_off` reaches every member). A `switch` can drive a garage relay; that is the user's wiring and it stays a plain switch. The popup then shows the same button; nothing else changed. Test: `card-tap-action.spec.ts`, lock, cover and siren (3 failed first, with a real click and no popup), plus a fan and an automation as guards.
@@ -5120,7 +5222,6 @@ its side effect (registering the custom element) so it ships inside the same
 `dist/floorplan-studio-card.js` the vite config already builds — no second
 built file, no change to `vite.config.ts`.
 
-
 ## 2026-09-24 S7.5 Kiosk mode: how the brief was read
 
 - **"No version"** was already moot: the card has never shown a version
@@ -5146,7 +5247,6 @@ built file, no change to `vite.config.ts`.
   typo, not an intentional new value.
 - **Four places, not five,** for `kiosk`, same reason as `zoom` in S7.4: the
   config form (S7.7) does not exist yet.
-
 
 ## 2026-09-24 S7.6 Night: four departures from the brief
 

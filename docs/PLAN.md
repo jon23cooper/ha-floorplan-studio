@@ -4280,11 +4280,11 @@ coder's note before accepting. Opus reviews the integrated build once.
 Wave 1, three lanes, pure code, no shared file:
 
 Lane fav (pure first):
-- [ ] S34.1 Read `favourites` (Sonnet). New `src/card/favourites.ts`: `favouritesOf(config)` returns `{ ids, warn }`
+- [x] S34.1 Read `favourites` (Sonnet). New `src/card/favourites.ts`: `favouritesOf(config)` returns `{ ids, warn }`
       per spec F1 (`favourites`, alias `favorites`, entity-id shape, repeats, `MAX_FAVOURITES` 24). Test, failing first,
       new `tests/card/favourites.test.ts`: criterion 1, plus a getter that throws and a 10,000-item list.
       Files: new `src/card/favourites.ts`, new `tests/card/favourites.test.ts`.
-- [ ] S34.2 Resolve favourites to things on the plan (Sonnet). After S34.1, same file. `favouriteRefs(layout, ids,
+- [x] S34.2 Resolve favourites to things on the plan (Sonnet). After S34.1, same file. `favouriteRefs(layout, ids,
       floors)` returns `{ entity, floor, ref: ThingRef }[]` in the list's order: a device's `entity` or a linked piece's
       (`pieceDevice`), first in layout order, only on the floors given; unknown entities dropped (F4). Test, failing
       first, in `tests/card/favourites.test.ts`: order kept; a piece; an entity on a floor left out; two devices on
@@ -4292,14 +4292,14 @@ Lane fav (pure first):
       Files: `src/card/favourites.ts`, `tests/card/favourites.test.ts`.
 
 Lane search:
-- [ ] S34.3 Favourites rank first in Search (Sonnet). `searchIndex(index, query, limit, first?)`: within a tier a
+- [x] S34.3 Favourites rank first in Search (Sonnet). `searchIndex(index, query, limit, first?)`: within a tier a
       favourite entity sorts first (F6). Test, failing first, in `tests/core/search.test.ts`: criterion 7 with an
       asymmetric case (the favourite's name longer than the other's, so name length alone would put it second);
       `first` omitted gives today's order on the demo, entry for entry.
       Files: `src/core/search.ts`, `tests/core/search.test.ts`.
 
 Lane heat (pure first):
-- [ ] S34.6 Heat maths (Sonnet, **judgement**: the unit and bounds rules at the edges). New `src/core/heat.ts`:
+- [x] S34.6 Heat maths (Sonnet, **judgement**: the unit and bounds rules at the edges). New `src/core/heat.ts`:
       `HEAT_KINDS` (`off`, `temperature`, `humidity`), `heatKindOf(raw)` (junk is `off` plus a warn flag),
       `HEAT_SCALE` (spec H3), `HEAT_SOURCE: Record<DeviceType, HeatKind | null>`, `roomHeat(f, i, kind, state)`
       returning `{ text, t } | null` by spec H2 and H3, and `heatLegend(kind)`. `readings.ts` gains `meanValue` (the
@@ -4314,7 +4314,7 @@ Lane heat (pure first):
 
 Wave 2, after wave 1. The card file takes one task at a time:
 
-- [ ] S34.7 Heat in `renderFloor` (Sonnet, **judgement**: the three humidity tokens and the mix share, read off the
+- [x] S34.7 Heat in `renderFloor` (Sonnet, **judgement**: the three humidity tokens and the mix share, read off the
       shots in every theme). After S34.6. `RenderOpts.heat?: HeatKind`. Spec H4, H5: class `heat` and `--fp-heat` on a
       heated room's polygon; the readout line shows the heat value for the mode's kind, also under `labels: false`
       (class `heat-val`); no `room-night` in a heat mode; tokens `--fp-hum-dry`, `--fp-hum-mid`, `--fp-hum-wet` beside
@@ -4325,7 +4325,7 @@ Wave 2, after wave 1. The card file takes one task at a time:
       `heat-humidity` states on the `on` states; `npm run shots`, blueprint, light and midnight looked at, Living and
       Bedroom at 4x, before `--accept`.
       Files: `src/core/render.ts`, the two new tests, `scripts/shots.mjs`, `shots/` baseline.
-- [ ] S34.4 The Favourites section (Sonnet, **judgement**: where the inline confirm sits in a row on a phone). After
+- [x] S34.4 The Favourites section (Sonnet, **judgement**: where the inline confirm sits in a row on a phone). After
       S34.2 and S34.3. Spec F2, F3, F5, F9: the section above Attention at the Overview level, rows with the popup's
       primary button through `_popupOp` and `_runOp`, the fold, floor badges; the card passes the favourite set to
       Search. One `console.warn` per card from `setConfig` when `favouritesOf` says so. Test, failing first, new
@@ -4333,7 +4333,7 @@ Wave 2, after wave 1. The card file takes one task at a time:
       leaves Attention in view at 390 x 844; Search ranks the favourite (criterion 7 end to end); the row button per
       type iterates `DEVICE_TYPES` and matches what the popup offers for the same state.
       Files: `src/card/floorplan-studio-card.ts`, `tests/card/card-favourites.spec.ts`.
-- [ ] S34.5 Favourites in the Edit-card form (Sonnet). After S34.1. Spec F7: the input with its `datalist` of the
+- [x] S34.5 Favourites in the Edit-card form (Sonnet). After S34.1. Spec F7: the input with its `datalist` of the
       layout's entities, Add, the list with remove buttons, the refusal line. Test, failing first, in
       `tests/card/config-editor.spec.ts`: criterion 8 with real clicks and typing; a `"><script>` friendly name in the
       datalist is text.
@@ -4341,7 +4341,7 @@ Wave 2, after wave 1. The card file takes one task at a time:
 
 Wave 3, after wave 2:
 
-- [ ] S34.8 The heat map in the card (Sonnet). After S34.4 (card file) and S34.7. Spec H7, H8: `heat_map` read with
+- [x] S34.8 The heat map in the card (Sonnet). After S34.4 (card file) and S34.7. Spec H7, H8: `heat_map` read with
       `heatKindOf`, one warning; the Heat map section of the ⋯ menu after Layers, hidden in 3D, kept under
       `view_switch: false`; `StoredView.heat` with `parseStoredView` dropping junk; `heat_map` in `_viewStorageKey`;
       Reset view; the legend strip (`heatLegend`) at the plan's bottom left in a heat mode, 2D and 2.5D only. Test,
@@ -4351,11 +4351,11 @@ Wave 3, after wave 2:
       `tests/card/view-state.test.ts` for `parseStoredView`. Screenshots of the legend at 1280 and 380 wide, blueprint
       and light, looked at.
       Files: `src/card/floorplan-studio-card.ts`, `src/card/view-state.ts`, the new spec, `tests/card/view-state.test.ts`.
-- [ ] S34.9 Heat map in the Edit-card form (Sonnet). After S34.5 (same file). A Heat map select (Off, Temperature,
+- [x] S34.9 Heat map in the Edit-card form (Sonnet). After S34.5 (same file). A Heat map select (Off, Temperature,
       Humidity); `off` drops the key. Test, failing first, in `tests/card/config-editor.spec.ts`: pick Humidity, the
       config gains `heat_map: humidity`; back to Off, the key is gone; junk shows Off and fires nothing.
       Files: `src/card/config-editor.ts`, `tests/card/config-editor.spec.ts`.
-- [ ] S34.10 The heat map in the Studio (Sonnet). After S34.7; its parity row after S34.8 merges. Spec H9: View,
+- [x] S34.10 The heat map in the Studio (Sonnet). After S34.7; its parity row after S34.8 merges. Spec H9: View,
       `#heatSub` (Off, Temperature, Humidity), kept in `view-memory.ts`, passed to `renderFloor`; the status bar shows
       `heatLegend`, or "Heat map: no readings" when no room is heated. Test, failing first, new
       `tests/editor/heat-map.spec.ts`: criterion 14 with real clicks, panel harness with states and standalone; the
@@ -4366,7 +4366,7 @@ Wave 3, after wave 2:
       only).
 
 Wave 4, on `task/s34-extras`:
-- [ ] S34.11 Exit, docs, shots (Sonnet; the docs part may go to Haiku). Every exit-test file green, `--repeat-each=10`
+- [x] S34.11 Exit, docs, shots (Sonnet; the docs part may go to Haiku). Every exit-test file green, `--repeat-each=10`
       on each new Playwright file. Docs: `docs/card.md` (Config keys: `favourites`, `heat_map`; Overview: Favourites;
       a Heat map section; Studio and card: the parity line for favourites), `docs/editor.md` (View, Heat map),
       `docs/SPEC.md` (Card behaviours: heat map and favourites; no schema change), `README.md` feature list, CHANGELOG

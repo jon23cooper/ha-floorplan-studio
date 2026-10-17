@@ -67,7 +67,7 @@ test.describe("S31.6 the ⋯ menu: criterion 7", () => {
   test("the roles and the order of D3: View, Floor below, Theme, Labels, Device names, Detail, Layers, Rotate left, Rotate right, Reset view", async ({ page }) => {
     await boot(page);
     await openMenu(page);
-    expect(await names(page, "menuitemradio")).toEqual(["2D", "2.5D", "3D", "Auto", "Full", "Minimal"]);
+    expect(await names(page, "menuitemradio")).toEqual(["2D", "2.5D", "3D", "Auto", "Full", "Minimal", "Off", "Temperature", "Humidity"]);
     const checks = await names(page, "menuitemcheckbox");
     expect(checks.slice(0, 3)).toEqual(["Floor below", "Labels", "Device names"]);
     expect(checks.length, "and a layer per family on the floor").toBeGreaterThan(3);

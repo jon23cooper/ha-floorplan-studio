@@ -16,6 +16,12 @@ async function openViews(page: Page) {
   if (!(await isOpen(page, "#mOpt"))) await page.locator("#mOpt > summary").click();
   if (!(await isOpen(page, "#viewsSub"))) await page.locator("#viewsSub > summary").click();
 }
+/** Closes the View menu the way a user does, with Escape. Rename and Delete are .keep items, so the menu stays open after
+ * them, and at a narrow window its box covers Undo (CI failed on this at 1280 px with wider fonts). */
+async function closeMenu(page: Page) {
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#mOpt")).not.toHaveAttribute("open", "");
+}
 async function save(page: Page, name: string, mode?: string) {
   await openViews(page);
   await page.locator("#saveView").click();
@@ -125,6 +131,7 @@ test('a name of "><script> is drawn as text and runs nothing', async ({ page }) 
 });
 
 test("Rename and Delete from the item's context menu are one undo step each; an unchanged rename is none", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 }); // narrow: the open View menu covers Undo, as it did on CI
   await save(page, "Alpha");
   await openViews(page);
   await items(page).first().click({ button: "right" });
@@ -138,12 +145,14 @@ test("Rename and Delete from the item's context menu are one undo step each; an 
   await page.locator("#viewName").fill("Beta");
   await page.locator("#viewName").press("Enter");
   expect((await stored(page)).views![0].name).toBe("Beta");
+  await closeMenu(page);
   await page.locator("#undo").click();
   expect((await stored(page)).views![0].name).toBe("Alpha"); // one step took it back; the unchanged rename left none
   await openViews(page);
   await items(page).first().click({ button: "right" });
   await page.locator("#viewDelete").click();
   expect((await stored(page)).views).toBeUndefined();
+  await closeMenu(page);
   await page.locator("#undo").click();
   expect((await stored(page)).views!.map((v) => v.name)).toEqual(["Alpha"]);
   await page.locator("#undo").click(); // the save

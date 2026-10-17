@@ -406,6 +406,15 @@ try {
   cardShots.push({ name: "card-first-ghost-blueprint-2-5d", floor: "first", which: "off", dark: bp.dark, theme: bp.theme, vars: bp.vars, page: bp.page, ghost: true, view: "2.5d", cfg: { ghost_floor: true, active_list: false } });
   cardShots.push({ name: "card-ground-on-blueprint-2-5d-375px", floor: "ground", which: "on", dark: bp.dark, theme: bp.theme, vars: bp.vars, page: bp.page, view: "2.5d", width: 375 });
   cardShots.push({ name: "card-ground-on-blueprint-2-5d-rot-45-375px", floor: "ground", which: "on", dark: bp.dark, theme: bp.theme, vars: bp.vars, page: bp.page, view: "2.5d", width: 375, cfg: { rotation: 45 } });
+  // S34.11: the card itself with a favourite (the Overview's top section) and with the heat map on (plan, legend, menu item), light,
+  // blueprint and a dark theme. The renderFloor shots further down show the rooms at 4x; these show the chrome around them.
+  for (const t of THEMES.filter((x) => ["light", "blueprint", "ha-dark"].includes(x.id))) {
+    cardShots.push({ name: `card-ground-favourites-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, cfg: { favourites: ["light.demo_living", "switch.demo_tv_plug"] }, openSheet: true });
+    for (const kind of ["temperature", "humidity"])
+      cardShots.push({ name: `card-ground-heat-${kind}-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, cfg: { heat_map: kind } });
+  }
+  for (const t of THEMES.filter((x) => ["light", "blueprint", "ha-dark"].includes(x.id)))
+    cardShots.push({ name: `card-ground-heat-temperature-living-3x-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, dpr: 3, cfg: { heat_map: "temperature", active_list: false }, cropRoom: 0 });
   for (const s of cardShots) {
     const ctx = await browser.newContext({ viewport: { width: s.width ?? 900, height: 700 }, colorScheme: "light", reducedMotion: "reduce", ...(s.dpr ? { deviceScaleFactor: s.dpr } : {}) });
     const page = await ctx.newPage();
@@ -435,6 +444,11 @@ try {
         await page.locator("floorplan-studio-card").locator(".fp-room-devices .fp-active-row").first().click();
         await page.locator("floorplan-studio-card").locator(".fp-pop .fp-pop-info > summary").click();
       }
+      await page.mouse.move(0, 0);
+    }
+    if (s.openSheet) { // a real click on the rail's open button, as a person does
+      await page.locator("floorplan-studio-card").locator(".fp-rail-open").click();
+      await page.locator("floorplan-studio-card").locator(".fp-active-row").first().waitFor();
       await page.mouse.move(0, 0);
     }
     if (s.pill) {
@@ -470,7 +484,10 @@ try {
     }
     const nodes = await page.evaluate(() => document.getElementById("c").shadowRoot.querySelectorAll("svg *").length);
     if (nodes < 10) errors.push(`${s.name}: the plan drew ${nodes} nodes; something is wrong before you even look`);
-    await page.locator("floorplan-studio-card").screenshot({ path: `${OUT}/${s.name}.png` });
+    if (s.cropRoom !== undefined) { // the card's own room, zoomed: its name, chips and heat value
+      const b = await page.evaluate((i) => { const r = document.getElementById("c").shadowRoot.querySelector(`svg polygon[data-r="${i}"]`).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }, s.cropRoom);
+      await page.screenshot({ path: `${OUT}/${s.name}.png`, clip: { x: b.x, y: b.y, width: b.width, height: b.height } });
+    } else await page.locator("floorplan-studio-card").screenshot({ path: `${OUT}/${s.name}.png` });
     shots.push(s.name);
     await ctx.close();
   }
@@ -716,6 +733,44 @@ try {
     await page.mouse.move(0, 0);
     await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
     shots.push(name);
+    await ctx.close();
+  }
+  // S34.7: the heat map. renderFloor drawn straight onto a page (the card takes the option in S34.8, the Studio in S34.10): the plan
+  // exactly as every host draws it, minus the chrome. Both floors, `off` (the same plan with no heat, the "before"), temperature and
+  // humidity on the `on` states, in blueprint, light, midnight and ha-dark; one night shot (no veil); and 4x crops of the coldest and
+  // hottest room on an extremes state (Living 27.5 and Bedroom 14 degrees, Bathroom 72 and 28 %), every theme.
+  const { buildSync } = await import("esbuild");
+  const planJs = buildSync({ entryPoints: ["src/core/render.ts"], bundle: true, format: "iife", globalName: "FPR", write: false, logLevel: "silent" }).outputFiles[0].text;
+  const HEAT_THEMES = [...THEMES.filter((x) => x.id !== "ha-light"), { id: "midnight", theme: "midnight", dark: true, vars: "", page: "#0d1522" }];
+  const extremes = (_unused, wet) => ({ ...STATES.off, "sensor.demo_living_temperature": ["27.5", {}], "sensor.demo_bedroom_temperature": ["14", {}], "sensor.demo_bathroom_humidity": [wet ? "72" : "28", {}] });
+  const heatShots = [];
+  for (const floor of ["ground", "first"]) for (const kind of ["off", "temperature", "humidity"]) for (const t of HEAT_THEMES)
+    heatShots.push({ name: `heat-${floor}-${kind}-on-${t.id}`, floor, kind, which: "on", t, dpr: 1 });
+  for (const kind of ["off", "temperature"]) heatShots.push({ name: `heat-ground-${kind}-night-blueprint`, floor: "ground", kind, which: "night", t: HEAT_THEMES[0], night: true, dpr: 1 });
+  for (const t of HEAT_THEMES) {
+    heatShots.push({ name: `heat-ground-temperature-living-hot-4x-${t.id}`, floor: "ground", kind: "temperature", st: extremes(), t, room: 0, dpr: 4 });
+    heatShots.push({ name: `heat-first-temperature-bedroom-cold-4x-${t.id}`, floor: "first", kind: "temperature", st: extremes(), t, room: 0, dpr: 4 });
+    heatShots.push({ name: `heat-first-humidity-bathroom-wet-4x-${t.id}`, floor: "first", kind: "humidity", st: extremes(null, true), t, room: 1, dpr: 4 });
+    heatShots.push({ name: `heat-first-humidity-bathroom-dry-4x-${t.id}`, floor: "first", kind: "humidity", st: extremes(null, false), t, room: 1, dpr: 4 });
+  }
+  for (const s of heatShots) {
+    const f = layout.floors[s.floor];
+    const ctx = await browser.newContext({ viewport: { width: 940, height: 700 }, colorScheme: "light", reducedMotion: "reduce", deviceScaleFactor: s.dpr });
+    const page = await ctx.newPage();
+    page.on("pageerror", (e) => errors.push(`${s.name}: ${e}`));
+    await page.setContent(`<!doctype html><meta charset="utf-8"><body style="margin:0;padding:12px;background:${s.t.page};${s.t.vars}"><svg id="p" width="900" viewBox="-20 -20 940 690"></svg></body>`);
+    await page.addScriptTag({ content: planJs });
+    const states = s.st ?? STATES[s.which];
+    await page.evaluate(([floor, kind, states, theme, dark, night, ratio]) => {
+      const st = {}; for (const [id, v] of Object.entries(states)) { const a = Array.isArray(v) ? v : [v]; st[id] = { state: a[0], attributes: a[1] ?? {}, last_changed: new Date().toISOString() }; }
+      const sty = document.createElement("style"); sty.textContent = FPR.FLOORPLAN_CSS; document.head.append(sty);
+      document.getElementById("p").innerHTML = FPR.renderFloor(floor, { scale: ratio, px: ratio, state: st, theme, dark, night, roomGlow: true, heat: kind });
+    }, [f, s.kind, states, s.t.theme, s.t.dark, !!s.night, 900 / 940]);
+    if (s.room !== undefined) {
+      const box = await page.evaluate((i) => { const r = document.querySelector(`#p polygon[data-r="${i}"]`).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }, s.room);
+      await page.screenshot({ path: `${OUT}/${s.name}.png`, clip: { x: Math.max(0, box.x - 6), y: Math.max(0, box.y - 6), width: box.width + 12, height: box.height + 12 } });
+    } else await page.screenshot({ path: `${OUT}/${s.name}.png`, clip: { x: 0, y: 0, width: 924, height: 678 } });
+    shots.push(s.name);
     await ctx.close();
   }
 } finally {

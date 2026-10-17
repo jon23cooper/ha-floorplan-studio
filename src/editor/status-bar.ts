@@ -3,7 +3,7 @@ import type { Pt } from "../core";
 import type { EditorState } from "./state";
 
 /** What the host knows that the state does not: Alt is held, a shape is being drawn. */
-export interface StatusView { alt: boolean; drawing: boolean }
+export interface StatusView { alt: boolean; drawing: boolean; /** S34.10: the heat map's words ("Heat map: 16 °C to 26 °C", or "no readings"), absent when the map is off. */ heat?: string }
 
 export interface StatusFacts {
   /** The facts in order, without the lock. */
@@ -48,6 +48,7 @@ export function statusFacts(st: EditorState, v: StatusView): StatusFacts {
   const fit = viewBoxFor(f, 80, st.rotation), w = st.view.w;
   const zoom = Number.isFinite(w) && w > 0 && Number.isFinite(fit.w) ? Math.round((fit.w / w) * 100) : 100;
   parts.push(`${zoom} %`);
+  if (v.heat) parts.push(v.heat);
   const locked = st.planLocked;
   return { parts, locked, text: (locked ? [...parts, "Plan locked"] : parts).join(SEP) };
 }

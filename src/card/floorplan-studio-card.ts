@@ -1,10 +1,12 @@
 import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from "lit";
 import { planPatch } from "./plan-patch"; // S25.6: the plan is patched, not replaced, on a state update
-import { ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
-import type { LayerId, OffRow, SearchEntry } from "../core";
+import { ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
+import type { HeatKind, LayerId, OffRow, SearchEntry } from "../core";
 import type { ActiveDevice, Attention, AttentionItem, AttentionKind, CategoryId, DeviceType, ThingRef, PowerCandidate, RoomDeviceRow, RoomSensorRow, RoomSummary, Theme, WallsMode } from "../core";
 import type { Device, Door, Floor, Layout, SavedView } from "../core";
 import { tapActionOf, holdActionOf } from "./tap-action";
+import { colorVarFor } from "../core/active";
+import { favouriteRefs, favouritesOf, type FavouritesRead } from "./favourites";
 import { TAP_SLOP_PX, THINGS, bindDeviceActions, fireEvent, thingKind, type TapTarget } from "./actions";
 import { fanCaps, lampOp, lightCaps, popupOp, type PopupOp } from "./popup";
 import { SCENES_CSS, scenesTemplate } from "./room-scenes-ui";
@@ -29,7 +31,7 @@ import type { MenuItem, MenuSection } from "./more-menu";
 import type { View3D } from "./three/view3d";
 import type { Pick as Pick3D } from "./three/pick";
 import { liveDeps, sceneDeps, textureDeps } from "../core/three-deps";
-import { BELOW_LABELS, BELOW_MODES, belowModeOf, type BelowMode, ROTATION_STEP, easeInOut, normaliseRotation, parseStoredView, shortestDelta, viewAround, type FloorView, type StoredView } from "./view-state";
+import { BELOW_LABELS, BELOW_MODES, HEAT_LABELS, belowModeOf, type BelowMode, ROTATION_STEP, easeInOut, normaliseRotation, parseStoredView, shortestDelta, viewAround, type FloorView, type StoredView } from "./view-state";
 
 const NO_LAYOUT = "No layout: install the Floorplan Studio integration or set layout_url";
 
@@ -133,6 +135,8 @@ export interface FloorplanStudioCardConfig {
   ghost_floor?: boolean;
   /** How the 3D view draws the floors under the shown one (docs/card.md): `"off"` (default), `"ghost"` translucent, `"solid"` in their own colours. Anything else is `"off"`. A Floors below select next to Walls in 3D changes it for one viewer, and the card remembers the pick. */
   floors_below?: BelowMode;
+  /** The heat map (docs/card.md, Heat map): `"off"` (default), `"temperature"` or `"humidity"` fills each room that has a reading of that kind on a fixed scale and draws a legend. 2D and 2.5D only. Anything else is `"off"`, with one console warning. The Heat map items of the ⋯ menu change it for one viewer, and the card remembers the pick. */
+  heat_map?: unknown;
 }
 
 /** What the View dropdown offers: the two flat plans `renderFloor` draws and the 3D model, which is a renderer of its own. */
@@ -333,6 +337,10 @@ export class FloorplanStudioCard extends LitElement {
     /* The cluster: +, - and Fit (Reset camera in 3D), top right of the stage. Over the plan on purpose; the one thing that is.
        In kiosk it also holds the ⋯ menu when \`rotate_switch: true\` brings one. */
     .fp-cluster { grid-area: stage; justify-self: end; align-self: start; z-index: 1; margin: 8px; min-width: 0; max-width: calc(100% - 16px); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    /* S34.8: the heat map's legend, bottom left of the stage, over the plan like the cluster: end labels as text, a ramp between. */
+    .fp-heat-legend { grid-area: stage; justify-self: start; align-self: end; z-index: 1; margin: 8px; display: flex; align-items: center; gap: 6px; padding: 4px 8px; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-ink); background: var(--fp-room); border: 1px solid var(--fp-idle); border-radius: 6px; pointer-events: none; }
+    .fp-heat-legend.fp-heat-legend-up { align-self: start; } /* the 3D fallback note holds the bottom left: the legend goes to the top */
+    .fp-heat-ramp { width: 96px; height: 10px; border-radius: 5px; }
     /* One line, over the plan, when 3D cannot run: why, and that 2D is what is shown. */
     .fp-3d-note { position: absolute; left: 8px; bottom: 8px; z-index: 1; margin: 0; max-width: calc(100% - 16px); padding: 4px 8px; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-ink); background: var(--fp-room); border: 1px solid var(--fp-idle); border-radius: 6px; }
     p.msg { grid-area: 1 / 1 / -1 / -1; padding: 16px; margin: 0; font: 14px sans-serif; color: var(--fp-text); }
@@ -480,6 +488,15 @@ export class FloorplanStudioCard extends LitElement {
     .fp-row-floor { border: 1px solid var(--fp-idle); border-radius: 4px; padding: 0 3px; line-height: 1.3; }
     .fp-ov-row .fp-row-state { white-space: normal; max-width: 45%; }
     .fp-ov-age { white-space: nowrap; }
+    /* S34.4: a favourite row is the Active row and the popup's button. The button sits right; Confirm and Cancel take their own line so a phone's row never squeezes the name. */
+    .fp-fav-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 2px 6px; }
+    .fp-fav-row .fp-active-row { flex: 1 1 9em; width: auto; min-width: 0; }
+    .fp-fav-gone { opacity: 0.5; }
+    .fp-fav-act, .fp-fav-cancel { flex: 0 0 auto; border: 1px solid var(--fp-idle); background: transparent; color: var(--fp-ink); font: 11px/1.4 var(--fp-font, system-ui, sans-serif); border-radius: 999px; padding: 2px 10px; cursor: pointer; min-height: 24px; margin-top: 3px; }
+    .fp-fav-act:hover, .fp-fav-cancel:hover, .fp-fav-act:focus-visible, .fp-fav-cancel:focus-visible { border-color: var(--fp-primary); }
+    .fp-fav-confirm { flex: 1 1 100%; display: flex; gap: 6px; padding-left: 22px; }
+    .fp-fav-confirm button { flex: 1 1 0; }
+    .fp-fav-confirm .fp-fav-act { color: var(--fp-on-dark, #fff); background: var(--fp-primary); border-color: var(--fp-primary); font-weight: 600; }
     .fp-ov-hint { margin: 8px 2px 0; font: 10px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-text); }
     /* One target per row, finger-sized on a touch screen (S24.7). */
     /* S24.7: the ring a row tap puts on its thing. Card chrome over the plan, never a hit target. Reduced motion: a steady ring. */
@@ -560,6 +577,8 @@ export class FloorplanStudioCard extends LitElement {
   private _pickedGhost: boolean | null = null;
   /** S27.14: the Floors below select's pick (3D); `null` leaves the card's YAML `floors_below` in charge. */
   private _pickedBelow: BelowMode | null = null;
+  /** S34.8: the Heat map pick; `null` leaves the card's YAML `heat_map` in charge. */
+  private _pickedHeat: HeatKind | null = null;
   private _hiddenLayers: LayerId[] = [];
   /** What search or a row tap located under a hidden family: drawn anyway (`keep`) on its floor, with a note and Show. */
   private _kept: { floor: string; t: "dev" | "furn"; i: number; fam: LayerId } | null = null;
@@ -649,6 +668,11 @@ export class FloorplanStudioCard extends LitElement {
   private _activeCollapsed = false;
   /** S14.6: the category groups the viewer folded, as `list:category` ids (`a:` Active list, `r:` Room panel). Per card, in browser storage. */
   private _foldedCats = new Set<string>();
+  /** S34.4: the card's cleaned `favourites` (read once per `setConfig`), and the entities as a set for Search. */
+  private _fav: FavouritesRead = { ids: [], warn: false };
+  private _favSet: ReadonlySet<string> = new Set();
+  /** The favourite whose Turn off is at its confirm step. Card state: kept through `hass`, dropped by `setConfig`. */
+  private _favAsk: string | null = null;
   /** S31.5: what the card's width gives it (frame.ts). Measured in `render()` and by the ResizeObserver; 0 wide (not laid
    * out) keeps the last answer. */
   private _frame: FrameMode = "bottom";
@@ -737,6 +761,7 @@ export class FloorplanStudioCard extends LitElement {
     if (c.detail !== undefined) seed.push(["detail", c.detail]);
     if (c.ghost_floor !== undefined) seed.push(["ghost_floor", c.ghost_floor]);
     if (c.floors_below !== undefined) seed.push(["floors_below", c.floors_below]);
+    if (c.heat_map !== undefined) seed.push(["heat_map", c.heat_map]);
     if (c.kiosk !== undefined) seed.push(["kiosk", c.kiosk]);
     return `fp-view:${tag(JSON.stringify(seed))}`;
   }
@@ -745,7 +770,7 @@ export class FloorplanStudioCard extends LitElement {
    * config's look. Storage is untrusted: `parseStoredView` drops each bad field, and a throwing `localStorage`
    * (private mode, blocked) is nothing stored. */
   private _loadViewState(): void {
-    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedRot = this._pickedDetail = this._pickedGhost = this._pickedBelow = null;
+    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedRot = this._pickedDetail = this._pickedGhost = this._pickedBelow = this._pickedHeat = null;
     this._pendingView = null;
     this._appliedView = null;
     this._shownFloor = null;
@@ -769,6 +794,7 @@ export class FloorplanStudioCard extends LitElement {
     if (s.detail !== undefined) this._pickedDetail = s.detail;
     if (s.ghost !== undefined) this._pickedGhost = s.ghost;
     if (s.below !== undefined) this._pickedBelow = s.below;
+    if (s.heat !== undefined) this._pickedHeat = s.heat;
     if (s.floor !== undefined) this._shownFloor = s.floor; // an unknown id is ignored by _floorKey
     this._hiddenLayers = s.layers ?? [];
     for (const [k, fv] of s.floors ?? []) this._floorViews.set(k, fv); // the live fields follow once the first render knows the floor
@@ -819,6 +845,7 @@ export class FloorplanStudioCard extends LitElement {
     if (this._pickedDetail !== null) o.detail = this._pickedDetail;
     if (this._pickedGhost !== null) o.ghost = this._pickedGhost;
     if (this._pickedBelow !== null) o.below = this._pickedBelow;
+    if (this._pickedHeat !== null) o.heat = this._pickedHeat;
     if (this._shownFloor !== null) o.floor = this._shownFloor;
     if (this._hiddenLayers.length) o.layers = this._hiddenLayers;
     this._stashFloor();
@@ -1105,8 +1132,8 @@ export class FloorplanStudioCard extends LitElement {
     this.requestUpdate();
   }
 
-  /** S14.6: one category of rows under a header button. `list` is `a` (Active) or `r` (Room); folded state is per list. */
-  private _catGroup(list: "a" | "r", id: string, label: string, count: number, rows: unknown) {
+  /** S14.6: one category of rows under a header button. `list` is `a` (Active), `r` (Room) or `f` (Favourites); folded state is per list. */
+  private _catGroup(list: "a" | "r" | "f", id: string, label: string, count: number, rows: unknown) {
     const key = `${list}:${id}`, folded = this._foldedCats.has(key);
     return html`<div class="fp-active-group" data-cat=${id}>
       <button type="button" class="fp-active-group-label fp-cat" aria-expanded=${folded ? "false" : "true"} @click=${() => this._toggleCat(key)}>
@@ -1194,6 +1221,8 @@ export class FloorplanStudioCard extends LitElement {
     this._settleTurn(false);
     this._config = config ?? {};
     this._warnActions();
+    this._readFavourites();
+    this._warnHeat();
     this._closePopup();
     this._focusDev = null;
     this._hideTip();
@@ -2167,6 +2196,41 @@ export class FloorplanStudioCard extends LitElement {
     ring.style.width = ring.style.height = `${size}px`;
   }
 
+  /** S34.4 (F1): reads `favourites` once per config, and warns once per card when the list had junk in it. Never throws. */
+  private _favWarned = false;
+  private _readFavourites(): void {
+    this._fav = favouritesOf(this._config);
+    this._favSet = new Set(this._fav.ids);
+    this._favAsk = null;
+    if (!this._fav.warn || this._favWarned) return;
+    this._favWarned = true;
+    console.warn(`floorplan-studio-card: favourites has an item that is not an entity id (or a repeat, or more than 24), so it was left out. Use a list of ids like light.kitchen (docs/card.md).`);
+  }
+
+  /** S34.8 (H8): one console warning per card for a `heat_map` that is there but is not `off`, `temperature` or `humidity`; absent is no warning. */
+  private _heatWarned = false;
+  private _warnHeat(): void {
+    if (this._heatWarned || !heatKindOf(this._config.heat_map).warn) return;
+    this._heatWarned = true;
+    console.warn(`floorplan-studio-card: heat_map is not off, temperature or humidity, so it is off. Use one of the three words, in lower case (docs/card.md).`);
+  }
+
+  /** S34.8: the heat map mode: this viewer's pick, else the YAML `heat_map`, else off. Junk is off. */
+  private _heatKind(): HeatKind {
+    return this._pickedHeat ?? heatKindOf(this._config.heat_map).kind;
+  }
+
+  /** S34.8 (H5, H7): the legend strip, text and a ramp, at the plan's bottom left. Card chrome, drawn from the one `heatLegend` the Studio's status bar uses. A heat mode in 2D and 2.5D only: in live 3D no room is coloured, so there is nothing to explain. */
+  private _heatLegend() {
+    const lg = heatLegend(this._heatKind()), f = this._floor();
+    if (!lg || this._shows3d() || !f) return null;
+    const cls = this._fallback3d && this._viewPick() === "3d" ? "fp-heat-legend fp-heat-legend-up" : "fp-heat-legend";
+    // Same check as the Studio's status bar: a scale with no room on it would explain colours that are not there.
+    if (!anyRoomHeated(f, lg.kind, this._stateForRender())) return html`<div class=${cls}><span class="fp-heat-end">Heat map: no readings</span></div>`;
+    const ramp = `background:linear-gradient(to right in oklch,${lg.stops.map((s) => `var(${s.token})`).join(",")})`;
+    return html`<div class=${cls}><span class="fp-heat-end">${lg.from}</span><span class="fp-heat-ramp" style=${ramp} aria-hidden="true"></span><span class="fp-heat-end">${lg.to}</span></div>`;
+  }
+
   /** S33.4: one console warning per card for a `tap_action` or `hold_action` that is there but not usable; absent is no warning. */
   private _actionsWarned = false;
   private _warnActions(): void {
@@ -2637,6 +2701,9 @@ export class FloorplanStudioCard extends LitElement {
       const layers = LAYERS.filter((l) => n[l.id] > 0).map((l): MenuItem => ({ kind: "check", label: l.label, value: `layer:${l.id}`, checked: !hidden.includes(l.id) }));
       if (layers.length) out.push({ label: "Layers", items: layers });
     }
+    // S34.8: the Heat map is data, like Detail and Layers, and keeps their condition: it stays under `view_switch: false`, is not in live
+    // 3D, and kiosk and `active_list: false` have no menu for it (the YAML key still applies there).
+    if (this._activeListVisible() && f && !this._shows3d()) out.push({ label: "Heat map", items: HEAT_KINDS.map((k) => radio(HEAT_LABELS[k], `heat:${k}`, k === this._heatKind())) });
     if (!this._shows3d() && this._hasViewControls()) {
       const acts: MenuItem[] = [];
       if (this._rotateOn()) acts.push({ kind: "action", label: "Rotate left", value: "rotate:-1" }, { kind: "action", label: "Rotate right", value: "rotate:1" });
@@ -2702,6 +2769,7 @@ export class FloorplanStudioCard extends LitElement {
       case "labels": this._pickedLabels = !this._labels(); done(); break;
       case "names": this._pickedNames = !this._names(); done(); break;
       case "detail": if ((DETAIL_MODES as readonly string[]).includes(arg)) { this._pickedDetail = arg as DetailMode; done(); } break;
+      case "heat": if ((HEAT_KINDS as readonly string[]).includes(arg)) { this._pickedHeat = arg as HeatKind; done(); } break;
       case "layer": if (LAYERS.some((l) => l.id === arg)) this._setLayers(d?.alt === true ? soloLayer(this._hiddenLayers, arg as LayerId) : toggleLayer(this._hiddenLayers, arg as LayerId)); break; // Alt: this family alone, again: all
       case "rotate": if (arg === "1" || arg === "-1") this._turnBy(Number(arg) * ROTATION_STEP); break;
       case "reset": this._resetView(); break;
@@ -3096,6 +3164,46 @@ export class FloorplanStudioCard extends LitElement {
     </button>`;
   }
 
+  /** S34.4 (F2, F3): the Favourites section, or nothing. Every floor the card shows, whatever "All floors" says. A row is the
+   *  Active row (a tap goes to the thing) and the popup's own button beside it, from `_popupOp` and `_runOp`; a turn OFF that
+   *  asks turns the button into Confirm and Cancel. A thing with no button (a sensor, `NO_TOGGLE`, unavailable) has none. */
+  private _favouriteSection() {
+    const layout = this._layout;
+    if (!layout || !this._fav.ids.length) return nothing;
+    const shown = this._floorList()?.map(([k]) => k) ?? [this._floorKey() ?? ""];
+    const badge = shown.length > 1;
+    const rows = favouriteRefs(layout, this._fav.ids, shown).flatMap((r) => {
+      const f = layout.floors[r.floor], m = f?.furniture?.[r.ref.index];
+      const d = r.ref.what === "device" ? f?.devices[r.ref.index] : m ? pieceDevice(m) : undefined;
+      if (!d) return [];
+      const s = this._deviceSubject(d), op = this._popupOp(s), state = this._hass?.states?.[r.entity]?.state;
+      const row: OverviewRow = { entity: r.entity, name: s.name, floor: r.floor, at: r.ref, state: this._subjectText(s), type: d.type, colorVar: colorVarFor(d, this._hass?.states), attn: false };
+      const confirm = op ? this._favConfirm(op, r.entity) : null;
+      const asking = !!confirm && this._favAsk === r.entity;
+      const act = !op ? nothing : asking
+        ? html`<div class="fp-fav-confirm"><button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${confirm}</button><button type="button" class="fp-fav-cancel" @click=${() => { this._favAsk = null; this.requestUpdate(); }}>Cancel</button></div>`
+        : html`<button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${op.label}</button>`;
+      return [html`<div class=${state === "unavailable" || state === "unknown" ? "fp-fav-row fp-fav-gone" : "fp-fav-row"} data-entity=${r.entity}>${this._ovRow(row, badge)}${act}</div>`];
+    });
+    if (!rows.length) return nothing;
+    return html`<section class="fp-ov-section fp-ov-fav">${this._catGroup("f", "favourites", "Favourites", rows.length, rows)}</section>`;
+  }
+
+  /** The confirm text a row button asks with, or null when it acts at once. Same rule as `tap_action: toggle`: only a plain
+   *  on/off (`TOGGLE_AT_ONCE`) acts on one tap; a lock or a cover asks, so one phone tap never unlocks or opens anything (S33). */
+  private _favConfirm(op: PopupOp, entity: string): string | null {
+    if (op.confirm) return op.confirm;
+    return TOGGLE_AT_ONCE.has(entity.split(".")[0] ?? "") ? null : `Confirm ${op.label.toLowerCase()}`;
+  }
+
+  /** The row button: one service call, or (a turn OFF that asks) the first press only opens the confirm step. */
+  private _favAct(s: PopupSubject, op: PopupOp): void {
+    if (this._favConfirm(op, s.entity ?? "") && this._favAsk !== s.entity) { this._favAsk = s.entity ?? null; this.requestUpdate(); return; }
+    this._favAsk = null;
+    this._runOp(s, op);
+    this.requestUpdate();
+  }
+
   /** S24.7: Attention on top, then Active by category, over `attn` and `items` (already cut to the scope). */
   private _overviewList(attn: Attention, items: ActiveDevice[], badge: boolean, empty: string) {
     const now = Date.now();
@@ -3138,6 +3246,9 @@ export class FloorplanStudioCard extends LitElement {
     // S20.2: the panel's one subject is the picked room, else the selected floor, summed over its rooms by the same builder.
     const summary = at !== null && floor ? roomSummary(floor, at, state, opts) : floorKey && floor ? floorSummary(floor, state, opts) : null;
     if (summary && at === null && floorKey && !summary.name) summary.name = floorKey;
+    // H2: in a heat mode the panel prints the number the plan prints (`roomHeat` drops faulty readings), not its own mean.
+    const hk = this._heatKind(), heat = summary && at !== null && floor && hk !== "off" ? roomHeat(floor, at, hk, state) : null;
+    if (summary && heat) summary[hk === "temperature" ? "temperature" : "humidity"] = heat.text;
     const scope = at === null && floorKey ? FLOOR_SCOPE : ROOM_SCOPE;
     const many = Object.keys(this._layout.floors).length > 1;
     // The scope: the picked room or floor while its filter is on; every floor under "Show all"; else the floor on show, or all.
@@ -3158,10 +3269,10 @@ export class FloorplanStudioCard extends LitElement {
     const content = () => summary
       ? this._roomSection(summary, html`<div class="fp-filter"><span>${this._roomFilter ? scope.activeHere : "Active everywhere"}</span><button type="button" class="fp-show-all" @click=${() => { this._roomFilter = !this._roomFilter; this.requestUpdate(); }}>${this._roomFilter ? "Show all" : scope.onlyHere}</button></div>
                 <div class="fp-filtered">${list}</div>`, scope)
-      : html`<div class="fp-ov-search" data-slot="search"><fp-search .entries=${this._searchEntries()} label="Search the plan" placeholder="Search rooms and devices" @fp-pick=${(e: CustomEvent<SearchEntry>) => this._onSearchPick(e)}></fp-search></div>
+      : html`<div class="fp-ov-search" data-slot="search"><fp-search .entries=${this._searchEntries()} .first=${this._favSet} label="Search the plan" placeholder="Search rooms and devices" @fp-pick=${(e: CustomEvent<SearchEntry>) => this._onSearchPick(e)}></fp-search></div>
                 <div class="fp-ov-scopes">${this._floorOffButton()}${many ? html`<button type="button" class="fp-ov-scope" aria-pressed=${this._overviewAll ? "true" : "false"} @click=${() => this._toggleOverviewAll()}>All floors</button>` : nothing}</div>
                 <div class="fp-ov-layers" data-slot="layers">${this._layerNote()}</div>
-                ${list}
+                ${this._favouriteSection()}${list}
                 <p class="fp-ov-hint">Tap a row: the plan goes to it.</p>`;
     if (!side) return this._bottomSheet(name, crumb, summary !== null, this._chips(items, attn.items.length), content);
     const folded = this._activeCollapsed && !summary;
@@ -3540,6 +3651,7 @@ export class FloorplanStudioCard extends LitElement {
       ghost: this._ghost(), // S27.13: the floor below, as faint lines at its place in the house
       spider: this._spiderSpots(f, fit, box, rotate), // S25.5: a fanned stack, or nothing
       keep: this._keptHere(),
+      heat: this._heatKind(), // S34.8: rooms with a reading of that kind are filled by it; `off` draws the plan as before
       colors: this._layout!.colors, // S19.E3: the studio's per-type colours, as the editor draws them
     });
     // The zoom buttons come after the plan's <svg> in the DOM (they are positioned, so order is not placement):
@@ -3552,7 +3664,7 @@ export class FloorplanStudioCard extends LitElement {
     // Kiosk has no header: a menu the config still brings (`rotate_switch: true`) sits in the cluster, over the stack.
     const kioskMenu = this._kiosk() ? this._optionsMenu() : null;
     const cluster = kioskMenu || stackEl ? html`<div class="fp-cluster">${kioskMenu}${stackEl}</div>` : null;
-    return html`${this._header()}${stage}${note}${this._activePanel()}${cluster}${this._pulse ? html`<div class="fp-pulse" aria-hidden="true" hidden></div>` : null}${this._focusDev !== null ? html`<div class="fp-focus" aria-hidden="true" hidden></div>` : null}<div class="fp-focus-status" role="status">${this._focusText()}</div>${this._popupTemplate()}${this._coverDialogTemplate()}${this._vacuumDialogTemplate()}${this._chooserDialogTemplate()}${this._offDialogTemplate()}<div class="fp-tip" id="fp-tip" role="tooltip" hidden><b></b><span></span></div>`;
+    return html`${this._header()}${stage}${note}${this._activePanel()}${cluster}${this._heatLegend()}${this._pulse ? html`<div class="fp-pulse" aria-hidden="true" hidden></div>` : null}${this._focusDev !== null ? html`<div class="fp-focus" aria-hidden="true" hidden></div>` : null}<div class="fp-focus-status" role="status">${this._focusText()}</div>${this._popupTemplate()}${this._coverDialogTemplate()}${this._vacuumDialogTemplate()}${this._chooserDialogTemplate()}${this._offDialogTemplate()}<div class="fp-tip" id="fp-tip" role="tooltip" hidden><b></b><span></span></div>`;
   }
 
   /** The view picked: the dropdown's, else `config.view`, else 2D. Config is untrusted, so junk is 2D, not an error. */
@@ -3604,7 +3716,7 @@ export class FloorplanStudioCard extends LitElement {
   /** Whether anything about the view differs from what the config alone would show: a pick, a zoom, a turn. */
   private _modified(): boolean {
     return this._turn !== null || this._view !== null || this._pendingView !== null || this._camMoved
-      || [this._pickedView, this._pickedTilt, this._pickedWalls, this._pickedTheme, this._pickedLabels, this._pickedNames, this._pickedRot, this._pickedDetail, this._pickedGhost, this._pickedBelow].some((v) => v !== null);
+      || [this._pickedView, this._pickedTilt, this._pickedWalls, this._pickedTheme, this._pickedLabels, this._pickedNames, this._pickedRot, this._pickedDetail, this._pickedGhost, this._pickedBelow, this._pickedHeat].some((v) => v !== null);
   }
 
   /** Reset view: every view option back to the config's own, the stored entry cleared, the floor kept. The turn goes
@@ -3612,7 +3724,7 @@ export class FloorplanStudioCard extends LitElement {
   private _resetView(): void {
     this._appliedView = null;
     this._fallback3d = null;
-    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedDetail = this._pickedGhost = this._pickedBelow = null;
+    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedDetail = this._pickedGhost = this._pickedBelow = this._pickedHeat = null;
     this._pendingView = null;
     this._view = null;
     this._forgetCamera();

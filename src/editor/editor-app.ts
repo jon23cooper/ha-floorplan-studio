@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing } from "lit";
 import { live } from "./live-keep";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
-import { COORD_LIMIT, DEFAULT_MOTION_FADE_S, MAX_VIEWS, alignCandidates, chooseAlign, alignSummary, alignStatus, alignKeyOf, stairPlace, stairReport, floorBelow, floorPivot, floorPlace, floorPose, floorSwitch, poseFromPlace, detailFor, type DetailMode, DEVICE_COLOURS, FLOORPLAN_CSS, UI_ICONS, MAX_LAYOUT_BYTES, applyHaNames, furnitureForType, areaMove, availableEntities, inside, FURNITURE, FURNITURE_SYMBOLS, UNLINKED_TYPES, dist, edgeRooms, groupKind, insertPoint, nearestEdge, polys, renderFloor, floorsAroundKey, rotateAbout, snapPoint, snapped, stitch, validate, viewBoxFor, wallWidthAt, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer } from "../core";
+import { COORD_LIMIT, DEFAULT_MOTION_FADE_S, MAX_VIEWS, alignCandidates, chooseAlign, alignSummary, alignStatus, alignKeyOf, stairPlace, stairReport, floorBelow, floorPivot, floorPlace, floorPose, floorSwitch, poseFromPlace, detailFor, type DetailMode, DEVICE_COLOURS, FLOORPLAN_CSS, UI_ICONS, MAX_LAYOUT_BYTES, applyHaNames, furnitureForType, areaMove, availableEntities, inside, FURNITURE, FURNITURE_SYMBOLS, UNLINKED_TYPES, dist, edgeRooms, groupKind, anyRoomHeated, heatLegend, insertPoint, nearestEdge, polys, renderFloor, floorsAroundKey, rotateAbout, snapPoint, snapped, stitch, validate, viewBoxFor, wallWidthAt, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer } from "../core";
 import type { AddCandidate, DeviceType, Floor, HaData, LayerId, Layout, Pt, Stairs, StateOverlay, Trace, WallKind } from "../core";
 import { MAX_ZOOM, panBy } from "../card/viewport";
 import { ROTATION_STEP, easeInOut, normaliseRotation, shortestDelta } from "../card/view-state";
@@ -375,7 +375,7 @@ export class FloorplanStudioEditor extends LitElement {
   /** Cheap stand-in for the view: when it is unchanged, `exportView` need not run on every render. */
   private viewKey(): string {
     const st = this.st;
-    return `${st.floor}|${st.labels}|${st.viewRot}|${st.hidden.join(",")}|${JSON.stringify(st.views)}`;
+    return `${st.floor}|${st.labels}|${st.viewRot}|${st.hidden.join(",")}|${st.heat}|${JSON.stringify(st.views)}`;
   }
 
   /** S27.12: the direction of a floor switch waiting to start on the next render; the attribute itself is set by hand (see `startSwitch`), never bound in the template. */
@@ -523,6 +523,7 @@ export class FloorplanStudioEditor extends LitElement {
     .k-unplaced{margin-top:6px}
     .statusbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;position:absolute;left:0;right:0;bottom:0;z-index:1;padding:3px 8px;font-size:12px;line-height:1.5;color:var(--fp-ink);background:var(--fp-room);border-top:1px solid var(--fp-idle)}
     .statusbar{pointer-events:none}
+    .sb-ramp{display:inline-block;width:5em;height:.7em;border-radius:3px;border:1px solid var(--fp-idle)}
     .statusbar .btn{padding:0 8px;font-size:12px;pointer-events:auto}
     .canvas{position:relative;border:1px solid var(--fp-idle);height:var(--fp-editor-height,calc(100vh - 150px));min-height:420px;touch-action:none;background:var(--fp-bg)}
     .zoom{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:2}
@@ -2838,6 +2839,9 @@ export class FloorplanStudioEditor extends LitElement {
     if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); this.viewForm = null; this.requestUpdate(); this.renderRoot.querySelector<HTMLElement>("#saveView")?.focus({ preventScroll: true }); return; }
     if (ev.key === "Enter") { ev.preventDefault(); this.submitViewForm(); }
   };
+  /** The control that held focus (the name field, the Delete item) leaves the DOM on the next render. Put focus on Save current
+   * view, inside the open menu, so the keyboard keeps its place and Escape still closes the menu. */
+  private keepViewFocus() { void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement>("#saveView")?.focus({ preventScroll: true })); }
   submitViewForm() {
     const form = this.viewForm;
     if (!form) return;
@@ -2846,12 +2850,14 @@ export class FloorplanStudioEditor extends LitElement {
     if (form.rename) {
       this.viewForm = null;
       if (this.st.renameView(form.rename, name)) this.changed(`Renamed view to ${name}`); else this.requestUpdate();
+      this.keepViewFocus();
       return;
     }
     if (this.st.savedViews.length >= MAX_VIEWS) { this.status = `A layout holds at most ${MAX_VIEWS} views: delete one first`; this.requestUpdate(); return; }
     const mode = this.renderRoot.querySelector<HTMLSelectElement>("#viewMode")?.value;
     this.viewForm = null;
     if (this.st.saveView(name, mode === "2d" || mode === "2.5d" || mode === "3d" ? mode : undefined)) this.changed(`Saved view ${name}`); else this.requestUpdate();
+    this.keepViewFocus();
   }
   applyView(id: string) {
     const v = this.st.savedViews.find((x) => x.id === id);
@@ -2871,6 +2877,7 @@ export class FloorplanStudioEditor extends LitElement {
     const id = this.viewMenu?.id, v = this.st.savedViews.find((x) => x.id === id);
     this.viewMenu = null;
     if (v && this.st.deleteView(v.id)) this.changed(`Deleted view ${v.name}`); else this.requestUpdate();
+    this.keepViewFocus();
   }
 
   setFloor(name: string) {
@@ -3111,7 +3118,7 @@ export class FloorplanStudioEditor extends LitElement {
     const { activeGroup } = floorGroups(st);
     const dimmed = activeGroup ? new Set(f.devices.filter((d) => d.entity && !(activeGroup.members ?? []).includes(d.entity)).map((d) => d.entity)) : undefined;
     // The grid is placed before renderFloor's own output, so the plan draws over it; a turned plan turns grid and overlay the same way.
-    const body = turnG(grid) + renderFloor(f, { scale: s, selection: sel, keep: st.sel && (st.sel.t === "furn" || st.sel.t === "unl") ? { t: st.sel.t, i: st.sel.i } : null, hiddenLayers: st.hidden, detail: detailFor(viewBoxFor(f, 80, st.rotation), v, this.detailMode), showNames: st.showNames, editor: true, handles: !(this.asideMode === "align" && this.alignKey === st.floor), trace: true, rotate: rot, colors: st.layout.colors, theme: st.theme, dark: this.isDark(), dimmed, night: st.night, state: this.stateForRender(), now: Date.now(), roomGlow: true, ghost: this.ghostOpts(), labels: st.labels, around: floorsAroundKey(st.layout, st.floor), locate: this.locate?.floor === st.floor ? { t: this.locate.t, i: this.locate.i } : null }) + turnG(overlay);
+    const body = turnG(grid) + renderFloor(f, { scale: s, selection: sel, keep: st.sel && (st.sel.t === "furn" || st.sel.t === "unl") ? { t: st.sel.t, i: st.sel.i } : null, hiddenLayers: st.hidden, detail: detailFor(viewBoxFor(f, 80, st.rotation), v, this.detailMode), showNames: st.showNames, editor: true, handles: !(this.asideMode === "align" && this.alignKey === st.floor), trace: true, rotate: rot, colors: st.layout.colors, theme: st.theme, dark: this.isDark(), dimmed, night: st.night, state: this.stateForRender(), now: Date.now(), roomGlow: true, ghost: this.ghostOpts(), labels: st.labels, heat: st.heat, around: floorsAroundKey(st.layout, st.floor), locate: this.locate?.floor === st.floor ? { t: this.locate.t, i: this.locate.i } : null }) + turnG(overlay);
     const find = this.findData();
     return html`
       ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}
@@ -3141,10 +3148,19 @@ export class FloorplanStudioEditor extends LitElement {
       </div>`;
   }
 
+  /** S34.10: what the status bar says of the heat map: the scale while any room of this floor is heated, else that nothing is. The same `roomHeat` the plan is drawn from, so the words and the colours agree. */
+  private heatText(): string | undefined {
+    const { f, heat } = this.st, legend = heatLegend(heat);
+    if (!legend) return undefined;
+    return anyRoomHeated(f, heat, this._hassStates) ? `Heat map: ${legend.from} to ${legend.to}` : "Heat map: no readings";
+  }
+
   /** S26.22: the facts under the canvas (selection, room, snap, floor, zoom); messages and refusals keep the banner. */
   private statusBarView() {
-    const s = statusFacts(this.st, { alt: this.altDown, drawing: !!this.draw });
-    return html`<div class="statusbar" id="statusBar" aria-label="Status"><span class="sb-text">${s.text}</span>${s.locked ? html`<button class="btn" id="statusUnlock" @click=${() => this.setPlanLocked(false)}>Unlock</button>` : nothing}</div>`;
+    const s = statusFacts(this.st, { alt: this.altDown, drawing: !!this.draw, heat: this.heatText() });
+    const legend = heatLegend(this.st.heat);
+    const ramp = legend ? `linear-gradient(to right in oklch,${legend.stops.map((t) => `var(${t.token}) ${t.at * 100}%`).join(",")})` : "";
+    return html`<div class="statusbar" id="statusBar" aria-label="Status"><span class="sb-text">${s.text}</span>${legend ? html`<span class="sb-ramp" aria-hidden="true" style=${`background:${ramp}`}></span>` : nothing}${s.locked ? html`<button class="btn" id="statusUnlock" @click=${() => this.setPlanLocked(false)}>Unlock</button>` : nothing}</div>`;
   }
 
   /**

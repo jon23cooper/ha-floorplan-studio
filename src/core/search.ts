@@ -121,17 +121,20 @@ function tier(p: Prepared, q: string, words: string[]): number {
   return -1;
 }
 
-/** The entries matching `query`, best first (tier, then the shorter name, then entry order), at most `limit`. A blank
- *  query matches nothing: the box shows results only once something is typed. */
-export function searchIndex(index: SearchIndex, query: string, limit = Infinity): SearchEntry[] {
+/** The entries matching `query`, best first (tier, then a favourite, then the shorter name, then entry order), at most
+ *  `limit`. `first` is the card's favourite entities (S34.3, F6); the Studio passes none, so its order is unchanged. Not
+ *  a Set (card config is untrusted) means no favourites. A blank query matches nothing: the box shows results only once
+ *  something is typed. */
+export function searchIndex(index: SearchIndex, query: string, limit = Infinity, first?: ReadonlySet<string>): SearchEntry[] {
   const q = normalize(typeof query === "string" ? query : "");
   if (!q) return [];
   const words = q.split(" ");
-  const hits: { p: Prepared; t: number }[] = [];
+  const fav = first instanceof Set && first.size ? first : null;
+  const hits: { p: Prepared; t: number; f: number }[] = [];
   for (const p of index.items) {
     const t = tier(p, q, words);
-    if (t >= 0) hits.push({ p, t });
+    if (t >= 0) hits.push({ p, t, f: fav && p.e.entity && fav.has(p.e.entity) ? 0 : 1 });
   }
-  hits.sort((a, b) => a.t - b.t || a.p.name.length - b.p.name.length || a.p.order - b.p.order);
+  hits.sort((a, b) => a.t - b.t || a.f - b.f || a.p.name.length - b.p.name.length || a.p.order - b.p.order);
   return hits.slice(0, Math.max(0, limit)).map((h) => h.p.e);
 }

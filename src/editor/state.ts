@@ -1,7 +1,7 @@
 import { alignFloor, floorBelow, floorPlace, floorPose, normaliseTurn, placePoint, poseFromPlace, DETAIL_MODES, parseDetailMode, FURNITURE, MAX_ROOM_SENSORS, DEVICE_TYPES, furnitureForEntity, FLOOR_COLOURS, inside, roomAt, MAX_PALETTE, TEXTURE_IDS, THEMES, contentPoints, findPowerSensor, haFloorIdsForPlanFloor, migrate, parseLayers, placeableDevicesInArea, placedEntities, planPivot, rotateAbout, stairSteps, switchChoicesForLight, typeForEntity, unplacedCatalog, unplacedHaEntities, validate, viewBoxFor } from "../core";
 import { COORD_LIMIT, MAX_VIEWS, MAX_VIEW_ZOOM } from "../core/schema";
 import type { SavedView } from "../core/schema";
-import type { DetailMode, CatalogEntry, DeviceType, Floor, HaData, LayerId, Layout, Pt, Stairs, SwitchChoice, Theme, Trace } from "../core";
+import type { DetailMode, HeatKind, CatalogEntry, DeviceType, Floor, HaData, LayerId, Layout, Pt, Stairs, SwitchChoice, Theme, Trace } from "../core";
 import { setRoomList, type RoomSensorField } from "./ops";
 import { normaliseRotation } from "../card/view-state";
 import { MAX_ZOOM, MIN_ZOOM } from "../card/viewport";
@@ -220,6 +220,8 @@ export class EditorState {
   night: boolean = readNight();
   /** Whether the plan draws names and values. View state: no undo step, never in the layout. */
   labels = true;
+  /** S34.10: the heat map (View, Heat map). View state: kept in the view memory, no undo step, never in the layout. */
+  heat: HeatKind = "off";
   setLabels(on: boolean): void { this.labels = on !== false; }
   /** id of the door drawn open in the preview */
   openDoor: string | null = null;
@@ -644,6 +646,7 @@ export class EditorState {
     const m: ViewMemory = { floor: this.floor, labels: this.labels };
     if (this.viewRot) m.rotation = this.viewRot;
     if (this.hidden.length) m.hidden = [...this.hidden];
+    if (this.heat !== "off") m.heat = this.heat;
     const deg = (this.layout.rotate ?? 0) + this.viewRot;
     const rot = deg % 360 ? { deg, pivot: planPivot(this.layout) } : undefined;
     const zooms: [string, { zoom: number; focus: Pt }][] = [];
@@ -667,6 +670,7 @@ export class EditorState {
     if (m.labels !== undefined) this.labels = m.labels !== false;
     if (m.rotation !== undefined) this.viewRot = normaliseRotation(m.rotation);
     this.hidden = parseLayers(m.hidden);
+    this.heat = m.heat ?? "off";
     if (m.floor !== undefined && hasOwn(this.layout.floors, m.floor)) { this.floor = m.floor; this.sel = null; }
     this.views = {};
     for (const [key, z] of m.zooms ?? []) {

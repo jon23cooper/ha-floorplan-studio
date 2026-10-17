@@ -164,3 +164,11 @@ describe("S25.8: the stored detail mode", () => {
     for (const d of ["FULL", "", 3, null, {}, ["full"], "<b>"]) expect(parseStoredView({ v: 1, detail: d, labels: false }, ok, [])).toEqual({ labels: false });
   });
 });
+
+describe("S34.8: the stored heat map pick", () => {
+  const ok = () => true;
+  it("keeps one of the three names, off included, and drops anything else on its own", () => {
+    for (const h of ["off", "temperature", "humidity"]) expect(parseStoredView({ v: 1, heat: h }, ok, []).heat).toBe(h);
+    for (const h of ["lava", "Temperature", "", 1, null, {}, ["humidity"], "__proto__"]) expect(parseStoredView({ v: 1, heat: h, labels: false }, ok, [])).toEqual({ labels: false });
+  });
+});

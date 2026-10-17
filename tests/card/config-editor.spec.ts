@@ -571,3 +571,122 @@ test("tap_action and hold_action selects: defaults shown, a pick writes {action}
   await expect(page.locator("#editor select#hold_action")).toHaveValue("more-info");
   expect(await events(page)).toEqual([]);
 });
+
+// S34.5, spec F7. Real typing and real clicks; the list is the card's `favourites` key.
+test("Favourites field: add, refuse, remove, empty drops the key, favorites alias is dropped", async ({ page }) => {
+  await open(page);
+  await mount(page, { layout: demo, favorites: ["light.demo_living"] });
+  const editor = page.locator("#editor");
+  const last = async () => ((await events(page)).at(-1) as { config: Record<string, unknown> }).config;
+  const rows = editor.locator("#favourites_list li");
+  const note = editor.locator("#favourites_note");
+
+  // The alias shows as a row, and fires nothing on its own.
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText("light.demo_living");
+  expect(await events(page)).toEqual([]);
+
+  // Add by typing and a real click: writes `favourites`, drops `favorites`, keeps the order.
+  await editor.locator("#favourites_input").fill("switch.demo_tv_plug");
+  await editor.locator("#favourites_add").click();
+  expect((await last()).favourites).toEqual(["light.demo_living", "switch.demo_tv_plug"]);
+  expect("favorites" in (await last())).toBe(false);
+  await expect(rows).toHaveCount(2);
+  await expect(editor.locator("#favourites_input")).toHaveValue("");
+
+  // A repeat and a non-entity are refused, with a line that says why, and fire nothing new.
+  const n = (await events(page)).length;
+  await editor.locator("#favourites_input").fill("light.demo_living");
+  await editor.locator("#favourites_add").click();
+  await expect(note).toContainText("already");
+  await editor.locator("#favourites_input").fill("Light Kitchen");
+  await editor.locator("#favourites_add").click();
+  await expect(note).toContainText("not an entity id");
+  expect((await events(page)).length).toBe(n);
+  await expect(rows).toHaveCount(2);
+
+  // Enter adds too.
+  await editor.locator("#favourites_input").fill("  light.demo_kitchen ");
+  await editor.locator("#favourites_input").press("Enter");
+  expect((await last()).favourites).toEqual(["light.demo_living", "switch.demo_tv_plug", "light.demo_kitchen"]);
+  await expect(note).toHaveText("");
+
+  // Remove with a real click on the row's button; the last one removed drops the key.
+  await rows.nth(1).locator("button").click();
+  expect((await last()).favourites).toEqual(["light.demo_living", "light.demo_kitchen"]);
+  await rows.nth(0).locator("button").click();
+  await rows.nth(0).locator("button").click();
+  expect("favourites" in (await last())).toBe(false);
+  await expect(rows).toHaveCount(0);
+});
+
+test("Favourites field: the cap is refused, and the datalist is text, never markup", async ({ page }) => {
+  await open(page);
+  const ids = Array.from({ length: 24 }, (_, i) => `light.l${i}`);
+  await mount(page, { layout: demo, favourites: ids });
+  const editor = page.locator("#editor");
+  await editor.locator("#favourites_input").fill("light.one_more");
+  await editor.locator("#favourites_add").click();
+  await expect(editor.locator("#favourites_note")).toContainText("24");
+  expect(await events(page)).toEqual([]);
+
+  const evil = structuredClone(demo);
+  evil.floors.ground.devices[0].name = '"><script>window.__pwned=1</script>';
+  await page.evaluate(() => document.getElementById("editor")!.remove());
+  await mount(page, { layout: evil });
+  const opts = page.locator("#editor datalist#favourites_choices option");
+  await expect(opts.first()).toBeAttached();
+  const labels = await opts.evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).label + "|" + (o as HTMLOptionElement).value));
+  expect(labels.some((l) => l.includes('"><script>window.__pwned=1</script>'))).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
+  expect(await page.locator("#editor script").count()).toBe(0);
+  // Every device entity of the layout is offered, once.
+  const values = await opts.evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
+  expect(values).toContain("light.demo_living");
+  expect(new Set(values).size).toBe(values.length);
+});
+
+test("Heat map select: Humidity writes heat_map, Off drops the key, junk shows Off and fires nothing", async ({ page }) => {
+  await open(page);
+  await mount(page, { layout: demo });
+  const editor = page.locator("#editor");
+  const select = editor.locator("select#heat_map");
+  await expect(select).toHaveValue("off");
+  expect(await select.locator("option").evaluateAll((os) => os.map((o) => [o.getAttribute("value"), o.textContent!.trim()]))).toEqual([["off", "Off"], ["temperature", "Temperature"], ["humidity", "Humidity"]]);
+
+  await select.selectOption("humidity");
+  let detail = (await events(page)).at(-1) as { config: Record<string, unknown> };
+  expect(detail.config.heat_map).toBe("humidity");
+  await select.selectOption("temperature");
+  detail = (await events(page)).at(-1) as { config: Record<string, unknown> };
+  expect(detail.config.heat_map).toBe("temperature");
+  await select.selectOption("off");
+  detail = (await events(page)).at(-1) as { config: Record<string, unknown> };
+  expect("heat_map" in detail.config).toBe(false);
+
+  await page.evaluate(() => document.getElementById("editor")!.remove());
+  await mount(page, { layout: demo, heat_map: "plasma" });
+  await expect(page.locator("#editor select#heat_map")).toHaveValue("off");
+  expect(await events(page)).toEqual([]);
+});
+
+test("M1: a layout from the websocket is read from the { layout } reply, so floors and Favourites choices appear", async ({ page }) => {
+  await open(page);
+  await page.evaluate((layout) => {
+    const Ctor = customElements.get("floorplan-studio-card") as unknown as { getConfigElement(): HTMLElement };
+    const el = Ctor.getConfigElement();
+    el.id = "editor";
+    document.body.appendChild(el);
+    (el as unknown as { setConfig(c: unknown): void }).setConfig({});
+    // Shape copied from custom_components/floorplan_studio/websocket.py ws_load: send_result(id, {"layout": ...}).
+    (el as unknown as { hass: unknown }).hass = {
+      states: {},
+      connection: { sendMessagePromise: () => Promise.resolve({ layout }) },
+    };
+  }, demo);
+  const editor = page.locator("#editor");
+  await expect(editor.locator('input[type="checkbox"][data-floor]')).toHaveCount(3);
+  const ids = await editor.locator('input[type="checkbox"][data-floor]').evaluateAll((els) => els.map((e) => e.getAttribute("data-floor")));
+  expect(ids).toEqual(["ground", "first", "test"]);
+  await expect(editor.locator("datalist#favourites_choices option").first()).toBeAttached();
+});

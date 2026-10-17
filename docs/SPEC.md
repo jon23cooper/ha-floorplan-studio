@@ -337,7 +337,7 @@ it is a bottom sheet with three stops (peek 64 px, half `max(50 %, 340 px)`, ful
 tap the handle) and the Device level is the popup's content inside it. `kiosk` and `active_list: false` have no sheet
 (and kiosk no header). Only the zoom cluster (+, −, Fit; Reset camera in 3D) floats over the plan. The ⋯ menu (`<fp-menu>`,
 `src/card/more-menu.ts`, an ARIA menu) holds View, Tilt, Walls, Floor(s) below, Theme, Labels, Device names, Detail,
-Layers, Rotate left, Rotate right and Reset view, each writing what its old control wrote into the view memory. The card is
+Layers, Heat map, Rotate left, Rotate right and Reset view, each writing what its old control wrote into the view memory. The card is
 never taller than the visual viewport less HA's header and 16 px unless its parent fixes the height (`cardHeight`); a phone
 card is at least 640 px or what fits. Under `pointer: coarse` every control is 44 x 44 px (`src/card/touch-css.ts`). The plan
 is one Tab stop (`role="group"`, "Floor plan, <floor>"): Tab puts a ring (card chrome, `.fp-focus`, `pointer-events: none`)
@@ -756,6 +756,30 @@ anything else is `auto` (`parseDetailMode`). The viewer picks it in the Studio's
 button, kept per browser (`floorplan-studio:detail` in the Studio; `detail` in the card's view memory). The card's YAML key
 `detail: auto | full | minimal` is its default and a stored viewer pick wins. Defaults: card `auto` (but `full` where the viewer can neither zoom nor reach the Detail button: kiosk, or `active_list: false` with `zoom: false`), Studio `full` (a device
 just placed must not vanish at fit). Live 3D draws every level.
+
+## Heat map and favourites (S34, 0.32.0; `docs/specs/extras-s34.md`)
+
+No schema change: no new room key, no `validate` or `migrate` change. Both are card keys and view memory.
+
+**Heat map.** `renderFloor` takes `heat?: "off" | "temperature" | "humidity"` (`HEAT_KINDS`, `heatKindOf` in `src/core/heat.ts`;
+anything else is off). Omitted or off, the markup is byte for byte as before. `roomHeat(f, i, state, kind)` gives a room's
+`{ value, text, t }` or `null`: the room's own `temps`/`humidity` when any reads, else the `temp`/`humidity` devices `roomAt`
+puts in it (`HEAT_SOURCE` per device type; `ROOM_OWNS` per room kind). A bad sensor is left out alone (range -60..90 °C or
+0..100, unit `°C`/`°F`/none or `%`/none, no comma decimal); the first readable unit wins; `t` is on the fixed scale, clamped.
+A heated polygon gets class `heat heat-<kind>` and `--fp-heat:<t>`; one rule, `.room.heat[data-r]`, mixes the ramp 55 % into
+`--fp-room-fill` and beats glow, paint, texture and water. No `room-night` polygons in a heat mode. The value is drawn as
+`text.val.heat-val[data-rv]`, also under `labels: false`; the room's badge plate steps below it. Temperature uses the plug's
+tokens (`--fp-heat-cool/mid/hot`); humidity has `--fp-hum-dry/mid/wet`, the same in every theme. `heatLegend(kind)` builds the legend once; the card
+draws it over the plan's bottom left (2D and 2.5D), the Studio in its status bar. Card: key `heat_map`, ⋯ menu section after
+Layers (shown where Detail is; hidden in 3D, in kiosk and with `active_list: false`, where the key still heats), the viewer's pick in
+`StoredView.heat` (`parseStoredView` drops junk), `heat_map` in `_viewStorageKey`. Studio: View, `#heatSub`, `ViewMemory.heat`.
+
+**Favourites.** Card key `favourites` (alias `favorites`; `favouritesOf` in `src/card/favourites.ts`): entity ids, trimmed,
+repeats dropped, at most `MAX_FAVOURITES` (24), junk dropped with one `console.warn` per card, never a throw. `favouriteRefs`
+resolves each to the first device (then linked piece) in layout order on a floor the card shows; one not on the plan has no
+row. The Favourites section sits above Attention in the Overview level only, folds like a category, and each row carries the
+popup's primary button (`_popupOp`, `_runOp`), with the confirm step for every type but a light. `searchIndex(index, query,
+limit, first?)` ranks a favourite before a shorter name in the same tier; the Studio passes none. Studio: none, on purpose.
 
 ## Search (both apps)
 

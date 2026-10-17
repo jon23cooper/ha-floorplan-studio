@@ -14,6 +14,7 @@ import { coverActive } from "./cover";
 import { doorStateOf } from "./door-state";
 import { heatRange, plugThreshold, powerHeat, wattsOf } from "./power";
 import { meanReading } from "./readings";
+import { roomHeat, type HeatKind } from "./heat";
 import { badges } from "./rollup";
 import { attentionDevices, type AttentionSource } from "./attention";
 // S24.R: the one rule for what Layers leaves out; the Studio's pick asks it too.
@@ -81,6 +82,8 @@ export interface RenderOpts {
   powerLinks?: Record<string, string>;
   /** S14.8: draw range [from, to] in watts. A plug that is on and has a readable power sensor then carries `--fp-heat` (0 idle .. 1 hot) and the stylesheet tints it. Absent, nothing is written and the markup is as before. Junk is the default range; see `heatRange`. */
   plugHeat?: [number, number];
+  /** S34.7: the heat map. `temperature` or `humidity` fills every room that reads that kind (`roomHeat`) by its place on the fixed scale: class `heat heat-<kind>` and `--fp-heat` (0..1) on the polygon, the value in the room's readout line (also under `labels: false`), and no night veil. Omitted, `off` or junk, the markup is byte for byte as before. */
+  heat?: HeatKind;
   /** S25.5: a stack of devices fanned out. Each entry moves device `i`'s icon to `at` (plan units), with a leader line to its true
    *  spot, a pin there and its name beside it. The card computes the spots (`spiderLayout`) and passes them while a ring is open.
    *  Junk entries (an unknown index, a point that is not finite), a hidden device and a device with no spot are skipped.
@@ -257,7 +260,7 @@ export const FLOORPLAN_CSS = `
 :host,.fp{${BLUEPRINT_TOKENS}}
 /* S14.8: the colour a plug runs through as its draw rises. Fixed hues, the same in every theme (not the theme's accent, which a one-accent theme makes orange and so
    leaves nothing to ramp to), declared before the themes so a theme can override them. */
-:host,.fp,[data-theme]{--fp-heat-cool:#2f86c9;--fp-heat-mid:#f0a020;--fp-heat-hot:#d63a2a}
+:host,.fp,[data-theme]{--fp-heat-cool:#2f86c9;--fp-heat-mid:#f0a020;--fp-heat-hot:#d63a2a;--fp-hum-dry:#d8b36a;--fp-hum-mid:#7fc79a;--fp-hum-wet:#2b6fcf}
 /* S24.4 (S23.F3): outdoor names take the theme's own text unless the theme says otherwise (only solarized does). Set on every theme
    group, not left to a fallback, so a group nested in a solarized one does not inherit solarized's ink. */
 :host,.fp,[data-theme]{--fp-text-out:var(--fp-text)}
@@ -305,6 +308,15 @@ ${THEME_EXTRAS}
    stays blue, just brighter. 25%, the same fraction as --fp-alpha elsewhere, keeps the kind colour recognisable
    (a lit water room reads pale teal, not pale yellow); 50% washed it out almost to the glow colour alone. */
 .room.glow:not([fill]){fill:color-mix(in srgb,var(--fp-glow) 25%,var(--fp-room-fill))}
+/* S34.7: the heat map. renderFloor writes classes heat and heat-<kind> and --fp-heat (0..1) on a room that reads. The ramp's three colours
+   are mixed in oklch like the plug's (cool, mid, hot over --fp-heat), then 55% of it into the KIND's colour, never the paint's, so
+   water stays water and a dark theme gets a darker version of the same hue. Three classes plus an attribute, after the glow and
+   paint rules above and equal to them, so the heat wins on source order: over the glow, over a painted colour or texture (a class
+   rule beats the fill attribute), over the dim a dark theme gives paint, over water's own rule. */
+.room.heat[data-r]{--fp-ramp-a:var(--fp-heat-cool);--fp-ramp-b:var(--fp-heat-mid);--fp-ramp-c:var(--fp-heat-hot);--fp-heat-base:var(--fp-room-empty)}
+.room.heat-humidity[data-r]{--fp-ramp-a:var(--fp-hum-dry);--fp-ramp-b:var(--fp-hum-mid);--fp-ramp-c:var(--fp-hum-wet)}
+.room-garden.heat[data-r]{--fp-heat-base:var(--fp-garden)} .room-terrace.heat[data-r]{--fp-heat-base:var(--fp-terrace)} .room-pavement.heat[data-r]{--fp-heat-base:var(--fp-pavement)} .room-water.heat[data-r]{--fp-heat-base:var(--fp-water)}
+.room.heat[data-r]{fill:color-mix(in oklch,color-mix(in oklch,color-mix(in oklch,var(--fp-ramp-a) calc((1 - min(var(--fp-heat) * 2,1)) * 100%),var(--fp-ramp-b)) calc((1 - max(var(--fp-heat) * 2 - 1,0)) * 100%),var(--fp-ramp-c)) 55%,var(--fp-heat-base));filter:none}
 /* S7.6: night. The overlay is its own polygon over the room, so it darkens a room's own colour or texture too, and never
    competes with the room's fill rules above. Unlit by default (one class), dark under .night (two), clear again when
    a light in the room is on (three): specificity decides, not source order. Never a pick target (finding 18). */
@@ -1294,6 +1306,10 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
   // S7.6: the same set decides which rooms stay bright at night.
   const plugs = new Map(f.devices.filter((d) => d.type === "plug" && d.entity).map((d) => [d.entity, d]));
   const glowRooms = new Set<number>();
+  // S34.7: a room's heat, by `roomHeat` (the one rule). Only the two kinds are a mode; anything else is as before.
+  const heatKind = o.heat === "temperature" || o.heat === "humidity" ? o.heat : null;
+  const heated = new Map<number, { text: string; t: number }>();
+  if (heatKind) f.rooms.forEach((_, i) => { const h = roomHeat(f, i, heatKind, o.state); if (h) heated.set(i, h); });
   if (o.roomGlow || o.night)
     for (const d of f.devices) {
       if (d.type !== "light" || classOf(d, o) !== "on") continue;
@@ -1313,7 +1329,8 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
     const own = paintAttr(r);
     const glow = o.roomGlow && glowRooms.has(i) ? " glow" : "";
     const on = !r.area && entityOn(o, r.entity, plugs) ? " on" : "";
-    out.push(`<polygon data-r="${i}" class="room room-${esc(String(r.kind))}${r.kind === "water" ? " water" : ""}${glow}${on}"${own} points="${pts(r.pts)}"/>`);
+    const h = heated.get(i), heat = h ? ` heat heat-${heatKind}` : "", heatStyle = h ? ` style="--fp-heat:${num(h.t)}"` : "";
+    out.push(`<polygon data-r="${i}" class="room room-${esc(String(r.kind))}${r.kind === "water" ? " water" : ""}${glow}${on}${heat}"${own}${heatStyle} points="${pts(r.pts)}"/>`);
   });
 
   f.stairs.forEach((t, i) => out.push(stairsGroup(t, i, o.around)));
@@ -1333,7 +1350,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
   // S7.6: the night overlay, over every room fill and staircase, under walls, names and devices, so lines and icons stay
   // crisp. Zones and structures sit on a room and share its overlay; a fill with no name is not drawn, so it gets none.
   // No data-r: the overlay is never a pick target (class room-night carries pointer-events:none, CLAUDE.md finding 18).
-  if (o.night)
+  if (o.night && !heatKind) // S34.7: in a heat mode the veil is left out, so the scale is not darkened
     f.rooms.forEach((r, i) => {
       if (r.kind === "zone" || r.kind === "structure" || (r.kind === "fill" && !r.name)) return;
       out.push(`<polygon data-night="${i}" class="room-night${glowRooms.has(i) ? " lit" : ""}" points="${pts(r.pts)}"/>`);
@@ -1736,14 +1753,19 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
 
   // S11.1: the readout of a room's own sensors, a small line under its name (or at its anchor when it has none). Placed like
   // every other text, so it moves off a name or an icon; nothing readable draws nothing, never "NaN".
+  // S34.7: in a heat mode a heated room's reading of the mode's kind is the heat value (the number its colour comes from), the
+  // other kind stays as today; under `labels: false` the heat value alone is still drawn, as a colour with no number fails the rule.
   f.rooms.forEach((r, i) => {
-    if (!showText || !ROOM_OWNS[r.kind]) return;
-    const text = [meanReading(listOf(r, "temps"), o.state), meanReading(listOf(r, "humidity"), o.state)].filter(Boolean).join(" · ");
+    const h = heated.get(i);
+    if ((!showText && !h) || !ROOM_OWNS[r.kind]) return;
+    const parts = [meanReading(listOf(r, "temps"), o.state), meanReading(listOf(r, "humidity"), o.state)];
+    if (h) parts[heatKind === "temperature" ? 0 : 1] = h.text;
+    const text = showText ? parts.filter(Boolean).join(" · ") : h?.text ?? "";
     if (!text) return;
-    const lab = nameAt[i], base = lab?.at ?? centroid(r.pts), size = lab?.size ?? 0, vs = 10 * kt;
+    const lab = nameAt[i], base = lab?.at ?? centroid(r.pts), size = showText ? lab?.size ?? 0 : 0, vs = 10 * kt;
     if (!base.every(Number.isFinite)) return;
     const [vx, vy] = place([screenOff(base, 0, 0.25 * size + kt + 0.75 * vs), screenOff(base, 0, -0.75 * size - kt - 0.25 * vs)], vs, text);
-    out.push(`<text class="val" data-rv="${i}" x="${num(vx)}" y="${num(vy)}"${up(vx, vy)} text-anchor="middle" font-size="${num(vs)}">${esc(text)}</text>`);
+    out.push(`<text class="val${h ? " heat-val" : ""}" data-rv="${i}" x="${num(vx)}" y="${num(vy)}"${up(vx, vy)} text-anchor="middle" font-size="${num(vs)}">${esc(text)}</text>`);
   });
 
   // S25.5: a fanned stack. Leaders and pins first, under every icon; the icons move in the loop below.
@@ -1883,7 +1905,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
   });
 
   out.push(...tags); // S23.3: over every icon, under the editor's handles
-  if (showText) out.push(...badges({ f, state: o.state, attn: o.attention, k: kt, up, screenOff, anchor: (i) => nameAt[i] ?? { at: centroid(f.rooms[i]!.pts), size: 0 } })); // S25.3: shown by CSS at far and mid only; text, so none with labels off
+  if (showText) out.push(...badges({ f, state: o.state, attn: o.attention, k: kt, up, screenOff, anchor: (i) => nameAt[i] ?? { at: centroid(f.rooms[i]!.pts), size: 0 }, hasValue: (i) => heated.has(i) })); // S25.3: shown by CSS at far and mid only; text, so none with labels off
   if (o.editor && o.handles !== false)
     for (const P of polys) P.pts.forEach((p, j) => out.push(`<circle class="h" data-h="${P.id}:${j}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`));
   out.push(...ringOut);

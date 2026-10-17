@@ -53,7 +53,7 @@ Left to right:
   coordinate limit says so in the status line.
 - **View** — how the plan looks while you work: snap grid, measure grid, lengths, a Labels submenu (Device names, Names and values),
   Floor below (the floor under this one as faint lines, kept in this browser, no undo step),
-  Preview night, theme, Detail (Auto, Full or Minimal), Saved views, Re-center and Fit to window. The editor draws the plan
+  Preview night, theme, Detail (Auto, Full or Minimal), Heat map (Off, Temperature or Humidity), Saved views, Re-center and Fit to window. The editor draws the plan
   flat only; 2.5D (and soon 3D) is a way to look, so it lives in the card.
   Everything here that is about looking, not editing, is in the card too:
   see "Studio and card" in `card.md` for the list, and for what is left out on
@@ -363,6 +363,15 @@ readings), **Full** always draws everything, **Minimal** always draws only the f
 while you edit, a device you just placed must not vanish at fit. The choice is kept in this browser, is not in the
 layout and is not an undo step; when it is not Full the toolbar says "Detail: Auto" or "Detail: Minimal". The levels and
 thresholds are in the card's Detail section (`card.md`).
+
+## Heat map
+
+View, Heat map fills each room that has a reading by a fixed scale (16 to 26 °C, or 30 to 70 %) and prints its value, as
+the card does: the same draw path, so the plan is the same. The pick is kept in this browser, not in the layout, and is
+not an undo step. Inside Home Assistant it uses live readings; standalone there are none, so no room is heated and the
+status bar says "Heat map: no readings" (it is per floor on show). With a map on, the status bar shows the scale with a
+small ramp. The rules (which sensors, what is not a reading, paint and night) are in the card's Heat map section
+(`card.md`). Favourites are card only.
 
 ## Rotation
 
