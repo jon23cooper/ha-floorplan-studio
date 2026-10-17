@@ -21,7 +21,7 @@ export const TOUCH_CSS = css`
     .fp-active-row { min-height: 44px; }
     button.fp-cat { min-height: 44px; }
     .fp-room-clear { flex-basis: 44px; width: 44px; height: 44px; }
-    .fp-alloff, .fp-floor-off, .fp-scene, .fp-ov-scope, .fp-layer-note button, .fp-show-all { min-height: 44px; min-width: 44px; }
+    .fp-alloff, .fp-floor-off, .fp-fav-act, .fp-fav-cancel, .fp-scene, .fp-ov-scope, .fp-layer-note button, .fp-show-all { min-height: 44px; min-width: 44px; }
     .fp-dialog-actions button { min-height: 44px; min-width: 44px; }
     .fp-chooser-list button { min-height: 44px; }
     .fp-off-row { min-height: 44px; }

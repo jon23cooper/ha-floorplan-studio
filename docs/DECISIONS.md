@@ -2,6 +2,16 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S34.4 the Favourites section (Sonnet)
+
+- The section is `_favouriteSection()` in the card, placed above `list` (Attention, Active) in the Overview content only, so a floor or a room level never shows it, and kiosk / `active_list: false` have no sheet (spec F2, F9). It is a `_catGroup("f", "favourites", ...)`, so it folds like a category and the fold is kept with the others in `fp-active-cats:` (the spec says `fp-active-panel:`; that key holds the panel's own fold, the category folds are in `fp-active-cats:`, which is where every other group's fold lives).
+- A row is the Active row (`_ovRow`, so a tap goes to the thing) beside a button from `_popupOp` and `_runOp`. `_favAsk` holds the entity at its confirm step. It is card state, kept through `hass`, dropped by `setConfig`. If the entity's state changes so that Turn off no longer asks (it went off), the confirm step is not drawn.
+- Judgement, where the confirm sits on a phone. Confirm turn off and Cancel take their own line under the row (flex-basis 100 %, side by side, indented under the name), not beside the name. Beside it, at 390 px the name wraps to one word a line. Checked in light, blueprint and midnight at 390 and at the side sheet's 1280; a test measures it (inside the sheet, under the row, side by side).
+- Unavailable or unknown: the row is at 50 % opacity and has no button (`popupOp` already returns none). A thing in the favourites that is also on stays in Active (F5).
+- Search: `<fp-search>` gets a `first` property, the card passes the cleaned ids. Outside the task's file list, on purpose: `src/card/search-box.ts` (the property) and `src/card/touch-css.ts` (the two buttons get the 44 px rule of S31.9).
+- One `console.warn` per card from `setConfig`, as `tap_action` does. `favouritesOf` runs once per `setConfig`.
+- Proof. `tests/card/card-favourites.spec.ts` (17 tests, 190 runs with `--repeat-each=10`): all 16 then written failed first (no section). Removing `.first` from the search box fails the criterion 7 test. The popup-match test walks `DEVICE_TYPES` in three states. Two tests were flaky at 390 px (a click at a point read while the sheet was still moving); the helper now uses Playwright's click, which waits for the box to settle.
+
 ## 2026-10-17: S34.2 favourites on the plan (Sonnet)
 
 - `favouriteRefs(layout, ids, floors)`, spec F4. Output follows the list, not the layout. Per entity the first thing in layout order wins: floors in key order, a floor's devices before its linked pieces (`pieceDevice`); so a device beats a piece on the same entity. `floors` are layout keys; a floor not listed is not searched. Floors are read through `Object.keys`, so a floor named `__proto__` or `toString` is an ordinary one. Rows that are not objects, and lists that are not lists, are skipped; a layout that is not a layout gives `[]`. A getter that throws gives `[]`, not a throw. Test: `tests/card/favourites.test.ts`; 11 tests failed first (`favouriteRefs is not a function`), and with first-wins removed 2 fail.
