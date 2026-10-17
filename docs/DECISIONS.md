@@ -2,6 +2,21 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S35.7 the Studio's car panel (Sonnet)
+
+Spec C9. Studio only (the card has no panel). Convert to car piece is built: the cap is 119,000 gz, so the drop order did not reach it.
+
+- Writers on `EditorState`: `setCarModel` (model, `w`, `h` follow; a typed `height` goes; a sedan is the absent model, so its key is deleted), `paintCar` (lower-cased `#rrggbb`; a colour that is not a built-in swatch joins `layout.palette` in the same step; `null` is Theme colour), `convertToCar`. Each is one undo step and none when nothing changes. `attachEntity` takes a list, so Add all from this car is one step too.
+- Attached suggestions, the judgement call, in this order: the main entity's device; entities whose name or id holds the car's name; the car domains (tracker, sensor, binary sensor, lock, climate, cover, switch, in that order, then by name); everything else; diagnostic and config entities last whatever they are. Inside a group, by name. The main entity and what is attached are left out. A full car (24) is offered nothing and says so. Without Home Assistant the catalog stands in. Pure code in `src/editor/car-ops.ts`.
+- The main entity is the first attached one when `entity` is empty (C2); Add all and the suggestions read the same rule.
+- Add all attaches ordinary entities before diagnostic ones, by name, and stops at 24 in all.
+- Convert keeps point, turn, name; a device's `entity` becomes the main one; an appliance's `color` and `attached` carry over, filtered to what `validate` accepts. It selects the new piece. A device drawn as a line (a hand-written file) converts at its middle.
+- Found on the way (finding 12): the `symbol` select wrote only `symbol`, so a car turned into a sofa kept `model`, `color` and `attached` and Save would refuse it. It now drops the three keys. The Playwright test fails without that line.
+- The panel's swatch is `carTop` in its own SVG, sized by the model's length to width, filled by `--car-body` (the piece's colour) and rules scoped to `.car-sw` in the editor stylesheet. The plan's car rules are S35.4's and are not touched.
+- `PanelCtx.edited` (optional) is how the panel tells the host a direct `EditorState` write happened (autosave, notify). Optional so existing panel tests keep their context type.
+- Files outside the task's list: `src/editor/car-ops.ts` (new), `src/editor/editor-app.ts` (the `edited` hook, the swatch CSS, the status line for a list attach).
+- Card file: untouched (editor code only, `src/core` not changed).
+
 ## 2026-10-17: S35.5 the car in 3D (Sonnet)
 
 Spec C4, C6, C7. Diego's answers apply: glass and tyres near-black in every theme; body colour is the piece's `color`, default the theme's furniture colour.

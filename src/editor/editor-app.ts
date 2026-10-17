@@ -481,6 +481,12 @@ export class FloorplanStudioEditor extends LitElement {
     /* A disabled .btn.light is dimmer than an enabled one: .btn:disabled has the same specificity as .btn.light and comes first. */
     .btn.light:disabled{opacity:.35}
     .swatches{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0} .sw{width:28px;height:28px;padding:0;border:1px solid var(--fp-idle);border-radius:4px;cursor:pointer;position:relative;overflow:hidden} .sw.custom::after{content:"";position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 9px 9px 0;border-color:transparent var(--fp-ink) transparent transparent} .sw[aria-pressed="true"]{outline:2px solid var(--fp-ink);outline-offset:1px}
+    /* S35.7: the car panel's top-view swatch. The plan's own car rules live with the plan; this one is the panel's, scoped to .car-sw. */
+    .car-model{display:flex;align-items:flex-end;gap:8px} .car-model>label{flex:1}
+    .car-sw{flex:none;width:72px;height:auto;margin-bottom:4px;--car-fill:var(--car-body,var(--fp-idle))}
+    .car-sw .car-body,.car-sw .car-mirror{fill:var(--car-fill);stroke:var(--fp-ink);stroke-width:1}
+    .car-sw .car-roof{fill:color-mix(in srgb,var(--car-fill) 80%,#000)} .car-sw .car-bed{fill:color-mix(in srgb,var(--car-fill) 55%,#000)}
+    .car-sw .car-glass{fill:#14181d} .car-sw .car-tyre{fill:#000} .car-sw .car-grille{fill:#14181d}
     .rot-val{display:inline-block;min-width:3em;text-align:right;font-variant-numeric:tabular-nums}
     .colrow{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:2px 0} .colrow label{display:flex;flex:1;justify-content:space-between;gap:6px} .colrow input{padding:0;width:36px;height:24px} .colrow .btn{width:auto}
     .rangerow{display:flex;align-items:center;gap:8px;margin:2px 0} .rangerow input{flex:1;width:auto} .rangerow .rot-val{flex:none;min-width:3.5em;text-align:right}
@@ -705,11 +711,12 @@ export class FloorplanStudioEditor extends LitElement {
   }
   /** S10.2: `PanelCtx.attachEntity` — names the entity (its catalog name, escaped by lit's own text interpolation)
    *  and `label` (the door/device/item) in the status line only when an icon was actually pulled off the plan. */
-  private attachEntity = (entity: string, apply: (f: Floor) => void, label: string, keepDeviceId?: string) => {
+  private attachEntity = (entity: string | string[], apply: (f: Floor) => void, label: string, keepDeviceId?: string) => {
     const r = this.st.attachEntity(entity, apply, keepDeviceId);
     if (!r.changed) return;
     if (r.pulled) {
-      const name = this.st.layout.catalog.find((c) => c.entity === entity)?.name ?? entity;
+      const one = Array.isArray(entity) ? (entity.length === 1 ? entity[0] : "") : entity;
+      const name = one ? this.st.layout.catalog.find((c) => c.entity === one)?.name ?? one : "Some entities";
       this.changed(`${name} attached to ${label}; its icon left the plan.`);
     } else this.changed();
   };
@@ -770,7 +777,7 @@ export class FloorplanStudioEditor extends LitElement {
     else this.requestUpdate();
   };
   ctx(): PanelCtx {
-    return { st: this.st, commit: this.commit, attachEntity: this.attachEntity, attachToRoom: this.attachToRoom, paint: (on, i, p) => { if (this.st.paint(on, i, p)) this.changed(); else this.refused(); }, rotateTexture: this.rotateTexture, rotateItem: this.rotateItem, scaleTexture: this.scaleTexture, select: this.select, say: (m) => { this.status = m; this.requestUpdate(); }, refresh: () => this.requestUpdate(), help: () => { if (!this.st.helpOpen) this.toggleHelp(); }, areaDiff: (i) => { const a = this.areaDiff(i); return a ? { name: a.name } : null; }, moveArea: (i) => void this.offerAreaMove(i, true), createArea: this.writer && this.st.ha ? (i) => void this.createArea(i) : undefined, drawArea: (a) => this.startDraw("room", "wall", a), placeArea: (i) => this.openPlace(i), designScene: (i, id) => this.openScene(i, id), makeLight: this.writer && this.st.ha ? (i) => void this.makeLight(i) : undefined, createGroup: this.writer && this.st.ha ? (is, kind, name) => void this.createGroup(is, kind, name) : undefined, controlsAutomation: this.writer ? (i, targets) => void this.controlsAutomation(i, targets) : undefined, scheduleAutomation: this.writer ? (i, on, off) => void this.scheduleAutomation(i, on, off) : undefined, linkMotion: this.writer && this.st.ha ? (i, motionEntity, minutes) => void this.motionAutomation(motionEntity, this.st.f.devices[i].entity, minutes, i) : undefined, moreInfo: (id) => this.moreInfo(id), runScene: this.writer ? (id) => void this.runScene(id) : undefined, addToArea: this.writer ? (i, id) => void this.addToArea(i, id) : undefined, floors: { rename: (k, t) => this.renameFloor(k, t), move: (k, d) => this.moveFloor(k, d), remove: (k) => this.deleteFloor(k) } };
+    return { st: this.st, commit: this.commit, attachEntity: this.attachEntity, attachToRoom: this.attachToRoom, paint: (on, i, p) => { if (this.st.paint(on, i, p)) this.changed(); else this.refused(); }, edited: (ok) => { if (ok) this.changed(); else this.refused(); }, rotateTexture: this.rotateTexture, rotateItem: this.rotateItem, scaleTexture: this.scaleTexture, select: this.select, say: (m) => { this.status = m; this.requestUpdate(); }, refresh: () => this.requestUpdate(), help: () => { if (!this.st.helpOpen) this.toggleHelp(); }, areaDiff: (i) => { const a = this.areaDiff(i); return a ? { name: a.name } : null; }, moveArea: (i) => void this.offerAreaMove(i, true), createArea: this.writer && this.st.ha ? (i) => void this.createArea(i) : undefined, drawArea: (a) => this.startDraw("room", "wall", a), placeArea: (i) => this.openPlace(i), designScene: (i, id) => this.openScene(i, id), makeLight: this.writer && this.st.ha ? (i) => void this.makeLight(i) : undefined, createGroup: this.writer && this.st.ha ? (is, kind, name) => void this.createGroup(is, kind, name) : undefined, controlsAutomation: this.writer ? (i, targets) => void this.controlsAutomation(i, targets) : undefined, scheduleAutomation: this.writer ? (i, on, off) => void this.scheduleAutomation(i, on, off) : undefined, linkMotion: this.writer && this.st.ha ? (i, motionEntity, minutes) => void this.motionAutomation(motionEntity, this.st.f.devices[i].entity, minutes, i) : undefined, moreInfo: (id) => this.moreInfo(id), runScene: this.writer ? (id) => void this.runScene(id) : undefined, addToArea: this.writer ? (i, id) => void this.addToArea(i, id) : undefined, floors: { rename: (k, t) => this.renameFloor(k, t), move: (k, d) => this.moveFloor(k, d), remove: (k) => this.deleteFloor(k) } };
   }
 
   // ---- pointer -------------------------------------------------------------
