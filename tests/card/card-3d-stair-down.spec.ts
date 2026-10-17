@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, drawn, cam } from "./helpers-3d";
-import { readCanvasRect, meanRgb } from "../helpers/pixels";
+import { readCanvasRect } from "../helpers/pixels";
 
 // 0.26.1: the ground plane lay at the lowest slab bottom (-25 cm), and a stair going DOWN sinks to -60 (WELL_DEPTH): most of the
 // flight was under the ground and invisible. The first floor of the demo has no stair, so the fixture copies the ground

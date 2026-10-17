@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, drawn, cam } from "./helpers-3d";
-import { readCanvasRect, meanRgb } from "../helpers/pixels";
+import { readCanvasRect } from "../helpers/pixels";
 
 // S28.8: the ground plane and the contact shadows in 3D. Real card, the demo ground floor emptied of furniture, devices and
 // unlinked boxes (so the pixels next to a wall are the wall's shade alone), the test-build hook, real screenshots.

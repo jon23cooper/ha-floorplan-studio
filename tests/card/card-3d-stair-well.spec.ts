@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, drawn, cam } from "./helpers-3d";
-import { readCanvasRect, meanRgb } from "../helpers/pixels";
+import { readCanvasRect } from "../helpers/pixels";
 
 // 0.26.2: a down flight on the first floor of a real house stayed hidden in 3D. The 0.26.1 well was cut only where the flight lay
 // strictly inside a room's outline. In that house the flight touches the edge of its room, so no hole was cut in the room fill and
