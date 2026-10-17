@@ -10,7 +10,8 @@ const CASE: Record<DeviceType, { entity: string; kind: Kind }> = {
   switch: { entity: "switch.x", kind: "confirm-off" }, plug: { entity: "switch.x", kind: "confirm-off" },
   ac: { entity: "climate.x", kind: "confirm-off" }, heater: { entity: "climate.x", kind: "confirm-off" }, climate: { entity: "climate.x", kind: "confirm-off" },
   tv: { entity: "media_player.x", kind: "confirm-off" }, computer: { entity: "switch.x", kind: "confirm-off" }, boiler: { entity: "switch.x", kind: "confirm-off" },
-  car: { entity: "switch.x", kind: "confirm-off" }, ups: { entity: "switch.x", kind: "confirm-off" }, printer: { entity: "switch.x", kind: "confirm-off" },
+  ups: { entity: "switch.x", kind: "confirm-off" }, printer: { entity: "switch.x", kind: "confirm-off" },
+  car: { entity: "switch.x", kind: "none" }, // S35.3 (finding 20): a car is watched, a tap never switches it; was confirm-off
   other: { entity: "fan.x", kind: "confirm-off" },
   lock: { entity: "lock.x", kind: "lock" }, cover: { entity: "cover.x", kind: "cover" },
   // No button: a sensor has nothing to operate, and these types never toggled (NO_TOGGLE, S2.13 / S9.4: media_player.toggle is play/pause or power, guessing is worse).

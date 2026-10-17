@@ -2,6 +2,8 @@
 // The plan's rule (render.ts) is the state Home Assistant sends plus its unit, with "–" for what is not a number; every
 // other place calls this, so "48 %" is never "48.0 %" in one of them. Everything read here is untrusted (finding 1).
 
+import { carStatus, carText } from "./car-status";
+
 const DECIMAL = /^-?\d+(\.\d+)?$/;
 const NO_STATE = "no state";
 
@@ -21,7 +23,12 @@ export const meanText = (n: number): string => String(Math.round(n * 10) / 10);
  * What a device says about itself in one short line. A light on says its brightness (percent), a cover its position, a plug
  * its measured power (`extra`, already formatted by the caller); anything else is the state and its unit.
  */
-export function stateText(type: string, st: Reading | undefined, extra?: string): string {
+export function stateText(type: string, st: Reading | undefined, extra?: string, entity?: string): string {
+  // S35.3: a car's line is the car text. Given the reading's entity id (its domain says whether it is the tracker); else as any state.
+  if (type === "car" && entity && st && typeof st.state === "string") {
+    const line = carText(carStatus({ entity }, { [entity]: st }));
+    if (line) return extra ? `${line} · ${extra}` : line;
+  }
   if (!st || typeof st.state !== "string") return NO_STATE;
   const a = attrsOf(st), s = st.state;
   let text = DECIMAL.test(s.trim()) ? readingText(s, a.unit_of_measurement) : s;

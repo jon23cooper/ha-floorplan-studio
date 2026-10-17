@@ -4,11 +4,11 @@
 
 - Core (S35.2): `src/core/car.ts` holds the nine car models once: footprint, height and profile per model (`CAR_SPEC`), the plan polygons (`carParts`) and the top-view markup (`carTop`). A new car piece is 470 x 182 cm, a sedan; a car piece with no `height` is as high as its model. Nothing draws the new shape yet (S35.4, S35.5).
 - Core (S35.1): a car piece (`symbol: "car"`) may carry `model` (sedan, wagon, suv, offroad, truck, van, utility, citycar, electric), `color` (`#rrggbb`) and `attached` (up to 24 entity ids). `validate` reports junk and the keys on any other piece; `migrate` drops them, so a model from a newer file loads as a sedan. A car's attached entities are not offered again as icons. No schema bump: an older card ignores the keys.
+- Core (S35.3): what a car's entities say. `carStatus` reads home or away from the first `device_tracker.*`, charging (a `battery_charging` binary sensor that is on, or a sensor reading `charging` or `charge_in_progress`), the battery or fuel percent, and an alert (an unlocked lock, an open door or window sensor), by domain, device class and state. `carText` prints `Away · Work · Charging · 78 %`. A car piece with an entity or attached entities is now a linked piece (`pieceDevice`); a car is on while it charges and in the Active list only then; a car icon on a tracker fades and wears the away mark like a person; `car` never toggles from the popup. The new `car` class names are inert until the car is drawn (S35.4).
 
 ## 0.32.1 - 2026-10-17
 
 - Tests only: pixel reads no longer use `page.screenshot`, which fails at random on the CI runner ("Unable to capture screenshot"). Plans are rasterised from the SVG onto a canvas by `tests/helpers/pixels.ts`. Same colours, same tolerances. Converted so far: frame-25d, shade-25d, tree-25d, window-pane, camera-cone-clip, light-glow, card-ghost-turn, hand-align-exit, card.spec (five mask pixel tests), editor.spec (the opening hole), and the 3D specs live, doorway, linked-piece, colors, shade, stair-down, stair-well, tex-glow, plus card-3d and card-3d-narrow, which read the WebGL canvas right after a frame the test hook draws.
-
 
 ## 0.32.0 - 2026-10-17
 

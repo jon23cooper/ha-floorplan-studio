@@ -8,6 +8,7 @@ import { treeShadeSvg, treeShape } from "./tree";
 import { edgeKindAt, nearestEdge, stairSteps } from "./geometry";
 import { doorStateOf, type DoorState } from "./door-state";
 import type { StateOverlay } from "./render";
+import { carMain, type CarDevice, type CarLike } from "./car-status";
 import type { Device, DeviceType, DoorKind, Floor, Furniture, FurnitureSymbol, Pt, StairDirection, Stairs, Unlinked } from "./schema";
 
 /** A device mount at or above this height gets a stem up from its icon (a ceiling light yes, a plug no). */
@@ -424,6 +425,11 @@ export function furnitureLinked(m: Furniture): string {
  * 2026-10-07). Null for any other piece. Built fresh each time, never stored, so the layout file is unchanged.
  */
 export function pieceDevice(m: Furniture): Device | null {
+  // S35.3: a car piece speaks for its car: the main entity (`entity`, else the first attached) and the attached ones.
+  if (m?.symbol === "car") {
+    const main = carMain(m);
+    return main ? ({ id: m.id, type: "car", entity: main, attached: (Array.isArray((m as CarLike).attached) ? ((m as CarLike).attached as unknown[]) : []).filter((e: unknown): e is string => typeof e === "string"), ...(m.name ? { name: m.name } : {}), x: m.x, y: m.y } as CarDevice) : null;
+  }
   if (typeof m?.entity !== "string" || !m.entity || (m.symbol !== "tv" && m.symbol !== "speaker" && m.symbol !== "computer")) return null;
   return { id: m.id, type: m.symbol, entity: m.entity, ...(m.name ? { name: m.name } : {}), x: m.x, y: m.y };
 }

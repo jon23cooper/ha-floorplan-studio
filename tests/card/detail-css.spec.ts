@@ -13,11 +13,12 @@ const ON: Record<string, ReturnType<typeof st>> = {
   ac: st("cool", { hvac_action: "cooling" }), climate: st("heat", { hvac_action: "heating" }), heater: st("heat", { hvac_action: "heating" }),
   media: st("playing"), speaker: st("playing"), tv: st("on"), person: st("home"), alarm: st("armed_away"), vacuum: st("cleaning"),
   cover: st("open", { device_class: "garage" }),
+  car: st("charging"), // S35.3: on while a sensor says it charges, so its fixture entity is a sensor (below)
 };
 const onState = (t: string) => ON[t] ?? st("on");
 const offState = (t: string) => ({ ...st(t === "alarm" ? "disarmed" : "off"), last_changed: "2026-09-18T10:00:00Z" });
 const goneState = () => st("unavailable");
-const ALL = DEVICE_TYPES.map((type, i) => ({ id: `d${i}`, type, entity: `${type === "siren" ? "siren" : "x"}.d${i}`, x: 60 + (i % 8) * 100, y: 80 + Math.floor(i / 8) * 120 }));
+const ALL = DEVICE_TYPES.map((type, i) => ({ id: `d${i}`, type, entity: `${type === "siren" ? "siren" : type === "car" ? "sensor" : "x"}.d${i}`, x: 60 + (i % 8) * 100, y: 80 + Math.floor(i / 8) * 120 }));
 const plan = (level: DetailLevel | undefined, state: Record<string, unknown>, extra: object = {}, floor: object = {}) => {
   const body = renderFloor({ ...structuredClone(demo.floors.ground), rooms: [], devices: ALL, ...floor } as never,
     { scale: 1, theme: "light", state: state as never, now: Date.parse("2026-09-19T10:00:05Z"), ...(level ? { detail: level } : {}), ...extra });

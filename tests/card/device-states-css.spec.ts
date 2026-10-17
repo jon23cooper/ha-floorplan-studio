@@ -12,9 +12,10 @@ const ON: Record<string, ReturnType<typeof st> | null> = {
   ac: st("cool", { hvac_action: "cooling" }), climate: st("heat", { hvac_action: "heating" }), heater: st("heat", { hvac_action: "heating" }),
   media: st("playing"), speaker: st("playing"), tv: st("on"), person: st("home"), alarm: st("armed_away"), vacuum: st("cleaning"),
   cover: st("open", { device_class: "garage" }),
+  car: st("charging"), // S35.3: a car is on while a sensor says it charges, so its fixture entity is a sensor (below)
 };
 const onState = (t: string) => (t in ON ? ON[t] : st("on"));
-const ALL = DEVICE_TYPES.map((type, i) => ({ id: `d${i}`, type, entity: `${type === "siren" ? "siren" : "x"}.d${i}`, x: 60 + (i % 8) * 100, y: 80 + Math.floor(i / 8) * 120 }));
+const ALL = DEVICE_TYPES.map((type, i) => ({ id: `d${i}`, type, entity: `${type === "siren" ? "siren" : type === "car" ? "sensor" : "x"}.d${i}`, x: 60 + (i % 8) * 100, y: 80 + Math.floor(i / 8) * 120 }));
 const markup = (state: Record<string, unknown>, devices = ALL, extra: object = {}) =>
   renderFloor({ ...structuredClone(demo.floors.ground), rooms: [], devices } as never, { scale: 1, state: state as never, now: Date.parse("2026-09-19T10:00:05Z"), ...extra });
 const plan = (theme: string, body: string) => {

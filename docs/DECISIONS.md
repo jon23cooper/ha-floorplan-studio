@@ -2,6 +2,20 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S35.3 car status and the per-type decisions (coder)
+
+Spec C5. Card and Studio: core only, so both. Pure code in `src/core/car-status.ts`, not in `car.ts`, so it does not wait for S35.2.
+
+- `carStatus(m, states)` takes anything with `entity` and `attached` (a piece, a device) and a state map. Place is `home`, `away`, `unknown` or `none`: `none` is no tracker at all (drawn as home, no mark, no word in the text), `unknown` a tracker that is dead or unread. A zone is the tracker's state text; `not_home` is plain Away.
+- Charging by value, one list (`CHARGING_WORDS`): `charging`, `charge_in_progress`, plus a `battery_charging` binary sensor that is on. `stopped`, `complete`, `disconnected`, `no_power` are not charging.
+- Level: a `sensor` of class `battery` in %, else a `sensor` in % whose id holds `fuel`; a whole number from 0 to 100, else null (a 140 % reading is junk, not a level). Battery wins whatever the order.
+- Alert: a `lock` that is `unlocked` or `open`; a `binary_sensor` of class door, window, opening or garage_door that is on.
+- `pieceDevice` reports a car piece as `{ type: "car", entity: main, attached }` where main is `entity`, else the first attached entity id (C8, criterion 12). A piece with neither is not linked.
+- `classOf` of a car is `on` only while charging (`off` otherwise, `unavailable` when the main entity is dead). `personClass` gives a car `home` or `away` from its tracker; the away mark draws for it. `ACTIVE_LIST_RULE.car` is `on`; `NO_TOGGLE` has `car`.
+- `stateText` takes an optional fourth argument, the reading's entity id, because a reading alone cannot say whether it is a tracker. Callers in the card pass it from S35.6.
+- Moved tests, each on the new premise: `no-toggle-types` (car is NO_TOGGLE), `popup-rules` (car has no button), `active` (car is listed while charging, fixture `sensor.car_state`), `cover-idle` (a car on a plain entity is not on), `render` (a car piece with an entity is linked).
+- Not done here, on purpose: the CSS for `.dev-car.away` (35 % opacity), the `--fp-dev-car` token and the Active row colour belong to S35.4; the `src/core/index.ts` export of `carStatus` to the lane that merges `car.ts`. Card file 117,117 to 117,761 gz (+644).
+
 ## 2026-10-17: S35.2 car models and shape (Sonnet)
 
 - `src/core/car.ts`: `CAR_SPEC` (footprint, height, profile, axles, grille, bed), `carSpec` (junk is the sedan; `includes`, so `__proto__` never matches), `carParts` (unit-frame polygons, +x the nose), `carTop` (polygons in the 100 x 100 frame, classes `car-body`, `car-bed`, `car-tyre`, `car-glass`, `car-roof`, `car-mirror`, `car-grille`, numbers only, no colour attribute). `FURNITURE.car` is 470 x 182; `FURNITURE_HEIGHTS.car` 145 (the sedan's); `furnitureHeight` of a car with no `height` is its model's. `FURNITURE.car.svg` is still the old rounded box: S35.4 swaps it for `carTop`.
