@@ -2,6 +2,13 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: pixel reads leave page.screenshot (Sonnet)
+
+- On the GitHub runner `Page.captureScreenshot` fails at random ("Unable to capture screenshot"): frame-25d three times (fixed in 0.30.1), shade-25d on the 0.32.0 push. Root cause on the runner is unconfirmed.
+- A test that wants a colour no longer asks the browser for a screenshot. `tests/helpers/pixels.ts` `readSvg` serialises the plan's `<svg>` with the stylesheet embedded (the card's own adopted sheets, host `data-*` and inline style carried over), draws it with Chromium's SVG rasteriser onto a canvas at the device scale, over white, and reads the pixel or a mean patch. Still the real CSS on a real raster (finding 10). Assertions, colours and tolerances are unchanged.
+- Deliberate artifact screenshots (`path:` in card-room-scenes, `shots`) stay on `page.screenshot`; they read no pixel.
+- Mutation proof, shade-25d: with `.shade{display:none}` added in `render.ts`, 8 of 9 tests fail (foot and mid read the same colour); restored.
+
 ## 2026-10-17: the card size cap is raised to 118,000 gz for Sprint 34 (Diego)
 
 Favourites and the heat map grew the card from 113,334 to 117,118 gzipped. No cheap trimming got back under 115,000.

@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { FLOORPLAN_CSS, THEMES, renderFloor, type Theme } from "../../src/core/render";
 import type { Floor } from "../../src/core/schema";
+import { readSvg } from "../helpers/pixels";
 
 // S28.6: the framed opening on the real stylesheet and real pixels, in every theme (finding 17): `.frame` takes the frame token and no
 // click (finding 10), and the pixel in the middle of a jamb is the frame colour, in the wall-side colour's place (finding 16).
@@ -42,24 +43,13 @@ test.describe("the jamb on real pixels", () => {
     test(`${c.t}${c.dark ? " (dark)" : ""}: both jambs and the head bar's ends are the frame colour`, async ({ page }) => {
       await page.setContent(`<!DOCTYPE html><html><body style="margin:0"><style>${FLOORPLAN_CSS}</style>${svgOf(c, "c0")}</body></html>`);
       const token = await page.evaluate(() => { const svg = document.getElementById("c0")!, probe = document.createElement("i"); probe.style.color = "var(--fp-frame)"; svg.firstElementChild!.appendChild(probe); return getComputedStyle(probe).color; });
-      // Rasterised in the page, not by page.screenshot: on the CI runner Page.captureScreenshot failed at random ("Unable to capture
-      // screenshot", a different theme each run) while the other worker drove WebGL. The SVG goes through Chromium's own SVG
-      // rasteriser at 4x onto a canvas, with the real stylesheet embedded, so it is still the CSS, not a string match (finding 10).
+      // Rasterised in the page by tests/helpers/pixels.ts, not by page.screenshot (see there: Page.captureScreenshot fails at random on the CI runner).
       // The door's left jamb lies outside the gap: x 95..100, z 0..210, FRAME_PROUD (2 cm) south of the wall line. Its middle, 100 cm up, is plan (97.5, 2) lifted by 100.
       const rise = 0.55, skew = 0.3;
       // Asymmetric on purpose (S28 re-check): both jambs at two depths into the trim, and the head bar's t1 end, which the wall block after the gap used to paint over.
       const P = (x: number, z: number) => [x + z * skew * rise - VB[0], 2 - z * rise - VB[1]];
       const at = [P(97.5, 100), P(96, 40), P(99, 150), P(202.5, 100), P(201, 40), P(204, 150), P(203, 212.5), P(97, 212.5)];
-      const px = await page.evaluate(async ([css, pts]) => {
-        const svg = document.getElementById("c0")!.cloneNode(true) as SVGSVGElement;
-        svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-        const st = document.createElementNS("http://www.w3.org/2000/svg", "style"); st.textContent = css as string; svg.insertBefore(st, svg.firstChild);
-        const img = new Image(); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`; await img.decode();
-        const w = svg.width.baseVal.value, h = svg.height.baseVal.value;
-        const cv = document.createElement("canvas"); cv.width = w * 4; cv.height = h * 4;
-        const g = cv.getContext("2d")!; g.drawImage(img, 0, 0, w * 4, h * 4);
-        return (pts as unknown as number[][]).map(([x, y]) => Array.from(g.getImageData(Math.round(x * 4), Math.round(y * 4), 1, 1).data.slice(0, 3)));
-      }, [FLOORPLAN_CSS, at] as const);
+      const px = await readSvg(page, { svg: "#c0", css: FLOORPLAN_CSS }, at);
       const want = rgb(token);
       px.forEach((p, j) => p.forEach((v, k) => expect(Math.abs(v - want[k]), `probe ${j} channel ${k}: got ${p} want ${want.map(Math.round)} (case ${i})`).toBeLessThanOrEqual(3)));
     });
