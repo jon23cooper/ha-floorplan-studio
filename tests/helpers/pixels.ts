@@ -14,13 +14,16 @@ export interface SvgRead {
   css?: string;
   /** Points are viewport (client) coordinates when true, else css px from the svg's top-left. */
   client?: boolean;
-  /** Side of the square read around each point, in device px. 1 is the single pixel; 6 is the mean of 36. Default 1. */
+  /** Side of the square read around each point, in device px, for `readSvg`. 1 is the single pixel; 6 is the mean of 36. Default 1. */
   patch?: number;
 }
 
-/** The colour (r, g, b, 0..255) of each point, over white like a screenshot of a default page. */
-export function readSvg(page: Page, o: SvgRead, pts: number[][]): Promise<number[][]> {
-  return page.evaluate(async ([o, pts]) => {
+/** Raw RGB triples of a square patch, row by row. */
+export type Patch = number[];
+
+/** The raw RGB of a square of `n` device px around each point, the svg drawn over white like a screenshot of a default page. */
+export function readPatches(page: Page, o: SvgRead, pts: number[][], n: number): Promise<Patch[]> {
+  return page.evaluate(async ([o, pts, n]) => {
     const root: ParentNode = o.host ? document.querySelector(o.host)!.shadowRoot! : document;
     const live = root.querySelector(o.svg) as SVGSVGElement;
     const r = live.getBoundingClientRect(), w = r.width, h = r.height;
@@ -43,12 +46,25 @@ export function readSvg(page: Page, o: SvgRead, pts: number[][]): Promise<number
     const g = cv.getContext("2d", { willReadFrequently: true })!;
     g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height);
     g.drawImage(img, 0, 0, cv.width, cv.height);
-    const n = o.patch ?? 1;
+    const side = n as number, from = Math.floor(side / 2);
     return (pts as number[][]).map(([x, y]) => {
-      const px = Math.round((x - (o.client ? r.left : 0)) * dpr) - Math.floor(n / 2), py = Math.round((y - (o.client ? r.top : 0)) * dpr) - Math.floor(n / 2);
-      const d = g.getImageData(px, py, n, n).data, s = [0, 0, 0];
-      for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) s[k] += d[i + k];
-      return s.map((v) => v / (d.length / 4));
+      const px = Math.round((x - (o.client ? r.left : 0)) * dpr) - from, py = Math.round((y - (o.client ? r.top : 0)) * dpr) - from;
+      const d = g.getImageData(px, py, side, side).data, out: number[] = [];
+      for (let i = 0; i < d.length; i += 4) out.push(d[i], d[i + 1], d[i + 2]);
+      return out;
     });
-  }, [o, pts] as const);
+  }, [o, pts, n] as const);
+}
+
+/** The colour (r, g, b, 0..255) of each point; with `patch` above 1, the mean of the square around it. */
+export async function readSvg(page: Page, o: SvgRead, pts: number[][]): Promise<number[][]> {
+  const mean = (p: Patch) => [0, 1, 2].map((k) => { let s = 0; for (let i = k; i < p.length; i += 3) s += p[i]; return s / (p.length / 3); });
+  return (await readPatches(page, o, pts, o.patch ?? 1)).map(mean);
+}
+
+/** How many pixels of two equal patches differ by more than `tol` levels in any channel. */
+export function differing(a: Patch, b: Patch, tol = 4): number {
+  let c = 0;
+  for (let i = 0; i < a.length; i += 3) if (Math.abs(a[i] - b[i]) > tol || Math.abs(a[i + 1] - b[i + 1]) > tol || Math.abs(a[i + 2] - b[i + 2]) > tol) c++;
+  return c;
 }
