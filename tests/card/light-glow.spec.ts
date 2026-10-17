@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo } from "./helpers-3d";
 import { FLOORPLAN_CSS, THEMES, renderFloor } from "../../src/core/render";
+import { readSvg } from "../helpers/pixels";
 
 // S23.8 (V13): light is light. A lit lamp's 2D glow is a radial falloff, brightest at the lamp and gone at its reach, clipped to
 // the room it hangs in, screen-blended on a dark theme and multiplied on a light one. Read from real pixels (finding 16): the
@@ -18,17 +19,9 @@ const page_ = (theme: string, on: boolean) => {
   return `<!DOCTYPE html><html><body style="margin:0"><style>${FLOORPLAN_CSS}</style><svg width="900" height="700" viewBox="-50 -50 900 700"><g data-theme="${t}" data-mode="${mode}" id="p">${svg}</g></svg></body></html>`;
 };
 
-/** The mean colour of a 6 x 6 px patch of a real screenshot around plan point (x, y). */
+/** The mean colour of a 6 x 6 px patch around plan point (x, y), the svg rasterised in the page (not page.screenshot). */
 async function at(page: Page, x: number, y: number): Promise<number[]> {
-  const buf = await page.screenshot({ clip: { x: x + OFF - 3, y: y + OFF - 3, width: 6, height: 6 } });
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data, n = d.length / 4, s = [0, 0, 0];
-    for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) s[k] += d[i + k];
-    return s.map((v) => v / n);
-  }, buf.toString("base64"));
+  return (await readSvg(page, { svg: "svg", css: FLOORPLAN_CSS, client: true, patch: 6 }, [[x + OFF, y + OFF]]))[0];
 }
 const delta = (a: number[], b: number[]) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
 // Plan points: just past the wall in the Living room, 90 cm from the lamp; the same distance inside the Kitchen; near the lamp
