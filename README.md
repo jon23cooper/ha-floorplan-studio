@@ -87,6 +87,9 @@ A real house, on the card in 2.5D, three themes (room and device names blurred):
   The same panel gives three lines for a strategy dashboard instead, which
   Home Assistant rebuilds on every load, so a floor you add later shows up on
   its own.
+- **Heat map.** A card key `heat_map` (and View, Heat map in the editor, and the card's ⋯ menu) fills each room by its
+  temperature or humidity on a fixed scale, with the value and a legend. Live readings, no history.
+- **Favourites.** A card key `favourites` lists entities at the top of the Overview, each with its button.
 - **View → Saved views** keeps a named view (floor, mode, turn, zoom) in the
   layout; every card offers it in its ⋯ menu.
 - A scanned or photographed plan can be traced: load it in the editor, scale

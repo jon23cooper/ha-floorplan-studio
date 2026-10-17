@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Docs (S34.11): `card.md`, `editor.md`, `SPEC.md` and the README cover favourites and the heat map. The card's Heat map items follow Detail and Layers: hidden with `active_list: false` and in kiosk, where `heat_map` in YAML still heats the plan.
+- Core (S34.11): with the heat map on, a room's badge plate (lights, motion, alerts) sat on the heat value; it now steps below it. Shots gain favourites and heat states.
 - Card (S34.8): the heat map. The `heat_map` key (`off`, `temperature`, `humidity`; anything else is off with one console warning) and a Heat map section in the ⋯ menu, after Layers, fill each room that has a reading by the fixed scale and draw a legend strip at the plan's bottom left. 2D and 2.5D; in 3D the items and the legend are hidden and the pick is kept. The pick is the viewer's, kept in the view memory (`heat`), cleared by Reset view; editing `heat_map` in the YAML starts a clean memory. Like Detail, the section is not in kiosk or under `active_list: false` (the key still applies there).
 - Card (S34.9): the Edit-card form has a Heat map select (Off, Temperature, Humidity). It writes `heat_map`; Off leaves the key out; a value the card cannot read shows Off and fires nothing. The card reads the key in S34.8.
 - Studio (S34.10): View, Heat map (Off, Temperature, Humidity). Each room that reads is filled on the fixed scale and prints its value; the status bar shows the scale with a ramp, or "Heat map: no readings" when no room on the floor reads (always so standalone, where there are no states). The pick is kept in the view memory, not the layout, and is no undo step. The card's half is S34.8; `view-parity.spec.ts` has the `heatSub` row and fails on its card half until that merges.

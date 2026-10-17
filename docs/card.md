@@ -49,6 +49,8 @@ floors — ready to paste. See "A premade dashboard" below.
 | `ghost_floor` | `false` | `true` draws the floor under the shown one as faint lines, at its place in the house (the floors' `offset`s and `rotation`s, so a floor drawn turned a few degrees on the one below lines up). Only `true` counts; junk is off. The Floor below item of the ⋯ menu (2D and 2.5D) changes it for one viewer and the card remembers the pick; the lowest floor has none |
 | `floors_below` | `off` | 3D only: `ghost` draws every floor under the shown one translucent, `solid` in its own colours, `off` none. Junk is `off`. The Floors below radios of the ⋯ menu change it for one viewer; the pick is remembered |
 | `detail` | `auto` | how much of the plan is drawn at each zoom (Detail, below): `auto` follows the zoom, `full` always draws everything, `minimal` always draws only rooms and what needs attention. Unset or anything else is `auto`, but `full` where the viewer can neither zoom nor reach the Detail button (kiosk, or `active_list: false` with `zoom: false`). The Detail items of the ⋯ menu change it for one viewer, and a viewer's own pick wins over this key |
+| `heat_map` | `off` | `off`, `temperature` or `humidity`: fills each room that has a reading by a fixed scale and draws a legend (see Heat map, below). Anything else is `off`, with one console warning. The Heat map items of the ⋯ menu change it for one viewer, and a viewer's own pick wins over this key |
+| `favourites` | unset | a list of entity ids (`favorites` is read too; `favourites` wins when both are set). They get a Favourites section at the top of the Overview (see Overview, below). Up to 24; anything that is not an entity id and every repeat is dropped, with one console warning per card |
 | `walls` | `cut` | how 2.5D and 3D draw wall heights: `full` every wall at its real height, no cutaway; `cut` the doll's house look, walls facing you lowered so the rooms show; `low` every wall at the cutaway height. Anything else is `cut`. Read in 2.5D and 3D. See Walls, below |
 | `labels` | `true` | `false` hides every name and value on the plan (rooms, zones, structures, device names, sensor values), so only icons and state are left. Anything but `false` shows them |
 | `rotation` | `0` | degrees the plan starts turned, in steps of 45: `0`, `45`, `90` ... `315`. Any other number rounds to the nearest step; anything that is not a number is `0`. Text and icons stay upright. A viewer's own turn is remembered over this — see View memory and reset, below |
@@ -255,11 +257,11 @@ across the room.
 The card's chrome sits around the plan, not over it: a 52 px header (floor tabs, Search, ⋯), one sheet (the Overview, see
 below) beside the plan from 640 px or under it on a phone, and a small zoom cluster on the plan (+, −, Fit; Reset camera in
 3D), the only thing that floats over it. Everything about how the plan looks is in the header's ⋯ menu ("View options"): View, Tilt,
-Walls, Floor below, Theme, Labels, Device names, Detail, Layers, Rotate left, Rotate right
+Walls, Floor below, Theme, Labels, Device names, Detail, Layers, Heat map, Rotate left, Rotate right
 and Reset view. Each item writes what the old control wrote, into the same view memory.
 Theme is one drop-down with every theme in it (a native select: click it, or Arrow to it and press Enter, Space or
 Alt+Down), not a row of radios. A pick sets the theme, closes the menu and returns focus to the ⋯ button. The Studio's own Theme control is unchanged.
-`view_switch: false` drops the look items and keeps Detail, Layers, Rotate and Reset; a
+`view_switch: false` drops the look items and keeps Detail, Layers, Heat map, Rotate and Reset; a
 kiosk has no menu, except that `rotate_switch: true` shows one with Rotate and Reset.
 
 "Everything you do in the studio you can do in the card", for **viewing**. Each
@@ -290,6 +292,7 @@ editor and fails on a control that has no row here, so a new one gets a decision
 | `#heatSub` Heat map (Off, Temperature, Humidity) | yes | the Heat map radios of the ⋯ menu, same three choices; kept per viewer; config `heat_map`. Not in 3D. Inside Home Assistant both show live readings; standalone the Studio has none, so no room is heated and its status bar says so |
 | `#detailSub` Detail (Auto, Full, Minimal) | yes | the Detail radios of the ⋯ menu, same three choices; kept per viewer; config `detail`. The Studio starts on Full, the card on Auto. Not in 3D |
 | `#tabLayers` Layers (hide a family) | yes | the Layers section of the ⋯ menu has a check per family: a pick hides it, Alt-click shows it alone; kept per viewer. Not in 3D |
+| Favourites | card only, on purpose | the `favourites` key and its Overview section are card chrome, not a view control; the Studio has its Outline and Search. The Edit-card form sets the key |
 | Plan view, Tilt, Walls | card only | the View radios, the Tilt presets (flat to steep) and the Walls radios of the ⋯ menu. The studio has no 2.5D since 0.14 (S12.1); the card keeps 2D and 2.5D, and gets 3D |
 | Room facts and device details panel | card only | the card's sheet (Picking a room); the studio already has its own selection panel with the room's fields and each device's entity |
 
@@ -373,6 +376,14 @@ From the top:
 
 - **All floors.** Lists every floor, each row badged with its floor. By
   default the list shows the floor on show.
+- **Favourites.** The entities in the `favourites` key, above Attention, in the key's order, on every floor the card shows
+  (a floor badge when it shows more than one). A row is an Active row with the popup's button beside it: Turn on acts; Turn
+  off asks first (**Confirm turn off**, **Cancel**, on their own line under the row) for everything but a light; Lock, Unlock,
+  Open and Close as in the popup; a sensor or a camera has none. An unavailable one is dimmed with no button. A tap on the
+  row goes to the thing. An entity that is not drawn on a floor the card shows has no row. It folds like a category. Search
+  lists a favourite before a shorter name of the same rank. It is an Overview level section only: no sheet under `kiosk` or
+  `active_list: false`, and not on a Floor or Room level. A card cannot write its own YAML, so there is no star in the popup:
+  set the key in YAML or in the Edit-card form.
 - **Attention.** Alarm triggered or armed, open doors and contacts, jammed
   and unlocked locks, leak, smoke and gas, low batteries, each with its age
   ("open · 12 min"). Unavailable devices sit in one folded row with a count.
@@ -467,6 +478,31 @@ default (anything else counts as no key; the Edit-card form has a Detail select)
 browser and wins over the YAML; Reset view clears it. With storage blocked the pick lasts until the page closes. Live 3D
 draws every level.
 
+## Heat map
+
+`heat_map: temperature` or `humidity` fills every room that has a reading by a fixed scale, and prints the value under the
+room's name (also with `labels: false`; a colour with no number would fail the reader). The scale is absolute, so a colour
+means the same thing every day: 16 to 26 °C (blue, amber at 21, red) and 30 to 70 % (sand, pale green at 50, blue). A value
+past an end takes the end colour; the number printed is the real one. A legend strip sits at the plan's bottom left.
+
+- **Which sensors.** The room's own `temps` (or `humidity`) list when any of it reads, the same mean the room's readout
+  prints. Otherwise the `temp` (or `humidity`) devices placed in the room (the smallest room that owns the point; a sensor
+  inside a zone feeds the room under it). A `climate` device's current temperature is not a source.
+- **What is not a reading.** Unavailable, unknown, a comma decimal, a unit that does not belong (`K`, `%` on a temperature),
+  and values outside -60 to 90 °C or 0 to 100 %. Each sensor is judged alone, so one faulty probe is left out and the room
+  is read from the others. `°F` is converted for the colour and stays `°F` in the number. A room with no reading keeps its
+  own fill and prints nothing. Fills, structures and zones never take heat; a garden or a pond does.
+- **Over paint and night.** The heat covers a room's glow, its own paint or texture and water's colour (55 % ramp mixed
+  into the room kind's colour, so a pond is still a pond), and no night veil is drawn, so the scale reads true. Lines
+  (the lit room's outline, the motion perimeter, the picked room), auras and icons are drawn over it as before.
+- **The menu.** A Heat map section in the ⋯ menu, after Layers: Off, Temperature, Humidity. It follows Detail and Layers:
+  shown where they are (a floor, not in 3D) and so hidden under `active_list: false` and in kiosk, where `heat_map` in YAML
+  still heats the plan and draws the legend. It stays under `view_switch: false`. Not in 3D: the items and the legend go and
+  the pick is kept for 2D. The pick is the viewer's, remembered like Detail; an explicit Off beats a YAML mode; Reset view
+  clears it; editing `heat_map` in YAML starts a clean memory.
+- **The Studio** has the same choice under View, Heat map, and shows live readings inside Home Assistant. Standalone it has
+  no states, so no room is heated and its status bar says "Heat map: no readings" (per floor on show).
+
 ## View memory and reset
 
 Two items of the ⋯ menu turn the plan: **Rotate left** and
@@ -480,7 +516,7 @@ The ⋯ menu also has Theme and the Labels and Device names checks beside View.
 
 The card remembers, per browser, the viewer's zoom, the spot they zoomed to,
 the rotation, 2D, 2.5D or 3D, the tilt, the wall heights, the theme, whether
-text shows, which layer chips are off and the Detail mode. Come
+text shows, which layer chips are off, the Detail mode and the Heat map. Come
 back, reload or switch dashboard tab and the plan is as it was left, with no
 flash of the configured look. The floor and the Overview are remembered
 as before.
@@ -552,7 +588,7 @@ icon, or "Edit" on an existing card) shows a form instead of raw code —
 theme, a Floor selector, fade, the plug watts, room glow, zoom, view, view switch, rotation (with a note that viewers' views are remembered), kiosk, icon size, the
 open-door colour (with a Clear button, distinct from picking the theme's
 own default colour by hand), the Active list toggle, night and the sun
-entity, Tap and Hold (what a tap and a long press on a device do). The Floor selector picks "All floors (switcher)" (the default — it
+entity, Tap and Hold (what a tap and a long press on a device do), Favourites (type or pick an entity, Add, Remove per row; a repeat, a non-entity or a 25th is refused with a line that says why; it writes `favourites` and drops `favorites`) and a Heat map select (Off, Temperature, Humidity; Off leaves the key out). The Floor selector picks "All floors (switcher)" (the default — it
 writes no `floor` key at all) or one specific floor, by name, once the
 card's own layout has loaded (`layout`, `layout_url`, or the plan stored in
 Home Assistant); until then it offers only "All floors". Choosing a single

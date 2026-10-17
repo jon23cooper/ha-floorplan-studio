@@ -4366,7 +4366,7 @@ Wave 3, after wave 2:
       only).
 
 Wave 4, on `task/s34-extras`:
-- [ ] S34.11 Exit, docs, shots (Sonnet; the docs part may go to Haiku). Every exit-test file green, `--repeat-each=10`
+- [x] S34.11 Exit, docs, shots (Sonnet; the docs part may go to Haiku). Every exit-test file green, `--repeat-each=10`
       on each new Playwright file. Docs: `docs/card.md` (Config keys: `favourites`, `heat_map`; Overview: Favourites;
       a Heat map section; Studio and card: the parity line for favourites), `docs/editor.md` (View, Heat map),
       `docs/SPEC.md` (Card behaviours: heat map and favourites; no schema change), `README.md` feature list, CHANGELOG

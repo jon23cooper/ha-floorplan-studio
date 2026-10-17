@@ -406,6 +406,15 @@ try {
   cardShots.push({ name: "card-first-ghost-blueprint-2-5d", floor: "first", which: "off", dark: bp.dark, theme: bp.theme, vars: bp.vars, page: bp.page, ghost: true, view: "2.5d", cfg: { ghost_floor: true, active_list: false } });
   cardShots.push({ name: "card-ground-on-blueprint-2-5d-375px", floor: "ground", which: "on", dark: bp.dark, theme: bp.theme, vars: bp.vars, page: bp.page, view: "2.5d", width: 375 });
   cardShots.push({ name: "card-ground-on-blueprint-2-5d-rot-45-375px", floor: "ground", which: "on", dark: bp.dark, theme: bp.theme, vars: bp.vars, page: bp.page, view: "2.5d", width: 375, cfg: { rotation: 45 } });
+  // S34.11: the card itself with a favourite (the Overview's top section) and with the heat map on (plan, legend, menu item), light,
+  // blueprint and a dark theme. The renderFloor shots further down show the rooms at 4x; these show the chrome around them.
+  for (const t of THEMES.filter((x) => ["light", "blueprint", "ha-dark"].includes(x.id))) {
+    cardShots.push({ name: `card-ground-favourites-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, cfg: { favourites: ["light.demo_living", "switch.demo_tv_plug"] }, openSheet: true });
+    for (const kind of ["temperature", "humidity"])
+      cardShots.push({ name: `card-ground-heat-${kind}-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, cfg: { heat_map: kind } });
+  }
+  for (const t of THEMES.filter((x) => ["light", "blueprint", "ha-dark"].includes(x.id)))
+    cardShots.push({ name: `card-ground-heat-temperature-living-3x-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, dpr: 3, cfg: { heat_map: "temperature", active_list: false }, cropRoom: 0 });
   for (const s of cardShots) {
     const ctx = await browser.newContext({ viewport: { width: s.width ?? 900, height: 700 }, colorScheme: "light", reducedMotion: "reduce", ...(s.dpr ? { deviceScaleFactor: s.dpr } : {}) });
     const page = await ctx.newPage();
@@ -435,6 +444,11 @@ try {
         await page.locator("floorplan-studio-card").locator(".fp-room-devices .fp-active-row").first().click();
         await page.locator("floorplan-studio-card").locator(".fp-pop .fp-pop-info > summary").click();
       }
+      await page.mouse.move(0, 0);
+    }
+    if (s.openSheet) { // a real click on the rail's open button, as a person does
+      await page.locator("floorplan-studio-card").locator(".fp-rail-open").click();
+      await page.locator("floorplan-studio-card").locator(".fp-active-row").first().waitFor();
       await page.mouse.move(0, 0);
     }
     if (s.pill) {
@@ -470,7 +484,10 @@ try {
     }
     const nodes = await page.evaluate(() => document.getElementById("c").shadowRoot.querySelectorAll("svg *").length);
     if (nodes < 10) errors.push(`${s.name}: the plan drew ${nodes} nodes; something is wrong before you even look`);
-    await page.locator("floorplan-studio-card").screenshot({ path: `${OUT}/${s.name}.png` });
+    if (s.cropRoom !== undefined) { // the card's own room, zoomed: its name, chips and heat value
+      const b = await page.evaluate((i) => { const r = document.getElementById("c").shadowRoot.querySelector(`svg polygon[data-r="${i}"]`).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }, s.cropRoom);
+      await page.screenshot({ path: `${OUT}/${s.name}.png`, clip: { x: b.x, y: b.y, width: b.width, height: b.height } });
+    } else await page.locator("floorplan-studio-card").screenshot({ path: `${OUT}/${s.name}.png` });
     shots.push(s.name);
     await ctx.close();
   }
