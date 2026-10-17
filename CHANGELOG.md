@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Core (S35.1): a car piece (`symbol: "car"`) may carry `model` (sedan, wagon, suv, offroad, truck, van, utility, citycar, electric), `color` (`#rrggbb`) and `attached` (up to 24 entity ids). `validate` reports junk and the keys on any other piece; `migrate` drops them, so a model from a newer file loads as a sedan. A car's attached entities are not offered again as icons. No schema bump: an older card ignores the keys.
+
 ## 0.32.0 - 2026-10-17
 
 - Card (S34 review): the Edit-card form read the websocket reply as the layout itself, so on a real dashboard the floor list and the Favourites choices stayed empty; it now reads `{ layout }` as the card does. A favourite that is not a light, switch, input_boolean or fan (a lock, a cover, a group, ...) asks (Confirm unlock, Confirm open, ...) before it acts, turn on included; only those four act on one tap. With the heat map on, the room panel prints the number the plan prints, and the legend says "no readings" when no room on the floor has one. When 3D falls back to 2D the legend moves to the top so it no longer overlaps the note. The Studio's status-bar ramp blends in oklch like the card's.

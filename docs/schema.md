@@ -152,12 +152,20 @@ export interface Extra { id: string; name: string; a: Pt; b: Pt }
 export type Device = { id: string; type: DeviceType; entity: string; name?: string; bound?: string; trvs?: string[]; tempSensors?: string[]; linked?: string[]; room?: string; targets?: { x: string; y: string }[]; rot?: number; motion?: string; power?: string; z?: number; fx?: number; locked?: boolean } & ({ x: number; y: number } | { a: Pt; b: Pt });
 ```
 
+## CarModel
+
+S35.1: the car models, in the order the Studio lists them. `model`, `color` (`#rrggbb`) and `attached` (at most `MAX_CAR_ATTACHED` entity ids) exist on a furniture piece with symbol `car` only; `entity` is then the car's main entity (a tap opens it). An older card ignores the three keys.
+
+```ts
+export type CarModel = "sedan" | "wagon" | "suv" | "offroad" | "truck" | "van" | "utility" | "citycar" | "electric";
+```
+
 ## Furniture
 
 `name` is a plan name; `entity` is an HA entity whose state the piece shows. Both optional. `locked` (fixed):  a right-click "Fix" on the plan stops it being dragged or resized until "Unfix"; panel edits still apply. `height` is the size of the piece, `z` its bottom above the floor  (a wall TV, a speaker): the top is z + height.
 
 ```ts
-export interface Furniture { id: string; symbol: FurnitureSymbol; x: number; y: number; rot: number; w: number; h: number; name?: string; entity?: string; locked?: boolean; height?: number; z?: number }
+export interface Furniture { id: string; symbol: FurnitureSymbol; x: number; y: number; rot: number; w: number; h: number; name?: string; entity?: string; locked?: boolean; height?: number; z?: number; model?: CarModel; color?: string; attached?: string[] }
 ```
 
 ## Unlinked
@@ -318,6 +326,6 @@ export const MOTION_TYPES: readonly DeviceType[] = ["motion", "radar"];
 S4.25: the appliance types offered in the Add > Unlinked device menu — a curated subset of DEVICE_TYPES, each with a fixed icon and no linked-entity state. "heatpump" reuses the "ac" icon and colour; there is no separate type for it.
 
 ```ts
-export const UNLINKED_TYPES: readonly DeviceType[] = ["heater", "ac", "boiler", "battery", "computer", "tv", "car", "server", "ups", "inverter", "speaker", "printer", "light"];
+export const UNLINKED_TYPES: readonly DeviceType[] = ["heater", "ac", "boiler", "battery", "computer", "tv", "car", "server", "ups", "inverter", "speaker", "printer", "light", "fan"];
 ```
 

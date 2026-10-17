@@ -2,6 +2,15 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S35.1 car keys in the schema (Sonnet)
+
+- Spec C2 as written. `CarModel`, `CAR_MODELS`, `MAX_CAR_ATTACHED` and the three `Furniture` keys are in `src/core/schema.ts`; `docs/schema.md` regenerated. `validate` reports a bad `model`, `color`, `attached` (not a list, a non-entity, a repeat, more than 24) and any of the three on a piece that is not a car, naming the piece. `migrate` (`dropBadCar`) deletes a bad model or colour, keeps the first 24 distinct entity-id strings of `attached` in order (deleted when none), and strips the three keys from a non-car.
+- "Entity id" is the schema's own test, a string holding a dot, as for every other list. The repeat check is new, in the car branch only.
+- `attachedEntities` counts a car's `attached`; its main `entity` stays in `placedEntities`.
+- The hostile-input test uses JSON shapes (null, nesting, wrong types). A getter that throws cannot come from `JSON.parse`, and no other field of `validate` defends against one.
+- Card file: 117,117 gz before (main), 117,417 after (`gzip -9`).
+- Parity: schema only, no visible change in either view.
+
 ## 2026-10-17: Sprint 35 planned: the car (developer)
 
 Diego asked for a better car: attached entities, nine models, a tap that opens Home Assistant's dialog, a real fade when

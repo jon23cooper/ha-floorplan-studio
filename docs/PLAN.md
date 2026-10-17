@@ -4454,7 +4454,7 @@ coder's note before accepting. The docs part of S35.8 may go to Haiku. Opus revi
 Wave 1, pure core, two lanes:
 
 Lane schema:
-- [ ] S35.1 Car keys in the schema (Sonnet). Spec C2. `CarModel`, `CAR_MODELS`, `MAX_CAR_ATTACHED` in
+- [x] S35.1 Car keys in the schema (Sonnet). Spec C2. `CarModel`, `CAR_MODELS`, `MAX_CAR_ATTACHED` in
       `src/core/schema.ts`; `Furniture` gains `model`, `color`, `attached`; `validate` reports each junk shape, car only;
       `migrate` keeps the good parts and drops the rest; `attachedEntities` counts a car's `attached`. Test, failing
       first, new `tests/core/car-schema.test.ts`: criterion 1, every junk case through `validate` (no throw, the piece
