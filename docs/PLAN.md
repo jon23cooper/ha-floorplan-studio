@@ -4526,7 +4526,7 @@ Lane card and Studio:
       events recorded; criterion 13 fails on 0.32.0 (say so in the report); a `hass` update with the chooser open.
       Card size before and after.
       Files: `src/card/actions.ts`, `src/card/floorplan-studio-card.ts` (chooser title only), the new spec.
-- [ ] S35.7 The Studio's car panel (Sonnet, **judgement**: the order of the attached suggestions). After S35.1 and
+- [x] S35.7 The Studio's car panel (Sonnet, **judgement**: the order of the attached suggestions). After S35.1 and
       S35.2. Spec C9. The furniture panel's Car block: Model select with the `carTop` swatch, Colour (palette, input,
       Theme colour), main entity (trackers first), Attached with device-first suggestions and Add all from this car,
       Convert to car piece on a device or unlinked `car`. Tests, failing first: new `tests/editor/car-panel.test.ts`
