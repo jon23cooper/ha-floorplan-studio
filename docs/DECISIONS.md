@@ -2,6 +2,12 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S34.3 favourites rank first in Search (Sonnet)
+
+- `searchIndex(index, query, limit, first?)`: `first` is a set of entity ids. The sort is tier, then favourite, then name length, then entry order (spec F6). A favourite never beats a better tier.
+- A `first` that is not a `Set` (card YAML is untrusted) or is empty means no favourites: the same code path as before. The Studio passes none, so its search is as before; shared code, no Studio change, on purpose (F8).
+- Proof. 4 of 5 new tests in `tests/core/search.test.ts` failed first (the asymmetric case: the favourite's name is longer than the other's). The demo's order for "li", "light" and "a" is pinned as literals taken before the change.
+
 ## 2026-10-15: S33 Opus review fixes (Sonnet)
 
 - 1, blocker. `tap_action: toggle` ran any op without a confirm at once: a lock's Unlock, a cover's Open and an off siren's Turn on. Supersedes the S33.4 rule "ON acts at once". Now `TOGGLE_AT_ONCE` (card) lists the entity domains that act at once: `light`, `switch`, `input_boolean`, `fan`. Every other domain opens the popup. Domains checked against `SWITCHABLE` and `popupOp`: lock and cover (no confirm, a physical door: popup), siren (loud: popup), climate, humidifier, water_heater (a setpoint device, not a lamp), automation (Turn off disables it), remote, media_player, group (`homeassistant.turn_off` reaches every member). A `switch` can drive a garage relay; that is the user's wiring and it stays a plain switch. The popup then shows the same button; nothing else changed. Test: `card-tap-action.spec.ts`, lock, cover and siren (3 failed first, with a real click and no popup), plus a fan and an automation as guards.

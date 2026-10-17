@@ -4292,7 +4292,7 @@ Lane fav (pure first):
       Files: `src/card/favourites.ts`, `tests/card/favourites.test.ts`.
 
 Lane search:
-- [ ] S34.3 Favourites rank first in Search (Sonnet). `searchIndex(index, query, limit, first?)`: within a tier a
+- [x] S34.3 Favourites rank first in Search (Sonnet). `searchIndex(index, query, limit, first?)`: within a tier a
       favourite entity sorts first (F6). Test, failing first, in `tests/core/search.test.ts`: criterion 7 with an
       asymmetric case (the favourite's name longer than the other's, so name length alone would put it second);
       `first` omitted gives today's order on the demo, entry for entry.
