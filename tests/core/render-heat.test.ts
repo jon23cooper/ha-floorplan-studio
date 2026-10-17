@@ -118,3 +118,16 @@ describe("the stylesheet", () => {
     expect(FLOORPLAN_CSS).toContain(".room.heat");
   });
 });
+
+// Found by looking at the card at 3x (S34.11): Living's badge plate sat on its heat value. The plate steps below the room's own
+// readout (`roomReadout`), which a room fed by a placed sensor does not have; the heat value is a readout too.
+describe("the room badge steps below a heat value", () => {
+  const o: RenderOpts = { scale: 0.5, state: ON, detail: "far" };
+  const plateTop = (html: string, i: number) => Number(new RegExp(`<g data-rb="${i}"[^>]*>\\s*<rect class="rb-plate" x="[-\\d.]+" y="([-\\d.]+)"`).exec(html)?.[1]);
+  const valueY = (html: string, i: number) => Number(new RegExp(`data-rv="${i}"[^>]* y="([-\\d.]+)"|<text class="[^"]*" data-rv="${i}" x="[-\\d.]+" y="([-\\d.]+)"`).exec(html)?.slice(1).find(Boolean));
+  it("Living's plate starts below the heat value's baseline, and lower than with the heat map off", () => {
+    const heated = renderFloor(ground, { ...o, heat: "temperature" }), plain = renderFloor(ground, o);
+    expect(plateTop(heated, IDX.living)).toBeGreaterThan(valueY(heated, IDX.living));
+    expect(plateTop(heated, IDX.living)).toBeGreaterThan(plateTop(plain, IDX.living));
+  });
+});

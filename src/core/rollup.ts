@@ -76,6 +76,8 @@ export interface BadgeCtx {
   attn?: AttentionSource;
   /** Where room `i`'s name sits (baseline anchor and font size), or the room's centroid with size 0 when it has none. */
   anchor: (i: number) => { at: Pt; size: number };
+  /** Room `i` prints a value line the plan draws itself, beyond its own sensors' readout (S34: a heat value). The plate steps below it. */
+  hasValue?: (i: number) => boolean;
   /** A point `dx`, `dy` on the screen from `a` (the plan may be turned). */
   screenOff: (a: Pt, dx: number, dy: number) => Pt;
   /** The attribute that keeps a thing upright in a turned plan. */
@@ -95,7 +97,7 @@ export function badges(c: BadgeCtx): string[] {
     const chips = CHIPS.filter((h) => r[h.key] > 0);
     if (!chips.length) return;
     const room = c.f.rooms[i]!, { at, size } = c.anchor(i);
-    const below = roomReadout(room, c.state) ? 0.25 * size + k + s + 2 * k : 0.25 * size + 2 * k;
+    const below = roomReadout(room, c.state) || c.hasValue?.(i) ? 0.25 * size + k + s + 2 * k : 0.25 * size + 2 * k;
     const h = 1.5 * s, [cx, cy] = c.screenOff(at, 0, below + h / 2);
     const label = (n: number) => (n > 99 ? "99+" : String(n));
     const widths = chips.map((h2) => icon + k + label(r[h2.key]).length * 0.6 * s);
