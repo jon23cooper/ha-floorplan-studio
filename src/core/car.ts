@@ -1,4 +1,6 @@
-import { CAR_MODELS, type CarModel } from "./schema";
+import { CAR_MODELS, type CarModel, type Furniture } from "./schema";
+import type { CarStatus } from "./car-status";
+import { num } from "./fmt";
 
 /**
  * S35.2: the car, once. One table drives the plan (2D, 2.5D) and the 3D scene, so the views cannot disagree about a
@@ -47,7 +49,7 @@ const q = (n: number) => Math.round(n * 1e6) / 1e6;
 const rect = (x0: number, x1: number, y0: number, y1: number): CarPoly => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => [q(x - 0.5), q(y)] as [number, number]);
 const mirrorY = (p: CarPoly): CarPoly => p.map(([x, y]) => [x, q(-y)] as [number, number]);
 
-export function carParts(model: CarModel): CarParts {
+export function carParts(model: unknown): CarParts {
   const s = carSpec(model);
   // The chamfer is measured in cm, not in the unit frame, and the nose tapers more than the tail: a car's front is narrower than its back.
   const ny = Math.min(0.3, 1.4 * s.nose * s.w / s.h), ty = Math.min(0.3, s.tail * s.w / s.h);
@@ -77,9 +79,38 @@ const poly = (cls: string, p: CarPoly) => `<polygon class="${cls}" points="${fra
  * The top view as markup in the 100 x 100 symbol frame the plan scales to the piece. Numbers and fixed class names only;
  * colour comes from the stylesheet (`car-body`, `car-glass`, ...), never an attribute (finding 18).
  */
-export function carTop(model: CarModel): string {
+export function carTop(model: unknown): string {
   const p = carParts(model);
   return poly("car-body", p.outline) + (p.bed ? poly("car-bed", p.bed) : "") + p.wheels.map((w) => poly("car-tyre", w)).join("")
     + poly("car-glass", p.rearGlass) + poly("car-glass", p.windscreen) + poly("car-roof", p.roof)
     + p.mirrors.map((m) => poly("car-mirror", m)).join("") + (p.grille ? poly("car-grille", p.grille) : "");
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+export interface CarLook {
+  /** ` furn-car` and the state classes, appended to the piece group's class list. */
+  cls: string;
+  /** ` style="--fp-car-body:#rrggbb"`, or "" when the colour is absent or not a plain hex (a layout is untrusted, finding 1). */
+  style: string;
+  /** The badges and the level, in a group at `%AT%` (the piece's centre, at the height it is drawn): outside the scaled symbol so circles stay round and the fade of an away car does not dim them. */
+  marks: string;
+}
+
+/**
+ * S35.4 (spec C5, C7): what a car piece wears on the plan, from its status. One function for the 2D and 2.5D paths, so they cannot
+ * disagree. The colour is a custom property on the group and a class rule reads it: a rule, not an attribute (finding 18).
+ */
+export function carLook(m: Furniture, s: CarStatus, dead: boolean): CarLook {
+  const rot = num(m.rot), away = s.place === "away";
+  const badges = (away ? `<circle class="away-mark" cx="${num(m.w / 2 - 14)}" r="8"/>` : "")
+    + (dead ? `<g class="gone-mark" transform="translate(${num(14 - m.w / 2)} 0) scale(1.4)"><circle r="5"/><line x1="-3" y1="3" x2="3" y2="-3"/></g>` : "")
+    + (s.charging ? `<g class="car-bolt" transform="rotate(${num(-m.rot)})"><circle r="10"/><path d="M2-6L-4 1h4l-2 5 6-7H2z"/></g>` : "");
+  // under the car on screen: half the turned box's height, then a line
+  const a = (m.rot * Math.PI) / 180, below = (Math.abs(m.w * Math.sin(a)) + Math.abs(m.h * Math.cos(a))) / 2 + 24;
+  const level = s.level === null ? "" : `<text class="val" y="${num(below)}" text-anchor="middle" font-size="24">${s.level} %</text>`;
+  return {
+    cls: ` furn-car${away ? " away" : ""}${s.charging ? " charging" : ""}${s.alert ? " alert" : ""}`,
+    style: typeof m.color === "string" && HEX.test(m.color) ? ` style="--fp-car-body:${m.color}"` : "",
+    marks: badges || level ? `<g class="car-marks" transform="translate(%AT%)"><g transform="rotate(${rot})">${badges}</g>${level}</g>` : "",
+  };
 }

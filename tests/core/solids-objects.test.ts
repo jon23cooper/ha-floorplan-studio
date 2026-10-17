@@ -38,7 +38,11 @@ describe("2.5D furniture", () => {
     for (const symbol of FURNITURE_SYMBOLS) {
       const html = deep(floor({ furniture: [piece(symbol)] as never }));
       const h = FURNITURE_HEIGHTS[symbol] + (FURNITURE_Z[symbol] ?? 0);
-      if (SOLID[symbol] === "box") {
+      if (symbol === "car") {
+        // S35.4 moved this premise: a car is two blocks (the body to its belt, the cabin on it), so two lids, not one box (docs/specs/car-s35.md C4)
+        expect(tops(html), symbol).toHaveLength(2);
+        expect(html, symbol).toContain('class="car-cabin"');
+      } else if (SOLID[symbol] === "box") {
         expect(tops(html), symbol).toEqual([ring(CORNERS, h)]);
         expect(html, symbol).toContain(`translate(${n(300 + h * K * R)} ${n(250 - h * R)}) rotate(0)`);
       } else if (SOLID[symbol] === "pole") {

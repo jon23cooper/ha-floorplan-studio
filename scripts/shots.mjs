@@ -184,6 +184,27 @@ Object.assign(STATES.gone, { "cover.demo_curtain": "unavailable" });
 // beside it, so one picture shows the line, an idle open cover and a lit lamp.
 STATES.motion = { ...STATES.off, "binary_sensor.demo_hall_motion": "on", "cover.demo_curtain": "open", "light.demo_kitchen": ["on", { rgb_color: [255, 170, 60] }] };
 
+// S35.4: the demo car (a piece with attached sensors) at rest, in three states and gone; the lock, charger and tracker values are
+// those the integrations send (Renault: battery_charging binary_sensor; any lock: locked/unlocked; a tracker: home, not_home or a zone).
+const carStates = (where, charging, lock) => ({
+  "device_tracker.demo_car": where, "sensor.demo_car_battery": ["78", { device_class: "battery", unit_of_measurement: "%" }],
+  "binary_sensor.demo_car_charging": [charging ? "on" : "off", { device_class: "battery_charging" }], "lock.demo_car_doors": lock,
+  "sensor.demo_car_range": ["310", { unit_of_measurement: "km" }],
+});
+Object.assign(STATES.off, carStates("home", false, "locked"));
+Object.assign(STATES.on, carStates("home", true, "locked"));
+Object.assign(STATES.gone, carStates("unavailable", false, "unavailable"));
+STATES.carCharging = { ...STATES.off, ...carStates("home", true, "locked") };
+STATES.carAway = { ...STATES.off, ...carStates("Work", false, "locked") };
+STATES.carDoor = { ...STATES.off, ...carStates("home", false, "unlocked") };
+// All nine models on a test-only layout: the demo house with a 3 x 3 grid of cars below it, each in its own colour.
+const carsLayout = structuredClone(monLayout);
+{
+  const COLOURS = ["#c03030", "#2060c0", "#e0c020", "#20a060", "#808080", "#f08020", "#6030a0", "#101010", "#e8e8e8"];
+  carsLayout.floors.ground.furniture.push(...["sedan", "wagon", "suv", "offroad", "truck", "van", "utility", "citycar", "electric"].map((model, i) => ({
+    id: `shot-car-${model}`, symbol: "car", model, color: COLOURS[i], x: 260 + (i % 3) * 540, y: 800 + Math.floor(i / 3) * 320, rot: 0, w: 470, h: 182 })));
+}
+
 // S11.1: sensors that belong to a room. Living owns two temperature sensors (their mean shows under the name, and the
 // loose icon is gone), a humidity sensor and the Hall's motion sensor; the Kitchen owns one that reads unavailable, so
 // it shows nothing. Built on a clone: demo/layout.json stays as it is.
@@ -346,7 +367,7 @@ try {
   ];
   const cardShots = [];
   for (const floor of Object.keys(layout.floors)) for (const which of Object.keys(STATES)) for (const t of THEMES) {
-    if (which === "night" || which === "vibrating" || which === "motion" || which === "roomsensors" || which === "heating") continue; // below: ground floor only, two themes each
+    if (which === "night" || which === "vibrating" || which === "motion" || which === "roomsensors" || which === "heating" || which.startsWith("car")) continue; // below: ground floor only, two themes each
     cardShots.push({ name: `card-${floor}-${which}-${t.id}`, floor, which, dark: t.dark, theme: t.theme, vars: t.vars, page: t.page });
   }
   for (const t of THEMES.filter((x) => x.id === "blueprint" || x.id === "light"))
@@ -415,6 +436,13 @@ try {
   }
   for (const t of THEMES.filter((x) => ["light", "blueprint", "ha-dark"].includes(x.id)))
     cardShots.push({ name: `card-ground-heat-temperature-living-3x-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, dpr: 3, cfg: { heat_map: "temperature", active_list: false }, cropRoom: 0 });
+  // S35.4: the demo car in three states (home charging, away at Work, home with an unlocked door), 2D and 2.5D, light, blueprint and
+  // midnight, each cropped to the car at 4x; and the nine models on the test-only layout (2D and 2.5D, light and blueprint).
+  for (const t of [...THEMES.filter((x) => x.id === "blueprint" || x.id === "light"), { id: "midnight", theme: "midnight", dark: true, vars: "", page: "#111111" }]) for (const view of ["2d", "2.5d"]) {
+    for (const which of ["carCharging", "carAway", "carDoor"])
+      cardShots.push({ name: `card-ground-${which}-${t.id}${view === "2.5d" ? "-2-5d" : ""}`, floor: "ground", which, dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, view, dpr: 4, cfg: { active_list: false }, cropCar: true });
+    if (t.id !== "midnight") cardShots.push({ name: `card-ground-cars-${t.id}${view === "2.5d" ? "-2-5d" : ""}`, floor: "ground", which: "off", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, view, dpr: 2, cfg: { active_list: false }, cars: true });
+  }
   for (const s of cardShots) {
     const ctx = await browser.newContext({ viewport: { width: s.width ?? 900, height: 700 }, colorScheme: "light", reducedMotion: "reduce", ...(s.dpr ? { deviceScaleFactor: s.dpr } : {}) });
     const page = await ctx.newPage();
@@ -427,7 +455,7 @@ try {
       const el = document.getElementById("c");
       el.setConfig(config); el.hass = hass;
       return el.updateComplete;
-    }, [{ layout: s.turned ? turnedLayout : s.ghost ? ghostLayout : s.rooms ? roomLayout : s.floor === "ground" ? monLayout : layout, floor: s.floor, theme: s.theme, ...(s.view ? { view: s.view } : {}), ...(s.cfg ?? {}) }, lamp(hassFor(s.which, s.dark), s.tap === 0 || s.hover === 0)]);
+    }, [{ layout: s.cars ? carsLayout : s.turned ? turnedLayout : s.ghost ? ghostLayout : s.rooms ? roomLayout : s.floor === "ground" ? monLayout : layout, floor: s.floor, theme: s.theme, ...(s.view ? { view: s.view } : {}), ...(s.cfg ?? {}) }, lamp(hassFor(s.which, s.dark), s.tap === 0 || s.hover === 0)]);
     if (s.pick !== undefined) {
       // A real click on bare floor, found with elementFromPoint (CLAUDE.md finding 3), then the first row's popup Details.
       await page.evaluate(([reg]) => { const el = document.getElementById("c"); el.hass = { ...el.hass, ...reg }; return el.updateComplete; },
@@ -484,7 +512,11 @@ try {
     }
     const nodes = await page.evaluate(() => document.getElementById("c").shadowRoot.querySelectorAll("svg *").length);
     if (nodes < 10) errors.push(`${s.name}: the plan drew ${nodes} nodes; something is wrong before you even look`);
-    if (s.cropRoom !== undefined) { // the card's own room, zoomed: its name, chips and heat value
+    if (s.cropCar) { // the demo car, zoomed: its outline, marks and level value
+      const b = await page.evaluate(() => { const sr = document.getElementById("c").shadowRoot, g = sr.querySelector("svg g.furn-car"); if (!g) return null; const r = g.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; });
+      if (!b) errors.push(`${s.name}: no car in the plan`);
+      else await page.screenshot({ path: `${OUT}/${s.name}.png`, clip: { x: Math.max(0, b.x - 30), y: Math.max(0, b.y - 30), width: b.width + 60, height: b.height + 70 } });
+    } else if (s.cropRoom !== undefined) { // the card's own room, zoomed: its name, chips and heat value
       const b = await page.evaluate((i) => { const r = document.getElementById("c").shadowRoot.querySelector(`svg polygon[data-r="${i}"]`).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }, s.cropRoom);
       await page.screenshot({ path: `${OUT}/${s.name}.png`, clip: { x: b.x, y: b.y, width: b.width, height: b.height } });
     } else await page.locator("floorplan-studio-card").screenshot({ path: `${OUT}/${s.name}.png` });

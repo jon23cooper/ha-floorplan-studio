@@ -4490,7 +4490,7 @@ Lane status:
 Wave 2, after wave 1. Three lanes; the card file takes one task at a time:
 
 Lane plan:
-- [ ] S35.4 The car in 2D and 2.5D (Sonnet, **judgement**: how each model and state reads, in every theme). After S35.2
+- [x] S35.4 The car in 2D and 2.5D (Sonnet, **judgement**: how each model and state reads, in every theme). After S35.2
       and S35.3. Spec C4, C5, C7. `renderFloor` draws `carTop` for a car piece, the body colour through
       `--fp-car-body`, the classes `away`, `charging`, `alert`, the away mark and bolt badge, the level value (hidden at
       far detail); 2.5D draws the body and cabin prisms. `--fp-dev-car` in light, midnight and solarized, `devFor` in
