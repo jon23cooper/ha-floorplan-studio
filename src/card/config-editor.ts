@@ -1,13 +1,14 @@
 import { LitElement, css, html } from "lit";
-import { DEFAULT_TILT, DETAIL_LABELS, DETAIL_MODES, parseDetailMode, THEMES, WALLS_LABELS, WALLS_MODES, wallsModeOf, clampTilt, migrate, validate } from "../core";
+import { DEFAULT_TILT, pieceDevice, DETAIL_LABELS, DETAIL_MODES, parseDetailMode, THEMES, WALLS_LABELS, WALLS_MODES, wallsModeOf, clampTilt, migrate, validate } from "../core";
 import type { DetailMode, Layout, Theme, WallsMode } from "../core";
 import type { FloorplanStudioCardConfig, Hass } from "./floorplan-studio-card";
 import { defineElement } from "./define";
+import { MAX_FAVOURITES, favouritesOf } from "./favourites";
 import { holdActionOf, tapActionOf, type HoldAction, type TapAction } from "./tap-action";
 import { BELOW_LABELS, BELOW_MODES, ROTATION_STEP, belowModeOf, normaliseRotation } from "./view-state";
 
 /** The form edits the card's own config type; every key it shows is one the card reads (S7.5 kiosk, S7.6 night and sun). */
-export type EditorConfig = FloorplanStudioCardConfig;
+export type EditorConfig = FloorplanStudioCardConfig & { favourites?: string[]; favorites?: unknown };
 
 type ZoomChoice = "on" | "wheel" | "off";
 
@@ -66,6 +67,10 @@ export class FloorplanStudioCardEditor extends LitElement {
     }
     .floors { display: flex; flex-wrap: wrap; gap: 4px 14px; }
     .floors label { display: flex; align-items: center; gap: 4px; }
+    .fav-add input { flex: 1; min-width: 0; }
+    ul.fav { margin: 0; padding: 0; list-style: none; }
+    ul.fav li { display: flex; gap: 8px; padding: 2px 0; }
+    ul.fav span { flex: 1; overflow-wrap: anywhere; }
     p.hint { margin: 4px 0 0; color: var(--secondary-text-color, #727272); font-size: 12px; }
   `;
 
@@ -81,6 +86,8 @@ export class FloorplanStudioCardEditor extends LitElement {
    * field they never touched. `null` means "no draft, follow `_config.center`" (the normal, settled state); it is
    * set only while the pair is not both empty and not both valid, and cleared the moment it is one or the other. */
   private _centerDraft: { x: string; y: string } | null = null;
+  /** S34.5: why the last Add was refused, or "". */
+  private _favNote = "";
 
   setConfig(config: FloorplanStudioCardConfig): void {
     // CLAUDE.md finding 1: config comes from a saved dashboard, which a person (or an LLM helping them) can hand-edit —
@@ -407,6 +414,54 @@ export class FloorplanStudioCardEditor extends LitElement {
     this._set("hold_action", v === "more-info" ? undefined : { action: v }, undefined);
   }
 
+  /** S34.5, spec F7: every entity the layout draws, a device or a linked piece, once, with the name the plan shows
+   * (the device's own, else HA's friendly name, else the id), for the Favourites datalist. */
+  private _favChoices(): [string, string][] {
+    const out = new Map<string, string>();
+    const states = this._hass?.states;
+    for (const f of Object.values(this._layout?.floors ?? {})) {
+      const things = [...f.devices, ...f.furniture.map((m) => pieceDevice(m))];
+      for (const d of things) {
+        if (!d || !d.entity || out.has(d.entity)) continue;
+        const friendly = states?.[d.entity]?.attributes?.friendly_name;
+        out.set(d.entity, d.name ?? (typeof friendly === "string" && friendly ? friendly : d.entity));
+      }
+    }
+    return [...out];
+  }
+
+  /** Writes the list under `favourites` and drops the `favorites` alias in the same event; an empty list drops the key. */
+  private _setFavourites(ids: string[]): void {
+    const next: EditorConfig = { ...this._config };
+    delete next.favorites;
+    this._config = next;
+    this._set("favourites", ids.length ? ids : undefined, undefined);
+  }
+
+  private _onFavAdd(): void {
+    const input = this.renderRoot.querySelector<HTMLInputElement>("#favourites_input");
+    const raw = input?.value.trim() ?? "";
+    const ids = favouritesOf(this._config).ids;
+    // The reader is the one rule for what an entity id is, so the form and the card never disagree.
+    const clean = favouritesOf({ favourites: [raw] }).ids[0];
+    if (raw === "") this._favNote = "Type or pick an entity id first.";
+    else if (!clean) this._favNote = `"${raw}" is not an entity id. Use lower case, like light.kitchen.`;
+    else if (ids.includes(clean)) this._favNote = `${clean} is already a favourite.`;
+    else if (ids.length >= MAX_FAVOURITES) this._favNote = `A card keeps at most ${MAX_FAVOURITES} favourites. Remove one first.`;
+    else {
+      this._favNote = "";
+      if (input) input.value = "";
+      this._setFavourites([...ids, clean]);
+    }
+    this.requestUpdate();
+  }
+
+  private _onFavRemove(id: string): void {
+    this._favNote = "";
+    this._setFavourites(favouritesOf(this._config).ids.filter((i) => i !== id));
+    this.requestUpdate();
+  }
+
   private _onNight(e: Event): void {
     this._set("night", (e.target as HTMLSelectElement).value as EditorConfig["night"], DEFAULT_NIGHT);
   }
@@ -613,6 +668,20 @@ export class FloorplanStudioCardEditor extends LitElement {
           ${HOLD_CHOICES.map(([v, label]) => html`<option value=${v} ?selected=${holdActionOf(this._config.hold_action).action === v}>${label}</option>`)}
         </select>
       </div>
+
+      <div class="row fav-add">
+        <label class="main" for="favourites_input">Favourites</label>
+        <input id="favourites_input" type="text" list="favourites_choices" placeholder="light.kitchen" autocomplete="off"
+          @keydown=${(e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); this._onFavAdd(); } }} />
+        <datalist id="favourites_choices">
+          ${this._favChoices().map(([id, name]) => html`<option value=${id} label=${name}></option>`)}
+        </datalist>
+        <button id="favourites_add" type="button" @click=${this._onFavAdd}>Add</button>
+      </div>
+      <p class="hint" id="favourites_note" title="Shortcuts at the top of the Overview, in this order. Reorder in YAML.">${this._favNote}</p>
+      <ul class="fav" id="favourites_list">
+        ${favouritesOf(this._config).ids.map((id) => html`<li><span>${id}</span><button type="button" @click=${() => this._onFavRemove(id)}>Remove</button></li>`)}
+      </ul>
 
       <div class="row">
         <label class="main" for="night">Night</label>

@@ -4333,7 +4333,7 @@ Wave 2, after wave 1. The card file takes one task at a time:
       leaves Attention in view at 390 x 844; Search ranks the favourite (criterion 7 end to end); the row button per
       type iterates `DEVICE_TYPES` and matches what the popup offers for the same state.
       Files: `src/card/floorplan-studio-card.ts`, `tests/card/card-favourites.spec.ts`.
-- [ ] S34.5 Favourites in the Edit-card form (Sonnet). After S34.1. Spec F7: the input with its `datalist` of the
+- [x] S34.5 Favourites in the Edit-card form (Sonnet). After S34.1. Spec F7: the input with its `datalist` of the
       layout's entities, Add, the list with remove buttons, the refusal line. Test, failing first, in
       `tests/card/config-editor.spec.ts`: criterion 8 with real clicks and typing; a `"><script>` friendly name in the
       datalist is text.
