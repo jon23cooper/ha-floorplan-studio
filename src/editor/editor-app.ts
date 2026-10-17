@@ -2838,6 +2838,9 @@ export class FloorplanStudioEditor extends LitElement {
     if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); this.viewForm = null; this.requestUpdate(); this.renderRoot.querySelector<HTMLElement>("#saveView")?.focus({ preventScroll: true }); return; }
     if (ev.key === "Enter") { ev.preventDefault(); this.submitViewForm(); }
   };
+  /** The control that held focus (the name field, the Delete item) leaves the DOM on the next render. Put focus on Save current
+   * view, inside the open menu, so the keyboard keeps its place and Escape still closes the menu. */
+  private keepViewFocus() { void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement>("#saveView")?.focus({ preventScroll: true })); }
   submitViewForm() {
     const form = this.viewForm;
     if (!form) return;
@@ -2846,12 +2849,14 @@ export class FloorplanStudioEditor extends LitElement {
     if (form.rename) {
       this.viewForm = null;
       if (this.st.renameView(form.rename, name)) this.changed(`Renamed view to ${name}`); else this.requestUpdate();
+      this.keepViewFocus();
       return;
     }
     if (this.st.savedViews.length >= MAX_VIEWS) { this.status = `A layout holds at most ${MAX_VIEWS} views: delete one first`; this.requestUpdate(); return; }
     const mode = this.renderRoot.querySelector<HTMLSelectElement>("#viewMode")?.value;
     this.viewForm = null;
     if (this.st.saveView(name, mode === "2d" || mode === "2.5d" || mode === "3d" ? mode : undefined)) this.changed(`Saved view ${name}`); else this.requestUpdate();
+    this.keepViewFocus();
   }
   applyView(id: string) {
     const v = this.st.savedViews.find((x) => x.id === id);
@@ -2871,6 +2876,7 @@ export class FloorplanStudioEditor extends LitElement {
     const id = this.viewMenu?.id, v = this.st.savedViews.find((x) => x.id === id);
     this.viewMenu = null;
     if (v && this.st.deleteView(v.id)) this.changed(`Deleted view ${v.name}`); else this.requestUpdate();
+    this.keepViewFocus();
   }
 
   setFloor(name: string) {
