@@ -4,12 +4,12 @@
 // are the card's `--fp-*` theme tokens, read from the card itself once per theme change. No network. S13: a room's or tread's top face wears its floor texture (tex.ts), and a lit lamp lights the walls of its room (glow.ts).
 // S12.5: `setLive` brings the live state in (core/live.ts, plain JSON): lit rooms and lamp pools, doors, bodies, balls, the
 // motion edge, and the HTML overlay. Every part changes in place; the scene is built again only for a new floor or theme.
-import { CylinderGeometry, DirectionalLight, type Material, BufferAttribute, BufferGeometry, Color, HemisphereLight, InstancedMesh, LineDashedMaterial, LineLoop, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, PerspectiveCamera, Raycaster, Scene, SphereGeometry, Vector2, Vector3, WebGLRenderer, DoubleSide, MultiplyBlending, PlaneGeometry } from "three";
+import { CylinderGeometry, DirectionalLight, type Material, BufferAttribute, BufferGeometry, Color, HemisphereLight, InstancedMesh, LineDashedMaterial, LineLoop, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, PerspectiveCamera, Raycaster, Scene, SphereGeometry, Vector2, Vector3, WebGLRenderer, DoubleSide, LessEqualDepth, MultiplyBlending, PlaneGeometry } from "three";
 // Types only: this module imports nothing from the card at run time, so the bundler keeps it a chunk of its own (see palette.ts).
 import { CUT_WALL_HEIGHT, ICON_MARGIN, makeBuildScene, type Scene as Plan3D, type Solid, type SceneDeps } from "../../core/scene-build";
 import { makeLiveOf, type Live3D, type LiveDeps } from "../../core/live-build";
 import type { RenderOpts } from "../../core/render";
-import { prismTriangles, type Triangles } from "./mesh";
+import { loftTriangles, prismTriangles, type Triangles } from "./mesh";
 import { lowerWalls, wallBodies, wallZ, type WallBody, type Walls } from "./cut";
 import { Orbit } from "./orbit";
 import { glide } from "./frame3d";
@@ -128,6 +128,12 @@ function resolveColour(probe: HTMLElement, css: string): number | null {
   return null;
 }
 
+/** A linked piece's mesh. A car's parts (tag `car-*`, S35.5) also keep their depth pre-pass `twin` and whether they are drawn faded (`away`). */
+interface PieceBody { index: number; tag: string; mesh: Mesh; mat: MeshLambertMaterial; rest: Color; on: boolean; twin: Mesh | null; away: boolean }
+/** A car that is away is drawn at this opacity: a person's 35 % in 2D (spec C6). */
+const CAR_AWAY = 0.35;
+const isCarPart = (tag: string) => tag.startsWith("car-");
+
 export function createView3D(container: HTMLElement, opts: View3DOptions): View3D {
   const canvas = document.createElement("canvas");
   let renderer: WebGLRenderer;
@@ -173,7 +179,7 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
   const roomSolid = new Map<number, { base: Poly; z: number }>();
   let parts: { index: number; tag: string; mesh: Mesh; mat: MeshLambertMaterial; rest: Color; shut?: boolean }[] = [];
   /** A linked tv, speaker or computer piece: a mesh of its own (so its colour can follow the state), at rest in the linked colour, on in the plan's on colour. */
-  let pieceBodies: { index: number; mesh: Mesh; mat: MeshLambertMaterial; rest: Color; on: boolean }[] = [];
+  let pieceBodies: PieceBody[] = [];
   let devBodies: { index: number; type: string; mesh: Mesh; mat: MeshLambertMaterial; rest: Color; lit: Mesh[]; on: boolean }[] = [];
   let ballIdx: number[] = [], ballRest: Color[] = [], anchors: Anchors = { devices: new Map(), rooms: new Map() };
   const overlay = createOverlay(container), pools = createPools(scene), rings = createRings(scene), glow = createGlow(scene);
@@ -439,10 +445,11 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
     const groups = new Map<string, { tris: Triangles; colour: Color; opacity: number; tile?: TextureTile; uv: number[] }>();
     const group = (key: string, colour: Color, opacity: number, tile?: TextureTile) => { let g = groups.get(key); if (!g) groups.set(key, (g = { tris: { position: [], normal: [] }, colour, opacity, tile, uv: [] })); return g; };
     for (const s of from) {
-      if (s.shape.type !== "prism" || !pick(s)) continue; // a point (a device with no body of its own) is a ball, below
+      if (s.shape.type === "point" || !pick(s)) continue; // a point (a device with no body of its own) is a ball, below
       const z = zOf(s);
       if (!z) continue;
       const p = paintOf(s.paint.role, s.paint.color), flat = group(`${p.colour.getHexString()}|${p.opacity}`, p.colour, p.opacity);
+      if (s.shape.type === "loft") { loftTriangles(s.shape.base, s.shape.top, z[0], z[1], flat.tris); continue; }
       const tile = textured && s.paint.texture !== undefined ? opts.deps.texture(s.paint.texture, s.paint.textureRot, s.paint.textureScale) : null;
       if (!tile) { prismTriangles(s.shape.base, z[0], z[1], flat.tris, s.shape.holes); continue; }
       const all: Triangles = { position: [], normal: [] };
@@ -546,7 +553,7 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
     wallSides = []; glowSpecs = []; deviceZ = new Map();
     for (const x of parts) drop(x.mesh);
     for (const b of devBodies) { drop(b.mesh); b.lit.forEach(drop); }
-    for (const b of pieceBodies) drop(b.mesh);
+    for (const b of pieceBodies) { drop(b.mesh); if (b.twin) drop(b.twin); }
     parts = []; devBodies = []; pieceBodies = []; ballIdx = []; ballRest = [];
     rings.dispose(retire);
     roomShapes = []; roomSolid.clear();
@@ -683,22 +690,48 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
   }
   function buildPieces() {
     for (const s of plan?.solids ?? []) {
-      if (!isPiece(s) || s.shape.type !== "prism" || typeof s.ref.index !== "number") continue;
+      if (!isPiece(s) || s.shape.type === "point" || typeof s.ref.index !== "number") continue;
       const tris: Triangles = { position: [], normal: [] };
-      prismTriangles(s.shape.base, s.shape.z0, s.shape.z1, tris);
+      if (s.shape.type === "loft") loftTriangles(s.shape.base, s.shape.top, s.shape.z0, s.shape.z1, tris);
+      else prismTriangles(s.shape.base, s.shape.z0, s.shape.z1, tris);
       const geo = new BufferGeometry();
       geo.setAttribute("position", new BufferAttribute(new Float32Array(tris.position), 3));
       geo.setAttribute("normal", new BufferAttribute(new Float32Array(tris.normal), 3));
       const p = paintOf(s.paint.role, s.paint.color), mat = new MeshLambertMaterial({ color: p.colour }), mesh = new Mesh(geo, mat);
       scene.add(mesh);
-      pieceBodies.push({ index: s.ref.index, mesh, mat, rest: p.colour, on: false });
+      // A car part keeps a depth-only twin of its geometry (S35.5, spec C6). While the car is away the twin writes the car's depth first
+      // and the part is drawn faded only where it is the nearest surface, so the wheels do not show through the body.
+      let twin: Mesh | null = null;
+      if (isCarPart(s.tag)) {
+        twin = new Mesh(geo, new MeshBasicMaterial({ colorWrite: false }));
+        twin.renderOrder = 1;
+        twin.visible = false;
+        scene.add(twin);
+      }
+      pieceBodies.push({ index: s.ref.index, tag: s.tag, mesh, mat, rest: p.colour, on: false, twin, away: false });
     }
   }
+  /** Draws a car part faded (the pre-pass twin shows) or opaque again, in place: no rebuild. */
+  function fadeCarPart(b: PieceBody, away: boolean) {
+    if (b.away === away) return;
+    b.away = away;
+    const m = b.mat;
+    m.transparent = away; m.opacity = away ? CAR_AWAY : 1; m.depthWrite = !away; m.depthFunc = LessEqualDepth;
+    m.needsUpdate = true;
+    b.mesh.renderOrder = away ? 2 : 0;
+    if (b.twin) b.twin.visible = away && b.mesh.visible;
+  }
   function applyPieces() {
-    const L = liveNow ?? EMPTY, on = paintOf("piece-on", undefined).colour;
+    const L = liveNow ?? EMPTY, on = paintOf("piece-on", undefined).colour, charge = paintOf("car-charge", undefined).colour, alert = paintOf("open-door", undefined).colour;
     for (const b of pieceBodies) {
-      b.on = !!L.pieces[b.index]?.on;
-      b.mat.color.copy(b.on ? on : b.rest);
+      const live = L.pieces[b.index];
+      b.on = !!live?.on;
+      if (!isCarPart(b.tag)) { b.mat.color.copy(b.on ? on : b.rest); continue; }
+      // A car: charging lights the greenhouse like a tv screen, an alert turns the roof the open door's red, away fades every part.
+      const lit = b.tag === "car-glass" && !!live?.charging;
+      b.mat.color.copy(lit ? charge : b.tag === "car-roof" && live?.alert ? alert : b.rest);
+      if (lit) b.mat.emissive.copy(charge).multiplyScalar(0.55); else b.mat.emissive.setRGB(0, 0, 0);
+      fadeCarPart(b, !!live?.away);
     }
   }
   function applyDoors() {
@@ -800,11 +833,17 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
         else { const b = s.shape.base; devices.set(s.ref.index, [b.reduce((a, q) => a + q[0], 0) / b.length, Math.min(s.shape.z1 + 6, Math.max(cap, s.shape.z0)), b.reduce((a, q) => a + q[1], 0) / b.length]); }
       }
     }
+    // S35.5: a linked car's badge floats over its roof.
+    const cars = new Map<number, [number, number, number]>();
+    for (const s of plan?.solids ?? []) if (s.kind === "furniture" && s.tag === "car-roof" && s.ref.entity && typeof s.ref.index === "number" && s.shape.type === "prism") {
+      const b = s.shape.base;
+      cars.set(s.ref.index, [b.reduce((a, q) => a + q[0], 0) / b.length, s.shape.z1 + 4, b.reduce((a, q) => a + q[1], 0) / b.length]);
+    }
     for (const [r, rs] of roomSolid) roomsA.set(r, [0, rs.z + 2, 0]);
     // What each room is and how large, for which label wins when two meet (S28.11).
     const roomInfo = new Map<number, { kind: string; area: number }>();
     for (const s of plan?.solids ?? []) if (s.kind === "room" && s.tag !== "fill" && typeof s.ref.room === "number") roomInfo.set(s.ref.room, { kind: s.tag ?? "room", area: roomShapes.find((q) => q.index === s.ref.room)?.area ?? 0 });
-    return { devices, rooms: roomsA, roomInfo };
+    return { devices, rooms: roomsA, roomInfo, cars };
   };
 
   // ---- the floors below (S27.7): meshes of their own, outside `clear` and `build`, so the current floor's rebuilds do not touch them.
@@ -829,7 +868,7 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
       if (typeof f !== "object" || f === null || typeof elevation !== "number" || !Number.isFinite(elevation)) continue;
       try {
         const sc = belowPlan(f, elevation, (e as { shift?: unknown }).shift, (e as { turn?: unknown }).turn);
-        const made = meshesOf((x) => x.kind !== "device", (x) => (x.shape.type === "prism" ? [x.shape.z0, x.shape.z1] : null), sc.solids, false);
+        const made = meshesOf((x) => x.kind !== "device", (x) => (x.shape.type === "point" ? null : [x.shape.z0, x.shape.z1]), sc.solids, false);
         for (const m of made) {
           const mat = m.material as MeshLambertMaterial;
           if (ghost) { mat.transparent = true; mat.opacity = Math.min(mat.opacity, GHOST_OPACITY); mat.depthWrite = false; mat.side = DoubleSide; m.renderOrder = 1; }
@@ -856,7 +895,7 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
     clear();
     builds++;
     if (!plan) { anchors = { devices: new Map(), rooms: new Map() }; applyLive(); return; }
-    meshes = meshesOf((s) => !isWall(s) && s.kind !== "device" && !isPiece(s), (s) => (s.shape.type === "prism" ? [s.shape.z0, s.shape.z1] : null));
+    meshes = meshesOf((s) => !isWall(s) && s.kind !== "device" && !isPiece(s), (s) => (s.shape.type === "point" ? null : [s.shape.z0, s.shape.z1]));
     applyTextures();
     const own = crownsOf(plan.solids);
     if (own) crowns = [own];
@@ -1083,7 +1122,7 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
       },
       /** S29.4: the solids the floors below's meshes were made from, in the current floor's frame (turned and shifted): kind, tag, the base (or the point), the crown's turn. */
       belowSolids() {
-        return belowSolidList.map((x) => ({ kind: x.kind, tag: x.tag, base: x.shape.type === "prism" ? x.shape.base : [x.shape.at], rot: x.ref.crown?.rot ?? null }));
+        return belowSolidList.map((x) => ({ kind: x.kind, tag: x.tag, base: x.shape.type === "point" ? [x.shape.at] : x.shape.base, rot: x.ref.crown?.rot ?? null }));
       },
       /** S28.7: the crown meshes as drawn (this floor's and the floors below's), each with its instance count, its box in plan terms [x0, y0, z0, x1, y1, z1] over all its instances, and its material. `inScene` counts the ones the scene holds: a floor switch must not leave one behind. */
       crowns() {
@@ -1138,6 +1177,8 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
           };
         });
       },
+      /** S35.5: hides (or shows again) every part of the cars with this tag (`car-tyre`, say), and its depth twin, to compare pixels with and without. */
+      carParts(tag: string, shown: boolean) { for (const b of pieceBodies) if (b.tag === tag) { b.mesh.visible = shown; if (b.twin) b.twin.visible = shown && b.away; } want(); },
       /** What the live state did to the scene: for the tests, which read the pixels too. */
       live() {
         const body = (b: (typeof devBodies)[number]) => ({ index: b.index, type: b.type, colour: hexOf(b.mat.color), emissive: b.on && b.lit[0] ? hexOf((b.lit[0].material as MeshBasicMaterial).color) : "#000000" });
@@ -1146,7 +1187,7 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
           builds, children: scene.children.length, pulsing,
           doors: parts.map((x) => ({ index: x.index, tag: x.tag, visible: x.mesh.visible, rot: x.mesh.rotation.y || 0, colour: hexOf(x.mat.color) })),
           bodies: devBodies.map(body),
-          pieces: pieceBodies.map((b) => ({ index: b.index, on: b.on, colour: hexOf(b.mat.color) })),
+          pieces: pieceBodies.map((b) => ({ index: b.index, tag: b.tag, on: b.on, colour: hexOf(b.mat.color), emissive: hexOf(b.mat.emissive), visible: b.mesh.visible, transparent: b.mat.transparent, opacity: b.mat.opacity, depthWrite: b.mat.depthWrite, depthFunc: b.mat.depthFunc, renderOrder: b.mesh.renderOrder, twin: b.twin ? { visible: b.twin.visible, colorWrite: (b.twin.material as MeshBasicMaterial).colorWrite, depthWrite: (b.twin.material as MeshBasicMaterial).depthWrite, renderOrder: b.twin.renderOrder } : null })),
           balls: ballIdx.map((di, k) => { markers?.getColorAt(k, c); return { index: di, colour: hexOf(c), shown: true }; }),
           pools: pools.info(),
           glow: glow.info(),
