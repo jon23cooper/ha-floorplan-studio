@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from "lit";
 import { planPatch } from "./plan-patch"; // S25.6: the plan is patched, not replaced, on a state update
-import { ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
-import type { LayerId, OffRow, SearchEntry } from "../core";
+import { ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, heatKindOf, heatLegend, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
+import type { HeatKind, LayerId, OffRow, SearchEntry } from "../core";
 import type { ActiveDevice, Attention, AttentionItem, AttentionKind, CategoryId, DeviceType, ThingRef, PowerCandidate, RoomDeviceRow, RoomSensorRow, RoomSummary, Theme, WallsMode } from "../core";
 import type { Device, Door, Floor, Layout, SavedView } from "../core";
 import { tapActionOf, holdActionOf } from "./tap-action";
@@ -31,7 +31,7 @@ import type { MenuItem, MenuSection } from "./more-menu";
 import type { View3D } from "./three/view3d";
 import type { Pick as Pick3D } from "./three/pick";
 import { liveDeps, sceneDeps, textureDeps } from "../core/three-deps";
-import { BELOW_LABELS, BELOW_MODES, belowModeOf, type BelowMode, ROTATION_STEP, easeInOut, normaliseRotation, parseStoredView, shortestDelta, viewAround, type FloorView, type StoredView } from "./view-state";
+import { BELOW_LABELS, BELOW_MODES, HEAT_LABELS, belowModeOf, type BelowMode, ROTATION_STEP, easeInOut, normaliseRotation, parseStoredView, shortestDelta, viewAround, type FloorView, type StoredView } from "./view-state";
 
 const NO_LAYOUT = "No layout: install the Floorplan Studio integration or set layout_url";
 
@@ -135,6 +135,8 @@ export interface FloorplanStudioCardConfig {
   ghost_floor?: boolean;
   /** How the 3D view draws the floors under the shown one (docs/card.md): `"off"` (default), `"ghost"` translucent, `"solid"` in their own colours. Anything else is `"off"`. A Floors below select next to Walls in 3D changes it for one viewer, and the card remembers the pick. */
   floors_below?: BelowMode;
+  /** The heat map (docs/card.md, Heat map): `"off"` (default), `"temperature"` or `"humidity"` fills each room that has a reading of that kind on a fixed scale and draws a legend. 2D and 2.5D only. Anything else is `"off"`, with one console warning. The Heat map items of the ⋯ menu change it for one viewer, and the card remembers the pick. */
+  heat_map?: unknown;
 }
 
 /** What the View dropdown offers: the two flat plans `renderFloor` draws and the 3D model, which is a renderer of its own. */
@@ -335,6 +337,9 @@ export class FloorplanStudioCard extends LitElement {
     /* The cluster: +, - and Fit (Reset camera in 3D), top right of the stage. Over the plan on purpose; the one thing that is.
        In kiosk it also holds the ⋯ menu when \`rotate_switch: true\` brings one. */
     .fp-cluster { grid-area: stage; justify-self: end; align-self: start; z-index: 1; margin: 8px; min-width: 0; max-width: calc(100% - 16px); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    /* S34.8: the heat map's legend, bottom left of the stage, over the plan like the cluster: end labels as text, a ramp between. */
+    .fp-heat-legend { grid-area: stage; justify-self: start; align-self: end; z-index: 1; margin: 8px; display: flex; align-items: center; gap: 6px; padding: 4px 8px; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-ink); background: var(--fp-room); border: 1px solid var(--fp-idle); border-radius: 6px; pointer-events: none; }
+    .fp-heat-ramp { width: 96px; height: 10px; border-radius: 5px; }
     /* One line, over the plan, when 3D cannot run: why, and that 2D is what is shown. */
     .fp-3d-note { position: absolute; left: 8px; bottom: 8px; z-index: 1; margin: 0; max-width: calc(100% - 16px); padding: 4px 8px; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-ink); background: var(--fp-room); border: 1px solid var(--fp-idle); border-radius: 6px; }
     p.msg { grid-area: 1 / 1 / -1 / -1; padding: 16px; margin: 0; font: 14px sans-serif; color: var(--fp-text); }
@@ -571,6 +576,8 @@ export class FloorplanStudioCard extends LitElement {
   private _pickedGhost: boolean | null = null;
   /** S27.14: the Floors below select's pick (3D); `null` leaves the card's YAML `floors_below` in charge. */
   private _pickedBelow: BelowMode | null = null;
+  /** S34.8: the Heat map pick; `null` leaves the card's YAML `heat_map` in charge. */
+  private _pickedHeat: HeatKind | null = null;
   private _hiddenLayers: LayerId[] = [];
   /** What search or a row tap located under a hidden family: drawn anyway (`keep`) on its floor, with a note and Show. */
   private _kept: { floor: string; t: "dev" | "furn"; i: number; fam: LayerId } | null = null;
@@ -753,6 +760,7 @@ export class FloorplanStudioCard extends LitElement {
     if (c.detail !== undefined) seed.push(["detail", c.detail]);
     if (c.ghost_floor !== undefined) seed.push(["ghost_floor", c.ghost_floor]);
     if (c.floors_below !== undefined) seed.push(["floors_below", c.floors_below]);
+    if (c.heat_map !== undefined) seed.push(["heat_map", c.heat_map]);
     if (c.kiosk !== undefined) seed.push(["kiosk", c.kiosk]);
     return `fp-view:${tag(JSON.stringify(seed))}`;
   }
@@ -761,7 +769,7 @@ export class FloorplanStudioCard extends LitElement {
    * config's look. Storage is untrusted: `parseStoredView` drops each bad field, and a throwing `localStorage`
    * (private mode, blocked) is nothing stored. */
   private _loadViewState(): void {
-    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedRot = this._pickedDetail = this._pickedGhost = this._pickedBelow = null;
+    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedRot = this._pickedDetail = this._pickedGhost = this._pickedBelow = this._pickedHeat = null;
     this._pendingView = null;
     this._appliedView = null;
     this._shownFloor = null;
@@ -785,6 +793,7 @@ export class FloorplanStudioCard extends LitElement {
     if (s.detail !== undefined) this._pickedDetail = s.detail;
     if (s.ghost !== undefined) this._pickedGhost = s.ghost;
     if (s.below !== undefined) this._pickedBelow = s.below;
+    if (s.heat !== undefined) this._pickedHeat = s.heat;
     if (s.floor !== undefined) this._shownFloor = s.floor; // an unknown id is ignored by _floorKey
     this._hiddenLayers = s.layers ?? [];
     for (const [k, fv] of s.floors ?? []) this._floorViews.set(k, fv); // the live fields follow once the first render knows the floor
@@ -835,6 +844,7 @@ export class FloorplanStudioCard extends LitElement {
     if (this._pickedDetail !== null) o.detail = this._pickedDetail;
     if (this._pickedGhost !== null) o.ghost = this._pickedGhost;
     if (this._pickedBelow !== null) o.below = this._pickedBelow;
+    if (this._pickedHeat !== null) o.heat = this._pickedHeat;
     if (this._shownFloor !== null) o.floor = this._shownFloor;
     if (this._hiddenLayers.length) o.layers = this._hiddenLayers;
     this._stashFloor();
@@ -1211,6 +1221,7 @@ export class FloorplanStudioCard extends LitElement {
     this._config = config ?? {};
     this._warnActions();
     this._readFavourites();
+    this._warnHeat();
     this._closePopup();
     this._focusDev = null;
     this._hideTip();
@@ -2195,6 +2206,27 @@ export class FloorplanStudioCard extends LitElement {
     console.warn(`floorplan-studio-card: favourites has an item that is not an entity id (or a repeat, or more than 24), so it was left out. Use a list of ids like light.kitchen (docs/card.md).`);
   }
 
+  /** S34.8 (H8): one console warning per card for a `heat_map` that is there but is not `off`, `temperature` or `humidity`; absent is no warning. */
+  private _heatWarned = false;
+  private _warnHeat(): void {
+    if (this._heatWarned || !heatKindOf(this._config.heat_map).warn) return;
+    this._heatWarned = true;
+    console.warn(`floorplan-studio-card: heat_map is not off, temperature or humidity, so it is off. Use one of the three words, in lower case (docs/card.md).`);
+  }
+
+  /** S34.8: the heat map mode: this viewer's pick, else the YAML `heat_map`, else off. Junk is off. */
+  private _heatKind(): HeatKind {
+    return this._pickedHeat ?? heatKindOf(this._config.heat_map).kind;
+  }
+
+  /** S34.8 (H5, H7): the legend strip, text and a ramp, at the plan's bottom left. Card chrome, drawn from the one `heatLegend` the Studio's status bar uses. A heat mode in 2D and 2.5D only: in live 3D no room is coloured, so there is nothing to explain. */
+  private _heatLegend() {
+    const lg = heatLegend(this._heatKind());
+    if (!lg || this._shows3d() || !this._floor()) return null;
+    const ramp = `background:linear-gradient(to right in oklch,${lg.stops.map((s) => `var(${s.token})`).join(",")})`;
+    return html`<div class="fp-heat-legend"><span class="fp-heat-end">${lg.from}</span><span class="fp-heat-ramp" style=${ramp} aria-hidden="true"></span><span class="fp-heat-end">${lg.to}</span></div>`;
+  }
+
   /** S33.4: one console warning per card for a `tap_action` or `hold_action` that is there but not usable; absent is no warning. */
   private _actionsWarned = false;
   private _warnActions(): void {
@@ -2665,6 +2697,9 @@ export class FloorplanStudioCard extends LitElement {
       const layers = LAYERS.filter((l) => n[l.id] > 0).map((l): MenuItem => ({ kind: "check", label: l.label, value: `layer:${l.id}`, checked: !hidden.includes(l.id) }));
       if (layers.length) out.push({ label: "Layers", items: layers });
     }
+    // S34.8: the Heat map is data, like Detail and Layers, and keeps their condition: it stays under `view_switch: false`, is not in live
+    // 3D, and kiosk and `active_list: false` have no menu for it (the YAML key still applies there).
+    if (this._activeListVisible() && f && !this._shows3d()) out.push({ label: "Heat map", items: HEAT_KINDS.map((k) => radio(HEAT_LABELS[k], `heat:${k}`, k === this._heatKind())) });
     if (!this._shows3d() && this._hasViewControls()) {
       const acts: MenuItem[] = [];
       if (this._rotateOn()) acts.push({ kind: "action", label: "Rotate left", value: "rotate:-1" }, { kind: "action", label: "Rotate right", value: "rotate:1" });
@@ -2730,6 +2765,7 @@ export class FloorplanStudioCard extends LitElement {
       case "labels": this._pickedLabels = !this._labels(); done(); break;
       case "names": this._pickedNames = !this._names(); done(); break;
       case "detail": if ((DETAIL_MODES as readonly string[]).includes(arg)) { this._pickedDetail = arg as DetailMode; done(); } break;
+      case "heat": if ((HEAT_KINDS as readonly string[]).includes(arg)) { this._pickedHeat = arg as HeatKind; done(); } break;
       case "layer": if (LAYERS.some((l) => l.id === arg)) this._setLayers(d?.alt === true ? soloLayer(this._hiddenLayers, arg as LayerId) : toggleLayer(this._hiddenLayers, arg as LayerId)); break; // Alt: this family alone, again: all
       case "rotate": if (arg === "1" || arg === "-1") this._turnBy(Number(arg) * ROTATION_STEP); break;
       case "reset": this._resetView(); break;
@@ -3600,6 +3636,7 @@ export class FloorplanStudioCard extends LitElement {
       ghost: this._ghost(), // S27.13: the floor below, as faint lines at its place in the house
       spider: this._spiderSpots(f, fit, box, rotate), // S25.5: a fanned stack, or nothing
       keep: this._keptHere(),
+      heat: this._heatKind(), // S34.8: rooms with a reading of that kind are filled by it; `off` draws the plan as before
       colors: this._layout!.colors, // S19.E3: the studio's per-type colours, as the editor draws them
     });
     // The zoom buttons come after the plan's <svg> in the DOM (they are positioned, so order is not placement):
@@ -3612,7 +3649,7 @@ export class FloorplanStudioCard extends LitElement {
     // Kiosk has no header: a menu the config still brings (`rotate_switch: true`) sits in the cluster, over the stack.
     const kioskMenu = this._kiosk() ? this._optionsMenu() : null;
     const cluster = kioskMenu || stackEl ? html`<div class="fp-cluster">${kioskMenu}${stackEl}</div>` : null;
-    return html`${this._header()}${stage}${note}${this._activePanel()}${cluster}${this._pulse ? html`<div class="fp-pulse" aria-hidden="true" hidden></div>` : null}${this._focusDev !== null ? html`<div class="fp-focus" aria-hidden="true" hidden></div>` : null}<div class="fp-focus-status" role="status">${this._focusText()}</div>${this._popupTemplate()}${this._coverDialogTemplate()}${this._vacuumDialogTemplate()}${this._chooserDialogTemplate()}${this._offDialogTemplate()}<div class="fp-tip" id="fp-tip" role="tooltip" hidden><b></b><span></span></div>`;
+    return html`${this._header()}${stage}${note}${this._activePanel()}${cluster}${this._heatLegend()}${this._pulse ? html`<div class="fp-pulse" aria-hidden="true" hidden></div>` : null}${this._focusDev !== null ? html`<div class="fp-focus" aria-hidden="true" hidden></div>` : null}<div class="fp-focus-status" role="status">${this._focusText()}</div>${this._popupTemplate()}${this._coverDialogTemplate()}${this._vacuumDialogTemplate()}${this._chooserDialogTemplate()}${this._offDialogTemplate()}<div class="fp-tip" id="fp-tip" role="tooltip" hidden><b></b><span></span></div>`;
   }
 
   /** The view picked: the dropdown's, else `config.view`, else 2D. Config is untrusted, so junk is 2D, not an error. */
@@ -3664,7 +3701,7 @@ export class FloorplanStudioCard extends LitElement {
   /** Whether anything about the view differs from what the config alone would show: a pick, a zoom, a turn. */
   private _modified(): boolean {
     return this._turn !== null || this._view !== null || this._pendingView !== null || this._camMoved
-      || [this._pickedView, this._pickedTilt, this._pickedWalls, this._pickedTheme, this._pickedLabels, this._pickedNames, this._pickedRot, this._pickedDetail, this._pickedGhost, this._pickedBelow].some((v) => v !== null);
+      || [this._pickedView, this._pickedTilt, this._pickedWalls, this._pickedTheme, this._pickedLabels, this._pickedNames, this._pickedRot, this._pickedDetail, this._pickedGhost, this._pickedBelow, this._pickedHeat].some((v) => v !== null);
   }
 
   /** Reset view: every view option back to the config's own, the stored entry cleared, the floor kept. The turn goes
@@ -3672,7 +3709,7 @@ export class FloorplanStudioCard extends LitElement {
   private _resetView(): void {
     this._appliedView = null;
     this._fallback3d = null;
-    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedDetail = this._pickedGhost = this._pickedBelow = null;
+    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedDetail = this._pickedGhost = this._pickedBelow = this._pickedHeat = null;
     this._pendingView = null;
     this._view = null;
     this._forgetCamera();

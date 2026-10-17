@@ -4341,7 +4341,7 @@ Wave 2, after wave 1. The card file takes one task at a time:
 
 Wave 3, after wave 2:
 
-- [ ] S34.8 The heat map in the card (Sonnet). After S34.4 (card file) and S34.7. Spec H7, H8: `heat_map` read with
+- [x] S34.8 The heat map in the card (Sonnet). After S34.4 (card file) and S34.7. Spec H7, H8: `heat_map` read with
       `heatKindOf`, one warning; the Heat map section of the ⋯ menu after Layers, hidden in 3D, kept under
       `view_switch: false`; `StoredView.heat` with `parseStoredView` dropping junk; `heat_map` in `_viewStorageKey`;
       Reset view; the legend strip (`heatLegend`) at the plan's bottom left in a heat mode, 2D and 2.5D only. Test,
