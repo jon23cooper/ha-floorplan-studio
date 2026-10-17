@@ -74,6 +74,11 @@ export function roomHeat(f: Floor, i: number, kind: HeatKind, state: StateOverla
   return { text: `${meanText(m.n)}${NB}${m.unit || sc.unit}`, t: Math.round(t * 1000) / 1000 };
 }
 
+/** True when any room of `f` reads in heat mode `kind`: the one check behind "no readings" in the Studio's status bar and the card's legend. */
+export function anyRoomHeated(f: Floor, kind: HeatKind, state: StateOverlay | undefined): boolean {
+  return Array.isArray(f?.rooms) && f.rooms.some((_, i) => roomHeat(f, i, kind, state) !== null);
+}
+
 /** The legend a host draws in its chrome (H5): three stops, the two end labels as real text, the unit; null for `off`. */
 export function heatLegend(kind: HeatKind): { kind: HeatKind; unit: string; from: string; to: string; stops: { at: number; token: string }[] } | null {
   const sc = scaleOf(kind);

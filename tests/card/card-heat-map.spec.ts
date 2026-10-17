@@ -169,6 +169,48 @@ test.describe("S34.8 the heat map in the card: criterion 13", () => {
   });
 });
 
+test.describe("S34 review: legend and room panel", () => {
+  test("m2: with no reading on the floor the legend says no readings, not a scale", async ({ page }) => {
+    await boot(page, { heat_map: "temperature" });
+    await expect(legend(page)).toContainText("16 °C");
+    await card(page).evaluate((el) => { (el as unknown as { hass: unknown }).hass = { states: {}, callService() {} }; return (el as unknown as { updateComplete: Promise<unknown> }).updateComplete; });
+    await expect(heated(page)).toHaveCount(0);
+    await expect(legend(page)).toContainText("no readings");
+    await expect(legend(page)).not.toContainText("16 °C");
+    await expect(legend(page).locator("css=.fp-heat-ramp")).toHaveCount(0);
+  });
+
+  test("m5: the room panel shows the number the plan prints; one faulty sensor does not make them differ", async ({ page }) => {
+    // Demo Living has one placed sensor; the room's own temps list gets a faulty 120 °C beside it (H3 bounds drop it).
+    const lay = structuredClone(layout) as { floors: Record<string, { rooms: Record<string, unknown>[] }> };
+    lay.floors.ground!.rooms[0]!.temps = ["sensor.bad_probe", "sensor.demo_living_temperature"];
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(URL_);
+    await page.addScriptTag({ content: CARD_JS, type: "module" });
+    await page.evaluate(() => customElements.whenDefined("floorplan-studio-card"));
+    await page.evaluate(([cfg, s]) => {
+      try { localStorage.clear(); } catch { /* no storage */ }
+      const el = document.getElementById("card") as unknown as HTMLElement & { setConfig(c: unknown): void; hass: unknown; updateComplete: Promise<unknown> };
+      el.setConfig(cfg);
+      el.hass = { states: s, callService() {} };
+      return el.updateComplete;
+    }, [{ layout: lay, floor: "ground", theme: "light", heat_map: "temperature" }, { ...STATES(), "sensor.bad_probe": st("120") }] as const);
+    await expect(heated(page)).toHaveCount(1);
+    const plan = (await card(page).locator("css=svg text.heat-val").first().textContent())!.trim();
+    expect(plan).toBe("23.5\u202F°C");
+    const p = await card(page).evaluate((el) => {
+      const poly = el.shadowRoot!.querySelector<SVGPolygonElement>('svg polygon[data-r="0"]')!;
+      const r = poly.getBoundingClientRect();
+      for (let y = r.top + 6; y < r.bottom; y += 6) for (let x = r.left + 6; x < r.right; x += 6) if (el.shadowRoot!.elementFromPoint(x, y) === poly) return { x, y };
+      return null;
+    });
+    expect(p, "Living has bare floor to click").not.toBeNull();
+    await page.mouse.click(p!.x, p!.y);
+    const facts = card(page).locator("css=.fp-room-facts > div").filter({ hasText: "Temperature" }).locator("css=dd");
+    await expect(facts).toHaveText(plan);
+  });
+});
+
 test.describe("S34.8 the YAML key and the stored pick are untrusted", () => {
   for (const junk of ["Temperature", 1, "__proto__", ["temperature"], { a: 1 }, true, "lava"]) {
     test(`heat_map ${JSON.stringify(junk)} is off and warns once`, async ({ page }) => {
@@ -229,4 +271,30 @@ test.describe("S34.8 3D", () => {
     await openMenu(page);
     await expect(menuItem(page, "heat:temperature")).toHaveAttribute("aria-checked", "true");
   });
+});
+
+test("m4: when 3D falls back to 2D the note and the heat legend do not overlap", async ({ page }) => {
+  await page.addInitScript(() => {
+    const orig = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+      return /webgl/.test(kind) ? null : (orig as (...a: unknown[]) => unknown).call(this, kind, ...rest);
+    } as typeof orig;
+  });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(URL_);
+  await page.addScriptTag({ content: CARD_JS, type: "module" });
+  await page.evaluate(() => customElements.whenDefined("floorplan-studio-card"));
+  await page.evaluate(([cfg, s]) => {
+    try { localStorage.clear(); } catch { /* no storage */ }
+    const el = document.getElementById("card") as unknown as HTMLElement & { setConfig(c: unknown): void; hass: unknown; updateComplete: Promise<unknown> };
+    el.setConfig(cfg);
+    el.hass = { states: s, callService() {} };
+    return el.updateComplete;
+  }, [{ layout, floor: "ground", theme: "light", view: "3d", heat_map: "temperature" }, STATES()] as const);
+  const note = card(page).locator("css=.fp-3d-note");
+  await expect(note).toBeVisible(); // under file:// the 3D chunk cannot load, which falls back with its own note
+  await expect(legend(page)).toBeVisible();
+  const [a, b] = [(await note.boundingBox())!, (await legend(page).boundingBox())!];
+  const apart = a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+  expect(apart, `note ${JSON.stringify(a)} legend ${JSON.stringify(b)}`).toBe(true);
 });

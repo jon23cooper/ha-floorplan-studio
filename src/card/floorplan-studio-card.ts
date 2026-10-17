@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from "lit";
 import { planPatch } from "./plan-patch"; // S25.6: the plan is patched, not replaced, on a state update
-import { ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, heatKindOf, heatLegend, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
+import { ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
 import type { HeatKind, LayerId, OffRow, SearchEntry } from "../core";
 import type { ActiveDevice, Attention, AttentionItem, AttentionKind, CategoryId, DeviceType, ThingRef, PowerCandidate, RoomDeviceRow, RoomSensorRow, RoomSummary, Theme, WallsMode } from "../core";
 import type { Device, Door, Floor, Layout, SavedView } from "../core";
@@ -339,6 +339,7 @@ export class FloorplanStudioCard extends LitElement {
     .fp-cluster { grid-area: stage; justify-self: end; align-self: start; z-index: 1; margin: 8px; min-width: 0; max-width: calc(100% - 16px); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     /* S34.8: the heat map's legend, bottom left of the stage, over the plan like the cluster: end labels as text, a ramp between. */
     .fp-heat-legend { grid-area: stage; justify-self: start; align-self: end; z-index: 1; margin: 8px; display: flex; align-items: center; gap: 6px; padding: 4px 8px; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-ink); background: var(--fp-room); border: 1px solid var(--fp-idle); border-radius: 6px; pointer-events: none; }
+    .fp-heat-legend.fp-heat-legend-up { align-self: start; } /* the 3D fallback note holds the bottom left: the legend goes to the top */
     .fp-heat-ramp { width: 96px; height: 10px; border-radius: 5px; }
     /* One line, over the plan, when 3D cannot run: why, and that 2D is what is shown. */
     .fp-3d-note { position: absolute; left: 8px; bottom: 8px; z-index: 1; margin: 0; max-width: calc(100% - 16px); padding: 4px 8px; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-ink); background: var(--fp-room); border: 1px solid var(--fp-idle); border-radius: 6px; }
@@ -2221,10 +2222,13 @@ export class FloorplanStudioCard extends LitElement {
 
   /** S34.8 (H5, H7): the legend strip, text and a ramp, at the plan's bottom left. Card chrome, drawn from the one `heatLegend` the Studio's status bar uses. A heat mode in 2D and 2.5D only: in live 3D no room is coloured, so there is nothing to explain. */
   private _heatLegend() {
-    const lg = heatLegend(this._heatKind());
-    if (!lg || this._shows3d() || !this._floor()) return null;
+    const lg = heatLegend(this._heatKind()), f = this._floor();
+    if (!lg || this._shows3d() || !f) return null;
+    const cls = this._fallback3d && this._viewPick() === "3d" ? "fp-heat-legend fp-heat-legend-up" : "fp-heat-legend";
+    // Same check as the Studio's status bar: a scale with no room on it would explain colours that are not there.
+    if (!anyRoomHeated(f, lg.kind, this._stateForRender())) return html`<div class=${cls}><span class="fp-heat-end">Heat map: no readings</span></div>`;
     const ramp = `background:linear-gradient(to right in oklch,${lg.stops.map((s) => `var(${s.token})`).join(",")})`;
-    return html`<div class="fp-heat-legend"><span class="fp-heat-end">${lg.from}</span><span class="fp-heat-ramp" style=${ramp} aria-hidden="true"></span><span class="fp-heat-end">${lg.to}</span></div>`;
+    return html`<div class=${cls}><span class="fp-heat-end">${lg.from}</span><span class="fp-heat-ramp" style=${ramp} aria-hidden="true"></span><span class="fp-heat-end">${lg.to}</span></div>`;
   }
 
   /** S33.4: one console warning per card for a `tap_action` or `hold_action` that is there but not usable; absent is no warning. */
@@ -3242,6 +3246,9 @@ export class FloorplanStudioCard extends LitElement {
     // S20.2: the panel's one subject is the picked room, else the selected floor, summed over its rooms by the same builder.
     const summary = at !== null && floor ? roomSummary(floor, at, state, opts) : floorKey && floor ? floorSummary(floor, state, opts) : null;
     if (summary && at === null && floorKey && !summary.name) summary.name = floorKey;
+    // H2: in a heat mode the panel prints the number the plan prints (`roomHeat` drops faulty readings), not its own mean.
+    const hk = this._heatKind(), heat = summary && at !== null && floor && hk !== "off" ? roomHeat(floor, at, hk, state) : null;
+    if (summary && heat) summary[hk === "temperature" ? "temperature" : "humidity"] = heat.text;
     const scope = at === null && floorKey ? FLOOR_SCOPE : ROOM_SCOPE;
     const many = Object.keys(this._layout.floors).length > 1;
     // The scope: the picked room or floor while its filter is on; every floor under "Show all"; else the floor on show, or all.

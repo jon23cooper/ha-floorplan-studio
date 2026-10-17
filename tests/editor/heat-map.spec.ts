@@ -93,3 +93,13 @@ test("junk in storage: the Studio opens with the heat map off", async ({ page })
   await click(page, "#heatSub > summary");
   await expect(page.locator(`${EDITOR} #heatSub button[data-heat="off"]`)).toHaveAttribute("aria-pressed", "true");
 });
+
+test("S34 review m3: the status bar ramp blends in oklch, as the card's legend does", async ({ page }) => {
+  await open(page, true);
+  await pick(page, "temperature");
+  const ramp = page.locator(`${EDITOR} #statusBar .sb-ramp`);
+  await expect(ramp).toBeVisible();
+  // Computed, not the attribute: the browser keeps the interpolation space in the parsed image.
+  const img = await ramp.evaluate((e) => getComputedStyle(e).backgroundImage);
+  expect(img).toContain("oklch");
+});

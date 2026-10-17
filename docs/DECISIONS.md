@@ -2,6 +2,17 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: Sprint 34 Opus review fixes (Sonnet)
+
+- M1: the Edit-card form's websocket mock returned a bare layout; `websocket.py` sends `{ layout }`. The form now unwraps `r?.layout` as the card does; the new test stubs the reply with that shape (finding 21).
+- D1, by Diego's own S33 rule: a Favourites row acts at once only for `TOGGLE_AT_ONCE` (light, switch, input_boolean, fan). A lock, a cover and anything else goes through the confirm step, text `Confirm <label lower-cased>` (Confirm unlock, Confirm open); a Turn off that already asked keeps its own text. The list is the card's one `TOGGLE_AT_ONCE`, not copied. Supersedes S34.4's "acts at once unless a turn OFF".
+- m5 (H2): in a heat mode, a picked room's panel Temperature or Humidity is the plan's `roomHeat` text, when the room has one; the panel's own mean did not drop faulty readings. A room with no heat keeps the panel's own line.
+- m2: new `anyRoomHeated` in core, used by the Studio's status bar and the card's legend. The card legend then reads "Heat map: no readings" with no ramp.
+- m3: the Studio ramp is `linear-gradient(to right in oklch, ...)`, as the card's.
+- m4: with the 3D fallback note up, the legend sits at the top left of the plan (`fp-heat-legend-up`), not under the note.
+- m1: a test only, `roomHeat` with placed sensors at 120 and 22 °C gives 22 °C. Red with the filter removed (read 71).
+- `config-editor.ts` takes `HEAT_LABELS` from `view-state.ts`. Card gz (`gzip -9`): 116,924 before, see CHANGELOG-free figure in the report after. `size-budget.spec.ts` still red, not touched.
+
 ## 2026-10-17: S34.11 exit, docs, shots (Sonnet)
 
 - Q1 to Q3 held as the spec's defaults (Diego, 2026-10-17): fixed scale (16 to 26 °C, 30 to 70 %, no key); the room's own list when readable, else the sensor devices in the room; the heat covers paint and there is no night veil. Nothing changed from the spec except what the entries below say.
