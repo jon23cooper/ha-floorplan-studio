@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, open, serve, configure, card, canvas, holder, cam, drawn, ORIGIN } from "./helpers-3d";
 import { checkedIn, hasItem, pick } from "./menu-helper";
+import { readCanvasRect } from "../helpers/pixels";
 
 // S12.3: the card's 3D view in real Chromium, loaded the way Home Assistant loads the card (a module under
 // /floorplan_studio_static/ with a ?v= query, from the built www/ folder), so the chunk delivery is tested as shipped
@@ -9,20 +10,15 @@ import { checkedIn, hasItem, pick } from "./menu-helper";
 const chunkRequests = (seen: string[]) => seen.filter((u) => /floorplan-studio-3d-[\w-]+\.js/.test(u));
 const renderers = (page: Page) => page.evaluate(() => (customElements.get("floorplan-studio-card") as unknown as { liveRenderers: number }).liveRenderers);
 
-/** Distinct colours in a PNG of the canvas, counted in the page (Playwright has no image decoder). */
-async function colours(page: Page, png: Buffer): Promise<number> {
-  return page.evaluate(async (b64) => {
-    const img = new Image();
-    img.src = `data:image/png;base64,${b64}`;
-    await img.decode();
-    const c = document.createElement("canvas");
-    c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!;
-    g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data, set = new Set<number>();
-    for (let i = 0; i < d.length; i += 4) set.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
-    return set.size;
-  }, png.toString("base64"));
+/** The whole canvas as RGB triples, read in the page (tests/helpers/pixels.ts), not by page.screenshot. */
+async function canvasPixels(page: Page): Promise<number[]> {
+  return (await readCanvasRect(page, (await canvas(page).boundingBox())!)).data;
+}
+/** Distinct colours among RGB triples. */
+function colours(d: number[]): number {
+  const set = new Set<number>();
+  for (let i = 0; i < d.length; i += 3) set.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+  return set.size;
 }
 
 test.describe("3D view: delivery (spec gate K, criterion 3)", () => {
@@ -54,14 +50,14 @@ test.describe("3D view: the canvas", () => {
     const box = (await canvas(page).boundingBox())!;
     expect(box.width).toBeGreaterThan(300);
     expect(box.height).toBeGreaterThan(200);
-    const light = await canvas(page).screenshot();
-    expect(await colours(page, light)).toBeGreaterThan(12);
+    const light = await canvasPixels(page);
+    expect(colours(light)).toBeGreaterThan(12);
     await pick(page, "theme:midnight");
     await expect.poll(() => card(page).evaluate((el) => el.getAttribute("data-theme"))).toBe("midnight");
     await expect.poll(async () => (await cam(page)).drawn).toBeGreaterThan(1);
-    const dark = await canvas(page).screenshot();
-    expect(await colours(page, dark)).toBeGreaterThan(12);
-    expect(dark.equals(light)).toBe(false); // the theme reached the pixels
+    const dark = await canvasPixels(page);
+    expect(colours(dark)).toBeGreaterThan(12);
+    expect(dark.some((v, i) => v !== light[i])).toBe(true); // the theme reached the pixels
   });
 
   test("a real mouse drag orbits; the wheel zooms; a right drag pans; the polar angle is clamped; none of it is a tap", async ({ page }) => {
