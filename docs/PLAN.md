@@ -4280,7 +4280,7 @@ coder's note before accepting. Opus reviews the integrated build once.
 Wave 1, three lanes, pure code, no shared file:
 
 Lane fav (pure first):
-- [ ] S34.1 Read `favourites` (Sonnet). New `src/card/favourites.ts`: `favouritesOf(config)` returns `{ ids, warn }`
+- [x] S34.1 Read `favourites` (Sonnet). New `src/card/favourites.ts`: `favouritesOf(config)` returns `{ ids, warn }`
       per spec F1 (`favourites`, alias `favorites`, entity-id shape, repeats, `MAX_FAVOURITES` 24). Test, failing first,
       new `tests/card/favourites.test.ts`: criterion 1, plus a getter that throws and a 10,000-item list.
       Files: new `src/card/favourites.ts`, new `tests/card/favourites.test.ts`.

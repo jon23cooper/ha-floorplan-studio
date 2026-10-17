@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Card (internal, S34.1): `src/card/favourites.ts` reads the `favourites` key (alias `favorites`) from untrusted YAML: entity ids only, repeats dropped, at most 24, never throws. The Overview section that uses it comes later in Sprint 34.
+
 ## 0.31.0 - 2026-10-15
 
 - Card (S33 review): `tap_action: toggle` no longer acts blind on a lock, a cover or a siren (nor climate, humidifier, water_heater, automation, remote, media_player or group): a tap opens the popup. Only a light, a switch, an input_boolean and a fan toggle at once. Enter on a focused icon always opens the popup, as before.
