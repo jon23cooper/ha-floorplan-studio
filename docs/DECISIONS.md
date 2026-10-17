@@ -2,6 +2,10 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S34.2 favourites on the plan (Sonnet)
+
+- `favouriteRefs(layout, ids, floors)`, spec F4. Output follows the list, not the layout. Per entity the first thing in layout order wins: floors in key order, a floor's devices before its linked pieces (`pieceDevice`); so a device beats a piece on the same entity. `floors` are layout keys; a floor not listed is not searched. Floors are read through `Object.keys`, so a floor named `__proto__` or `toString` is an ordinary one. Rows that are not objects, and lists that are not lists, are skipped; a layout that is not a layout gives `[]`. A getter that throws gives `[]`, not a throw. Test: `tests/card/favourites.test.ts`; 11 tests failed first (`favouriteRefs is not a function`), and with first-wins removed 2 fail.
+
 ## 2026-10-17: S34.1 the favourites reader (Sonnet)
 
 - `favouritesOf(config)` in `src/card/favourites.ts`, spec F1. `favourites` wins over `favorites`; a key that is `null` or `undefined` counts as absent, so the alias still applies. An item must be a string that, trimmed, is `domain.object_id` (lower case, digits, `_`). Repeats and junk are dropped; the list stops at `MAX_FAVOURITES` (24) and says so. `warn` is true when anything was dropped or the value is not a list; absent is silent. The loop stops at item 25, so a 10,000-item list costs 25 reads. A getter or proxy that throws is junk, never a throw. Card only, on purpose (F8). Test: `tests/card/favourites.test.ts`; failed first (module missing), and with the cap removed 2 tests fail.

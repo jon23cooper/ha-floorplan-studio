@@ -4284,7 +4284,7 @@ Lane fav (pure first):
       per spec F1 (`favourites`, alias `favorites`, entity-id shape, repeats, `MAX_FAVOURITES` 24). Test, failing first,
       new `tests/card/favourites.test.ts`: criterion 1, plus a getter that throws and a 10,000-item list.
       Files: new `src/card/favourites.ts`, new `tests/card/favourites.test.ts`.
-- [ ] S34.2 Resolve favourites to things on the plan (Sonnet). After S34.1, same file. `favouriteRefs(layout, ids,
+- [x] S34.2 Resolve favourites to things on the plan (Sonnet). After S34.1, same file. `favouriteRefs(layout, ids,
       floors)` returns `{ entity, floor, ref: ThingRef }[]` in the list's order: a device's `entity` or a linked piece's
       (`pieceDevice`), first in layout order, only on the floors given; unknown entities dropped (F4). Test, failing
       first, in `tests/card/favourites.test.ts`: order kept; a piece; an entity on a floor left out; two devices on

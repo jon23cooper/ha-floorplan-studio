@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Card (internal, S34.1): `src/card/favourites.ts` reads the `favourites` key (alias `favorites`) from untrusted YAML: entity ids only, repeats dropped, at most 24, never throws. The Overview section that uses it comes later in Sprint 34.
+- Card (internal, S34.2): `favouriteRefs` finds each favourite on the plan, a device or a linked piece, on the floors the card shows, in the list's order. An entity that is not drawn there is left out.
 
 ## 0.31.0 - 2026-10-15
 

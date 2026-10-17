@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MAX_FAVOURITES, favouritesOf } from "../../src/card/favourites";
+import { MAX_FAVOURITES, favouriteRefs, favouritesOf } from "../../src/card/favourites";
+import type { Layout } from "../../src/core";
 
 // S34.1, spec F1: card YAML is untrusted (finding 1). The reader never throws and says when to warn.
 
@@ -76,5 +77,90 @@ describe("favouritesOf", () => {
   });
   it("a sparse list does not throw", () => {
     expect(ids({ favourites: ["light.a", , "light.b"] })).toEqual(["light.a", "light.b"]);
+  });
+});
+
+// S34.2, spec F4: only things drawn on a floor the card shows.
+
+const dev = (id: string, entity: string, type = "light") => ({ id, type, entity, x: 10, y: 10 });
+const floor = (extra: Record<string, unknown>) => ({ title: "F", outline: [], rooms: [], walls: [], stairs: [], doors: [], openings: [], extras: [], devices: [], furniture: [], unlinked: [], ...extra });
+const layoutOf = (floors: Record<string, unknown>): Layout => ({ version: 2, unit: "cm", north: 0, floors, catalog: [] }) as unknown as Layout;
+
+describe("favouriteRefs", () => {
+  const L = layoutOf({
+    ground: floor({ devices: [dev("a", "light.a"), dev("b", "switch.b", "switch")] }),
+    up: floor({ devices: [dev("c", "light.c")] }),
+  });
+
+  it("keeps the list's order, not the layout's", () => {
+    const r = favouriteRefs(L, ["light.c", "switch.b", "light.a"], ["ground", "up"]);
+    expect(r).toEqual([
+      { entity: "light.c", floor: "up", ref: { what: "device", index: 0 } },
+      { entity: "switch.b", floor: "ground", ref: { what: "device", index: 1 } },
+      { entity: "light.a", floor: "ground", ref: { what: "device", index: 0 } },
+    ]);
+  });
+  it("drops an entity that is not on the plan", () => {
+    expect(favouriteRefs(L, ["light.a", "sensor.nope"], ["ground", "up"]).map((r) => r.entity)).toEqual(["light.a"]);
+  });
+  it("finds a linked furniture piece by its entity", () => {
+    const P = layoutOf({
+      ground: floor({
+        devices: [dev("a", "light.a")],
+        furniture: [{ id: "f0", symbol: "sofa", x: 0, y: 0, w: 10, h: 10, rot: 0 }, { id: "tv", symbol: "tv", entity: "media_player.tv", x: 5, y: 5, w: 10, h: 10, rot: 0 }],
+      }),
+    });
+    expect(favouriteRefs(P, ["media_player.tv"], ["ground"])).toEqual([{ entity: "media_player.tv", floor: "ground", ref: { what: "piece", index: 1 } }]);
+  });
+  it("ignores an entity on a floor the card leaves out", () => {
+    expect(favouriteRefs(L, ["light.a", "light.c"], ["ground"]).map((r) => r.entity)).toEqual(["light.a"]);
+    expect(favouriteRefs(L, ["light.a", "light.c"], [])).toEqual([]);
+  });
+  it("two devices on one entity: the first in layout order wins, across floors too", () => {
+    const D = layoutOf({
+      ground: floor({ devices: [dev("a", "light.x"), dev("b", "light.x")] }),
+      up: floor({ devices: [dev("c", "light.x")] }),
+    });
+    expect(favouriteRefs(D, ["light.x"], ["ground", "up"])).toEqual([{ entity: "light.x", floor: "ground", ref: { what: "device", index: 0 } }]);
+    expect(favouriteRefs(D, ["light.x"], ["up"])).toEqual([{ entity: "light.x", floor: "up", ref: { what: "device", index: 0 } }]);
+  });
+  it("a device beats a piece on the same entity when it comes first in the floor", () => {
+    const D = layoutOf({ g: floor({ devices: [dev("a", "media_player.tv", "media")], furniture: [{ id: "tv", symbol: "tv", entity: "media_player.tv", x: 5, y: 5, w: 1, h: 1, rot: 0 }] }) });
+    expect(favouriteRefs(D, ["media_player.tv"], ["g"])[0]!.ref).toEqual({ what: "device", index: 0 });
+  });
+  it("a repeat in the ids gives one ref", () => {
+    expect(favouriteRefs(L, ["light.a", "light.a"], ["ground"])).toHaveLength(1);
+  });
+  it("a floor named __proto__ is an ordinary floor", () => {
+    const P = JSON.parse('{"version":2,"unit":"cm","north":0,"catalog":[],"floors":{"__proto__":{"devices":[{"id":"p","type":"light","entity":"light.p","x":1,"y":1}],"furniture":[]},"toString":{"devices":[{"id":"q","type":"light","entity":"light.q","x":1,"y":1}]}}}') as Layout;
+    expect(favouriteRefs(P, ["light.p", "light.q"], ["__proto__", "toString"])).toEqual([
+      { entity: "light.p", floor: "__proto__", ref: { what: "device", index: 0 } },
+      { entity: "light.q", floor: "toString", ref: { what: "device", index: 0 } },
+    ]);
+    expect(favouriteRefs(P, ["light.p"], ["constructor"])).toEqual([]);
+    expect(({} as Record<string, unknown>)["light"]).toBeUndefined(); // no pollution
+  });
+  it("junk layout rows are skipped and never thrown on", () => {
+    const J = layoutOf({
+      a: null,
+      b: 5,
+      c: floor({ devices: [null, 7, "x", { type: "light" }, { entity: 5 }, { entity: "" }, dev("ok", "light.ok")], furniture: [null, 3, { symbol: "tv", entity: 9 }] }),
+      d: floor({ devices: 5, furniture: "no" }),
+      e: floor({ devices: [dev("z", "light.z")] }),
+    });
+    expect(() => favouriteRefs(J, ["light.ok", "light.z"], ["a", "b", "c", "d", "e"])).not.toThrow();
+    expect(favouriteRefs(J, ["light.ok", "light.z"], ["a", "b", "c", "d", "e"])).toEqual([
+      { entity: "light.ok", floor: "c", ref: { what: "device", index: 6 } },
+      { entity: "light.z", floor: "e", ref: { what: "device", index: 0 } },
+    ]);
+  });
+  it("a layout that is not a layout gives nothing", () => {
+    for (const bad of [null, undefined, 5, "x", [], {}, { floors: 5 }, { floors: null }]) {
+      expect(favouriteRefs(bad as unknown as Layout, ["light.a"], ["ground"])).toEqual([]);
+    }
+  });
+  it("junk in ids and floors is tolerated", () => {
+    expect(favouriteRefs(L, [5, null, "light.a"] as unknown as string[], ["ground", 3] as unknown as string[]).map((r) => r.entity)).toEqual(["light.a"]);
+    expect(favouriteRefs(L, "light.a" as unknown as string[], "ground" as unknown as string[])).toEqual([]);
   });
 });
