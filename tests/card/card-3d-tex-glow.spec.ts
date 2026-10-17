@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, cam, drawn } from "./helpers-3d";
 import { uvOf } from "../../src/card/three/tex";
 import { textureDeps } from "../../src/core/three-deps";
+import { readCanvasRect, meanRgb } from "../helpers/pixels";
 
 // S13: floor textures and the lamp's light on the walls, in the 3D view. Real card, demo ground floor, test-build hook `__fp3d`.
 // Demo ground: Living is room 0 (0..500 x 0..400), Kitchen 1 (500..800 x 0..400), Hall 2 (0..800 x 400..600); device 0 is the living
@@ -72,19 +73,11 @@ const at = (page: Page, x: number, y: number, z: number) => hook(page, (h, a) =>
 const look = (page: Page, az: number, polar: number) => hook(page, (h, a) => h.look(a[0], a[1]), [az, polar]);
 type Px = { x: number; y: number };
 
-/** The luminance of every pixel of a page region (from a real screenshot, 1 device px = 1 css px here), row by row. */
+/** The luminance of every pixel of a page region (from the canvas read in the page, not page.screenshot; 1 device px = 1 css px here), row by row. */
 async function lumaOf(page: Page, box: { x: number; y: number; width: number; height: number }): Promise<{ w: number; h: number; l: number[]; rgb: [number, number, number] }> {
-  const buf = await page.screenshot({ clip: box });
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data, l: number[] = [];
-    let r = 0, gr = 0, b = 0;
-    for (let i = 0; i < d.length; i += 4) { l.push(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
-    const n = d.length / 4;
-    return { w: img.width, h: img.height, l, rgb: [r / n, gr / n, b / n] as [number, number, number] };
-  }, buf.toString("base64"));
+  const { w, h, data } = await readCanvasRect(page, box), l: number[] = [];
+  for (let i = 0; i < data.length; i += 3) l.push(0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2]);
+  return { w, h, l, rgb: meanRgb(data) };
 }
 const patch = (p: Px, half = 12) => ({ x: Math.round(p.x - half), y: Math.round(p.y - half), width: 2 * half, height: 2 * half });
 const meanLuma = (l: number[]) => l.reduce((a, b) => a + b, 0) / l.length;

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, card, canvas, cam, drawn } from "./helpers-3d";
 import { pick } from "./menu-helper";
+import { readCanvasRect, meanRgb } from "../helpers/pixels";
 
 // S12.5: live state in the 3D view. Pixels are read from real screenshots of the canvas, taps are real `page.mouse`
 // events, and the scene's own state (a door's swing, a body's colour, a pool, a ring) is read from the test hook
@@ -62,34 +63,17 @@ const live = (page: Page) => page.evaluate(() => (window as unknown as { __fp3d:
 const at = (page: Page, x: number, y: number, z: number) => page.evaluate(([x, y, z]) => (window as unknown as { __fp3d: { project(x: number, y: number, z: number): Where } }).__fp3d.project(x, y, z), [x, y, z] as const);
 const look = (page: Page, az: number, polar: number) => page.evaluate(([a, p]) => (window as unknown as { __fp3d: { look(a: number, p: number): void } }).__fp3d.look(a, p), [az, polar] as const);
 const calls = (page: Page) => page.evaluate(() => (window as unknown as { __calls: string[] }).__calls);
-/** The mean colour of a 20 x 20 px patch of the page around `p`, from a real screenshot. */
+/** The mean colour of a 20 x 20 px patch of the page around `p`, from the canvas read in the page (not page.screenshot; tests/helpers/pixels.ts). */
 async function mean(page: Page, p: Where, half = 10): Promise<[number, number, number]> {
-  const buf = await page.screenshot({ clip: { x: p.x - half, y: p.y - half, width: 2 * half, height: 2 * half } });
-  return page.evaluate(async (b64) => {
-    const img = new Image();
-    img.src = `data:image/png;base64,${b64}`;
-    await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data, n = d.length / 4;
-    let r = 0, gr = 0, b = 0;
-    for (let i = 0; i < d.length; i += 4) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
-    return [r / n, gr / n, b / n] as [number, number, number];
-  }, buf.toString("base64"));
+  return meanRgb((await readCanvasRect(page, { x: p.x - half, y: p.y - half, width: 2 * half, height: 2 * half })).data);
 }
 const lum = (c: number[]) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 /** How many pixels of the page region are clearly red (the motion ring's colour in every theme). */
 async function reds(page: Page, box: { x: number; y: number; width: number; height: number }, soft = false): Promise<number> {
-  const buf = await page.screenshot({ clip: box });
-  return page.evaluate(async ([b64, soft]) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data, [lo, gap] = soft ? [90, 40] : [150, 70]; // half strength over a dark floor is a dull red
-    let n = 0;
-    for (let i = 0; i < d.length; i += 4) if (d[i] > lo && d[i] > d[i + 1] + gap && d[i] > d[i + 2] + gap) n++;
-    return n;
-  }, [buf.toString("base64"), soft] as const);
+  const { data } = await readCanvasRect(page, box), [lo, gap] = soft ? [90, 40] : [150, 70]; // half strength over a dark floor is a dull red
+  let n = 0;
+  for (let i = 0; i < data.length; i += 3) if (data[i] > lo && data[i] > data[i + 1] + gap && data[i] > data[i + 2] + gap) n++;
+  return n;
 }
 const icon = (page: Page, i: number) => card(page).locator(`css=.fp3-ic[data-i="${i}"]`);
 const roomLabel = (page: Page, r: number) => card(page).locator(`css=.fp3-rm[data-r="${r}"]`);

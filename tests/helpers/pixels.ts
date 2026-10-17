@@ -68,3 +68,37 @@ export function differing(a: Patch, b: Patch, tol = 4): number {
   for (let i = 0; i < a.length; i += 3) if (Math.abs(a[i] - b[i]) > tol || Math.abs(a[i + 1] - b[i + 1]) > tol || Math.abs(a[i + 2] - b[i + 2]) > tol) c++;
   return c;
 }
+
+// ---- the 3D card (WebGL)
+// The canvas has no preserveDrawingBuffer, so its pixels are only readable in the task that drew them. The test build's
+// `__fp3d.calls()` draws one frame now; drawImage in the same synchronous run reads that frame. No screenshot, no wait.
+
+/** The raw RGB of a page rectangle (css px, viewport coordinates) of the 3D card's canvas, over the first opaque background behind it. */
+export function readCanvasRect(page: Page, box: { x: number; y: number; width: number; height: number }, o: { host?: string; canvas?: string } = {}): Promise<{ w: number; h: number; data: Patch }> {
+  return page.evaluate(([box, o]) => {
+    const host = document.querySelector(o.host ?? "floorplan-studio-card")!;
+    const cv = host.shadowRoot!.querySelector(o.canvas ?? "canvas") as HTMLCanvasElement;
+    (window as unknown as { __fp3d: { calls(): number } }).__fp3d.calls();
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio;
+    let bg = "#fff";
+    for (let el: Element | null = cv; el; el = el.parentElement ?? (el.getRootNode() as ShadowRoot).host ?? null) {
+      const c = getComputedStyle(el).backgroundColor;
+      if (c && !/(, | \/ )0\)$/.test(c) && c !== "transparent") { bg = c; break; }
+    }
+    const t = document.createElement("canvas"); t.width = Math.round(r.width * dpr); t.height = Math.round(r.height * dpr);
+    const g = t.getContext("2d", { willReadFrequently: true })!;
+    g.fillStyle = bg; g.fillRect(0, 0, t.width, t.height);
+    g.drawImage(cv, 0, 0, t.width, t.height);
+    const w = Math.round(box.width * dpr), h = Math.round(box.height * dpr);
+    const d = g.getImageData(Math.round((box.x - r.left) * dpr), Math.round((box.y - r.top) * dpr), w, h).data, data: number[] = [];
+    for (let i = 0; i < d.length; i += 4) data.push(d[i], d[i + 1], d[i + 2]);
+    return { w, h, data };
+  }, [box, o] as const);
+}
+
+/** The mean r, g, b of raw RGB triples. */
+export function meanRgb(data: Patch): [number, number, number] {
+  const n = data.length / 3, s: [number, number, number] = [0, 0, 0];
+  for (let i = 0; i < data.length; i += 3) { s[0] += data[i]; s[1] += data[i + 1]; s[2] += data[i + 2]; }
+  return [s[0] / n, s[1] / n, s[2] / n];
+}

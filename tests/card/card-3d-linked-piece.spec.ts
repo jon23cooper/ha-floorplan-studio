@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, card, holder, cam, drawn } from "./helpers-3d";
+import { readCanvasRect, meanRgb } from "../helpers/pixels";
 
 // A linked tv piece in 3D (DECISIONS 2026-10-07): it wears the linked colour at rest and the on colour by the tv rule (a paused tv
 // is on), a real click on it is more-info and never a room pick, and hovering it names it. Clicks are real page.mouse events at
@@ -46,18 +47,9 @@ const where = (page: Page) => page.evaluate((i) => (window as unknown as { __fp3
 const picks = (page: Page, p: Where) => page.evaluate((p) => (window as unknown as { __fp3d: { pick(x: number, y: number): unknown } }).__fp3d.pick(p.x, p.y), p);
 const pieces = (page: Page) => page.evaluate(() => (window as unknown as { __fp3d: { live(): { pieces: { index: number; on: boolean; colour: string }[] } } }).__fp3d.live().pieces);
 const colourOf = async (page: Page) => (await pieces(page)).find((b) => b.index === PIECE)!;
-/** The mean colour of a small patch around `p`, from a real screenshot. */
+/** The mean colour of a small patch around `p`, from the canvas read in the page (not page.screenshot; tests/helpers/pixels.ts). */
 async function mean(page: Page, p: Where, half = 3): Promise<[number, number, number]> {
-  const buf = await page.screenshot({ clip: { x: p.x - half, y: p.y - half, width: 2 * half, height: 2 * half } });
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data, n = d.length / 4;
-    let r = 0, gr = 0, b = 0;
-    for (let i = 0; i < d.length; i += 4) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
-    return [r / n, gr / n, b / n] as [number, number, number];
-  }, buf.toString("base64"));
+  return meanRgb((await readCanvasRect(page, { x: p.x - half, y: p.y - half, width: 2 * half, height: 2 * half })).data);
 }
 
 test.describe("3D view: a linked tv piece", () => {

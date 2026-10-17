@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Tests only: pixel reads no longer use `page.screenshot`, which fails at random on the CI runner ("Unable to capture screenshot"). Plans are rasterised from the SVG onto a canvas by `tests/helpers/pixels.ts`. Same colours, same tolerances. Converted so far: frame-25d, shade-25d, tree-25d, window-pane, camera-cone-clip, light-glow, card-ghost-turn, hand-align-exit, card.spec (five mask pixel tests), editor.spec (the opening hole).
+- Tests only: pixel reads no longer use `page.screenshot`, which fails at random on the CI runner ("Unable to capture screenshot"). Plans are rasterised from the SVG onto a canvas by `tests/helpers/pixels.ts`. Same colours, same tolerances. Converted so far: frame-25d, shade-25d, tree-25d, window-pane, camera-cone-clip, light-glow, card-ghost-turn, hand-align-exit, card.spec (five mask pixel tests), editor.spec (the opening hole), and the 3D specs live, doorway, linked-piece, colors, shade, stair-down, stair-well, tex-glow, which read the WebGL canvas right after a frame the test hook draws.
 
 ## 0.32.0 - 2026-10-17
 

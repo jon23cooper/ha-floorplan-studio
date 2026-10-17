@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, drawn, cam } from "./helpers-3d";
+import { readCanvasRect, meanRgb } from "../helpers/pixels";
 
 // 0.26.1: the ground plane lay at the lowest slab bottom (-25 cm), and a stair going DOWN sinks to -60 (WELL_DEPTH): most of the
 // flight was under the ground and invisible. The first floor of the demo has no stair, so the fixture copies the ground
@@ -34,14 +35,8 @@ async function boot(page: Page, layout: unknown, theme: string) {
   await expect.poll(async () => { const n = (await cam(page)).drawn; same = n === prev ? same + 1 : 0; prev = n; return same; }, { intervals: [100], timeout: 15000 }).toBeGreaterThanOrEqual(3);
 }
 async function rgbAt(page: Page, p: { x: number; y: number }): Promise<number[]> {
-  const buf = await page.screenshot({ clip: { x: Math.round(p.x) - 1, y: Math.round(p.y) - 1, width: 3, height: 3 } });
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(1, 1, 1, 1).data;
-    return [d[0], d[1], d[2]];
-  }, buf.toString("base64"));
+  // The one pixel at the point, from the canvas read in the page (not page.screenshot; tests/helpers/pixels.ts).
+  return (await readCanvasRect(page, { x: Math.round(p.x), y: Math.round(p.y), width: 1, height: 1 })).data;
 }
 
 // Inside the floor outline and inside the Office room (x 0..800, y 300..600): the slab and the room fill lay over the flight in 0.25.0 as well
