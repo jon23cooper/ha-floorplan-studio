@@ -4314,7 +4314,7 @@ Lane heat (pure first):
 
 Wave 2, after wave 1. The card file takes one task at a time:
 
-- [ ] S34.7 Heat in `renderFloor` (Sonnet, **judgement**: the three humidity tokens and the mix share, read off the
+- [x] S34.7 Heat in `renderFloor` (Sonnet, **judgement**: the three humidity tokens and the mix share, read off the
       shots in every theme). After S34.6. `RenderOpts.heat?: HeatKind`. Spec H4, H5: class `heat` and `--fp-heat` on a
       heated room's polygon; the readout line shows the heat value for the mode's kind, also under `labels: false`
       (class `heat-val`); no `room-night` in a heat mode; tokens `--fp-hum-dry`, `--fp-hum-mid`, `--fp-hum-wet` beside

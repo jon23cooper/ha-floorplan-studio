@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Core (S34.7, internal): `renderFloor` takes `heat: "temperature" | "humidity" | "off"`. A room that reads fills with the fixed ramp mixed 55 % into its kind's colour, keeps no night veil, and prints the heat value in its readout line, also under `labels: false`. Omitted or `off`, the markup is byte for byte as before. The card and Studio get the option in S34.8 and S34.10.
 - Core (S34.6, internal): `src/core/heat.ts`, the heat map's maths. `roomHeat` gives a room's reading and its place (0 to 1) on a fixed scale, 16 to 26 °C or 30 to 70 %; `readings.ts` gains `meanValue`. Nothing draws it yet (S34.7).
 
 ## 0.31.0 - 2026-10-15

@@ -92,8 +92,8 @@ describe("roomHeat, temperature (H2, H3)", () => {
     expect(roomHeat(f, 0, "temperature", { t1: st("15", "°C"), t2: st("15", "°C") })).toEqual({ text: `15${N}°C`, t: 0 });
     expect(roomHeat(f, 0, "temperature", { t1: st("30", "°C"), t2: st("30", "°C") })).toEqual({ text: `30${N}°C`, t: 1 });
   });
-  it("a sensor with no unit is taken as °C and its text has no unit", () => {
-    expect(roomHeat(f, 0, "temperature", { t1: st("23"), t2: st("23") })).toEqual({ text: "23", t: 0.7 });
+  it("a sensor with no unit is taken as °C and its text says °C", () => {
+    expect(roomHeat(f, 0, "temperature", { t1: st("23"), t2: st("23") })).toEqual({ text: `23${N}°C`, t: 0.7 });
   });
   it("a value that is not a reading is not one: out of range, another unit, text, comma, NaN, Infinity", () => {
     const one = floor([room("Living", sq(0, 0, 400, 400), { temps: ["t1"] })]);
@@ -129,7 +129,7 @@ describe("roomHeat, humidity", () => {
   it("reads the humidity list on 30 to 70 %: 54 is 0.6; a temperature in the list is not a humidity", () => {
     expect(roomHeat(f, 0, "humidity", { h1: st("54", "%") })).toEqual({ text: `54${N}%`, t: 0.6 });
     expect(roomHeat(f, 0, "humidity", { h1: st("30", "%") })?.t).toBe(0);
-    expect(roomHeat(f, 0, "humidity", { h1: st("70") })).toEqual({ text: "70", t: 1 });
+    expect(roomHeat(f, 0, "humidity", { h1: st("70") })).toEqual({ text: `70${N}%`, t: 1 });
     expect(roomHeat(f, 0, "humidity", { h1: st("20", "%") })).toEqual({ text: `20${N}%`, t: 0 });
     expect(roomHeat(f, 0, "humidity", { h1: st("85", "%") })).toEqual({ text: `85${N}%`, t: 1 });
     expect(roomHeat(f, 0, "humidity", { t1: st("54", "%") })).toBeNull();

@@ -2,6 +2,16 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S34.7 heat in renderFloor, the humidity tokens and the mix share (Sonnet)
+
+- Judgement, read off `npm run shots` (light, blueprint, midnight, ha-dark; 4x crops of the hottest, coldest, driest and wettest room; the `off` shots as the before). Humidity tokens: `--fp-hum-dry #d8b36a` (sand), `--fp-hum-mid #7fc79a` (pale green), `--fp-hum-wet #2b6fcf` (blue). Dry 28 % reads as a deeper sand than an unheated room, wet 72 % as a clear blue, and neither is mistaken for temperature (`--fp-heat-cool #2f86c9`, `--fp-heat-mid #f0a020`, `--fp-heat-hot #d63a2a`: blue, amber, red) because the middle is green, not amber. Wet blue is close to the cool blue and to water; the legend and the readout unit tell them apart, and I did not spend a fourth hue on it.
+- Judgement, the mix share is 55 % ramp into the kind's colour, in oklch. At 55 % a garden or pond still reads as a garden or a pond; at higher shares the heated rooms flatten into one colour field and the kind is lost. Checked at 4x: the room's name and value stay legible on the halo in every theme, so `underOf` needed no change.
+- Heat beats glow, paint, texture, the paint-dim filter and water's own rule through one rule, `.room.heat[data-r]` (0,3,0), equal to the glow and paint rules and later in the source. No night veil in a heat mode: a heated room is as light at night as by day (shot `heat-ground-temperature-night-blueprint.png`).
+- The readout line shows the heat value for the mode's kind, also under `labels: false`, class `heat-val`. A plug that is on takes the temperature ramp through `--fp-heat` too.
+- Supersedes the S34.6 unit line: the heat text now always carries a unit. A sensor with no unit prints the scale's (`°C`, `%`), where S34.6 printed none; `°F` stays `°F`. The readout and the colour then say the same thing.
+- Shots: the card and the Studio have no heat option yet (S34.8, S34.10), so `scripts/shots.mjs` bundles `render.ts` with esbuild and calls `renderFloor` directly with `heat` set; the images are `shots/current/heat-*`. `shots/` is gitignored; there is no baseline to accept.
+- Proof. `tests/core/render-heat.test.ts` (12) failed first; byte for byte with heat omitted against a pre-change matrix of about 7 MB. `tests/card/heat-css.spec.ts` (4 computed-style pairs, `--repeat-each=10` 40 of 40): each failed when its rule was reverted.
+
 ## 2026-10-17: S34.6 heat maths, the unit and bounds rules at the edges (Sonnet)
 
 - Built to spec H2 and H3 in `src/core/heat.ts`; `meanValue` in `readings.ts` is the number and unit behind `meanReading`, which only formats it (its tests are untouched). Core only; the card and Studio draw it in S34.7 onwards.
