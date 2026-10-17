@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Core (S34.6, internal): `src/core/heat.ts`, the heat map's maths. `roomHeat` gives a room's reading and its place (0 to 1) on a fixed scale, 16 to 26 °C or 30 to 70 %; `readings.ts` gains `meanValue`. Nothing draws it yet (S34.7).
+
 ## 0.31.0 - 2026-10-15
 
 - Card (S33 review): `tap_action: toggle` no longer acts blind on a lock, a cover or a siren (nor climate, humidifier, water_heater, automation, remote, media_player or group): a tap opens the popup. Only a light, a switch, an input_boolean and a fan toggle at once. Enter on a focused icon always opens the popup, as before.

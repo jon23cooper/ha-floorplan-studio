@@ -4299,7 +4299,7 @@ Lane search:
       Files: `src/core/search.ts`, `tests/core/search.test.ts`.
 
 Lane heat (pure first):
-- [ ] S34.6 Heat maths (Sonnet, **judgement**: the unit and bounds rules at the edges). New `src/core/heat.ts`:
+- [x] S34.6 Heat maths (Sonnet, **judgement**: the unit and bounds rules at the edges). New `src/core/heat.ts`:
       `HEAT_KINDS` (`off`, `temperature`, `humidity`), `heatKindOf(raw)` (junk is `off` plus a warn flag),
       `HEAT_SCALE` (spec H3), `HEAT_SOURCE: Record<DeviceType, HeatKind | null>`, `roomHeat(f, i, kind, state)`
       returning `{ text, t } | null` by spec H2 and H3, and `heatLegend(kind)`. `readings.ts` gains `meanValue` (the
