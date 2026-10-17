@@ -1,6 +1,6 @@
 import { css, html, nothing } from "lit";
 import { live } from "./live-keep";
-import { DETAIL_LABELS, DETAIL_MODES, FURNITURE_SYMBOLS, floorBelow, UI_ICONS, UNLINKED_TYPES, WALL_KINDS, layersSummary } from "../core";
+import { DETAIL_LABELS, DETAIL_MODES, HEAT_KINDS, FURNITURE_SYMBOLS, floorBelow, UI_ICONS, UNLINKED_TYPES, WALL_KINDS, layersSummary } from "../core";
 import type { FurnitureSymbol, HaData } from "../core";
 import "../card/search-box";
 import { TYPE_LABELS, WALL_LABELS, typeMenu } from "./panels";
@@ -83,6 +83,7 @@ export const toolbarCss = css`
 
 
 /** What each theme is called on its chip. `ha` says what it does rather than what it is. */
+const HEAT_LABELS: Record<(typeof HEAT_KINDS)[number], string> = { off: "Off", temperature: "Temperature", humidity: "Humidity" };
 const THEME_LABELS: Record<(typeof THEME_VALUES)[number], string> = {
   blueprint: "Blueprint", midnight: "Midnight", light: "Light", slate: "Light Gray", terminal: "Terminal", solarized: "Solarized", ha: "Home Assistant",
   coffee: "Coffee", "a-team": "A-Team", space: "Space", cyberpunk: "Cyberpunk", "carpenter-brut": "Carpenter Brut", "beach-house": "Beach House",
@@ -231,6 +232,9 @@ export function toolbarView(h: FloorplanStudioEditor, entries: SearchEntry[]) {
           </details>
           <details class="sub" id="detailSub" @toggle=${onSubToggle}><summary class="btn">Detail: ${DETAIL_LABELS[st.detail]}</summary>
             ${DETAIL_MODES.map((m) => html`<button class="btn keep" data-detail=${m} aria-pressed=${pressed(st.detail === m)} title=${m === "auto" ? "Follow the zoom: rooms far out, devices closer in" : m === "full" ? "Always draw everything (the default while editing)" : "Always draw only rooms and what needs attention"} @click=${() => { st.setDetail(m); h.requestUpdate(); }}>${DETAIL_LABELS[m]}</button>`)}
+          </details>
+          <details class="sub" id="heatSub" @toggle=${onSubToggle}><summary class="btn">Heat map: ${HEAT_LABELS[st.heat]}</summary>
+            ${HEAT_KINDS.map((k) => html`<button class="btn keep" data-heat=${k} aria-pressed=${pressed(st.heat === k)} title=${k === "off" ? "Rooms in their own colours" : `Fill each room by its ${k} reading, on a fixed scale`} @click=${() => { st.heat = k; h.requestUpdate(); }}>${HEAT_LABELS[k]}</button>`)}
           </details>
           ${viewsSub(h)}
           <button class="btn" id="recenter" @click=${() => { st.recenter(); h.requestUpdate(); }}>Re-center</button>

@@ -37,6 +37,8 @@ const PARITY: Record<string, Decision> = {
   // S24.6: Layers replaced the Filter menu; S24.8 gives the card a text chip per family in its Overview, unfolded by this button.
   // S25.8: the Detail button beside Layers, same three choices; the card starts on Auto, the Studio on Full.
   detailSub: { card: "yes", item: "detail:auto" },
+  // S34.10: the Heat map submenu; the card has the Heat map section of its ⋯ menu (S34.8), three radios `heat:off|temperature|humidity`.
+  heatSub: { card: "yes", item: "heat:temperature" },
   tabLayers: { card: "yes", item: "layer:lights" },
   zin: { card: "yes", has: 'button[aria-label="Zoom in"]' },
   zout: { card: "yes", has: 'button[aria-label="Zoom out"]' },
