@@ -334,6 +334,8 @@ describe("scene: furniture, unlinked, stairs", () => {
       expect(FURNITURE_SOLID[s], s).toBe(SYMBOL_DECISION[s]);
       const m = piece(s), sc = buildScene(floor({ furniture: [m] }));
       const sol = sc.solids.filter((x) => x.kind === "furniture");
+      // S35.5: a car is not one prism. It is built from its model's parts (body, glass loft, roof, wheels, grille), which tests/core/scene-car.test.ts holds; here only that it is built, all of one index.
+      if (s === "car") { expect(sol.length, s).toBeGreaterThan(1); expect(sol.every((x) => x.ref.index === 0)).toBe(true); continue; }
       expect(sol, s).toHaveLength(1);
       expect(sol[0].tag).toBe(s);
       expect(sol[0].ref.index).toBe(0);
@@ -508,7 +510,7 @@ describe("scene: whole-scene properties", () => {
     const tall = buildScene(floor({ furniture: [{ id: "f", symbol: "tree", x: 300, y: 250, rot: 0, w: 60, h: 40, height: 700 }] }));
     expect(tall.bounds.max[2]).toBe(700);
     for (const s of sc.solids) {
-      const pts = s.shape.type === "prism" ? s.shape.base.map((p: number[]) => [p[0], p[1]]) : [s.shape.at];
+      const pts = s.shape.type === "point" ? [s.shape.at] : s.shape.base.map((p: number[]) => [p[0], p[1]]);
       for (const [x, y] of pts) { expect(x).toBeGreaterThanOrEqual(sc.bounds.min[0]); expect(x).toBeLessThanOrEqual(sc.bounds.max[0]); expect(y).toBeGreaterThanOrEqual(sc.bounds.min[1]); expect(y).toBeLessThanOrEqual(sc.bounds.max[1]); }
     }
     expect(buildScene(floor({ outline: [] as never, owk: undefined })).bounds).toEqual({ min: [0, 0, 0], max: [0, 0, 0] });
