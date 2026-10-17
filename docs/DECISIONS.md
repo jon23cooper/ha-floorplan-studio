@@ -11,7 +11,7 @@ Newest first. A change supersedes; nothing is edited.
 - m3: the Studio ramp is `linear-gradient(to right in oklch, ...)`, as the card's.
 - m4: with the 3D fallback note up, the legend sits at the top left of the plan (`fp-heat-legend-up`), not under the note.
 - m1: a test only, `roomHeat` with placed sensors at 120 and 22 °C gives 22 °C. Red with the filter removed (read 71).
-- `config-editor.ts` takes `HEAT_LABELS` from `view-state.ts`. Card gz (`gzip -9`): 116,924 before, see CHANGELOG-free figure in the report after. `size-budget.spec.ts` still red, not touched.
+- `config-editor.ts` takes `HEAT_LABELS` from `view-state.ts`. Card gz (`gzip -9`): 116,924 before, 117,118 after all the review fixes (measured on the final branch). `size-budget.spec.ts` still red, not touched.
 
 ## 2026-10-17: S34.11 exit, docs, shots (Sonnet)
 
