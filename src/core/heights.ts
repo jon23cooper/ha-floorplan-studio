@@ -1,6 +1,7 @@
 // Heights, in cm. The only place a default height lives: every other file asks a resolver here.
 // Defaults are read, never stored, so changing one later changes old plans (docs/specs/heights-and-2-5d.md).
 // Layout files are untrusted: every resolver takes junk (NaN, text, negative, over 1000) and falls back to the default.
+import { carSpec } from "./car";
 import { edgesNear } from "./geometry";
 import type { Device, Door, DoorKind, DeviceType, EdgeKind, Floor, FurnitureSymbol, Furniture, Layout, Opening, Room, Unlinked, Wall, WallKind } from "./schema";
 
@@ -14,7 +15,7 @@ export const FURNITURE_HEIGHTS: Record<FurnitureSymbol, number> = {
   table: 75, sofa: 85, bed: 55, cabinet: 180, chair: 90, sink: 90, toilet: 40, shower: 200, bathtub: 55, tv: 60, computer: 50, speaker: 30,
   tree: 400, // a garden tree, crown included
   "patio-wood": 5, "patio-concrete": 5, // a deck or slab: flat, but not zero so it can stand off the lawn
-  car: 150,
+  car: 145, // the sedan's; a car piece without its own height takes its model's (`furnitureHeight`)
 };
 
 /** Bottom of the piece above the floor, for the few that do not stand on it: a wall TV, a speaker. The rest are 0. */
@@ -173,6 +174,7 @@ export function openingSpan(op: Opening): { sill: number; head: number } {
 
 export function furnitureHeight(m: Furniture): number {
   const s = (m as { symbol?: unknown })?.symbol;
+  if (s === "car") return own(m, "height") ?? carSpec((m as { model?: unknown }).model).height; // S35.2: the model's, else the sedan's
   return own(m, "height") ?? (has(FURNITURE_HEIGHTS, s) ? FURNITURE_HEIGHTS[s] : FALLBACK);
 }
 

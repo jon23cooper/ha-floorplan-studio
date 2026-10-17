@@ -4462,7 +4462,7 @@ Lane schema:
       `attachedEntities` lists a car's attached. `npm run docs:schema`.
       Files: `src/core/schema.ts`, `src/core/migrate.ts`, `src/core/bind.ts`, new `tests/core/car-schema.test.ts`,
       `docs/schema.md`.
-- [ ] S35.2 Car models and shape (Sonnet, **judgement**: the profile numbers and the `truck` and `utility` reading, Q6,
+- [x] S35.2 Car models and shape (Sonnet, **judgement**: the profile numbers and the `truck` and `utility` reading, Q6,
       tuned by looking at the shots). After S35.1 (the union). Spec C3, C4. New `src/core/car.ts`: `CAR_SPEC` (footprint,
       height, profile), `carParts(model)` (unit-frame polygons: outline, rear glass, roof, windscreen, mirrors, bed,
       wheels, grille), `carTop(model)` (the 2D markup in the 100 x 100 symbol frame, paths built from the polygons).

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Core (S35.2): `src/core/car.ts` holds the nine car models once: footprint, height and profile per model (`CAR_SPEC`), the plan polygons (`carParts`) and the top-view markup (`carTop`). A new car piece is 470 x 182 cm, a sedan; a car piece with no `height` is as high as its model. Nothing draws the new shape yet (S35.4, S35.5).
 - Core (S35.1): a car piece (`symbol: "car"`) may carry `model` (sedan, wagon, suv, offroad, truck, van, utility, citycar, electric), `color` (`#rrggbb`) and `attached` (up to 24 entity ids). `validate` reports junk and the keys on any other piece; `migrate` drops them, so a model from a newer file loads as a sedan. A car's attached entities are not offered again as icons. No schema bump: an older card ignores the keys.
 
 ## 0.32.0 - 2026-10-17
