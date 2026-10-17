@@ -4325,7 +4325,7 @@ Wave 2, after wave 1. The card file takes one task at a time:
       `heat-humidity` states on the `on` states; `npm run shots`, blueprint, light and midnight looked at, Living and
       Bedroom at 4x, before `--accept`.
       Files: `src/core/render.ts`, the two new tests, `scripts/shots.mjs`, `shots/` baseline.
-- [ ] S34.4 The Favourites section (Sonnet, **judgement**: where the inline confirm sits in a row on a phone). After
+- [x] S34.4 The Favourites section (Sonnet, **judgement**: where the inline confirm sits in a row on a phone). After
       S34.2 and S34.3. Spec F2, F3, F5, F9: the section above Attention at the Overview level, rows with the popup's
       primary button through `_popupOp` and `_runOp`, the fold, floor badges; the card passes the favourite set to
       Search. One `console.warn` per card from `setConfig` when `favouritesOf` says so. Test, failing first, new

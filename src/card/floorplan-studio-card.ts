@@ -5,6 +5,8 @@ import type { LayerId, OffRow, SearchEntry } from "../core";
 import type { ActiveDevice, Attention, AttentionItem, AttentionKind, CategoryId, DeviceType, ThingRef, PowerCandidate, RoomDeviceRow, RoomSensorRow, RoomSummary, Theme, WallsMode } from "../core";
 import type { Device, Door, Floor, Layout, SavedView } from "../core";
 import { tapActionOf, holdActionOf } from "./tap-action";
+import { colorVarFor } from "../core/active";
+import { favouriteRefs, favouritesOf, type FavouritesRead } from "./favourites";
 import { TAP_SLOP_PX, THINGS, bindDeviceActions, fireEvent, thingKind, type TapTarget } from "./actions";
 import { fanCaps, lampOp, lightCaps, popupOp, type PopupOp } from "./popup";
 import { SCENES_CSS, scenesTemplate } from "./room-scenes-ui";
@@ -480,6 +482,15 @@ export class FloorplanStudioCard extends LitElement {
     .fp-row-floor { border: 1px solid var(--fp-idle); border-radius: 4px; padding: 0 3px; line-height: 1.3; }
     .fp-ov-row .fp-row-state { white-space: normal; max-width: 45%; }
     .fp-ov-age { white-space: nowrap; }
+    /* S34.4: a favourite row is the Active row and the popup's button. The button sits right; Confirm and Cancel take their own line so a phone's row never squeezes the name. */
+    .fp-fav-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 2px 6px; }
+    .fp-fav-row .fp-active-row { flex: 1 1 9em; width: auto; min-width: 0; }
+    .fp-fav-gone { opacity: 0.5; }
+    .fp-fav-act, .fp-fav-cancel { flex: 0 0 auto; border: 1px solid var(--fp-idle); background: transparent; color: var(--fp-ink); font: 11px/1.4 var(--fp-font, system-ui, sans-serif); border-radius: 999px; padding: 2px 10px; cursor: pointer; min-height: 24px; margin-top: 3px; }
+    .fp-fav-act:hover, .fp-fav-cancel:hover, .fp-fav-act:focus-visible, .fp-fav-cancel:focus-visible { border-color: var(--fp-primary); }
+    .fp-fav-confirm { flex: 1 1 100%; display: flex; gap: 6px; padding-left: 22px; }
+    .fp-fav-confirm button { flex: 1 1 0; }
+    .fp-fav-confirm .fp-fav-act { color: var(--fp-on-dark, #fff); background: var(--fp-primary); border-color: var(--fp-primary); font-weight: 600; }
     .fp-ov-hint { margin: 8px 2px 0; font: 10px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-text); }
     /* One target per row, finger-sized on a touch screen (S24.7). */
     /* S24.7: the ring a row tap puts on its thing. Card chrome over the plan, never a hit target. Reduced motion: a steady ring. */
@@ -649,6 +660,11 @@ export class FloorplanStudioCard extends LitElement {
   private _activeCollapsed = false;
   /** S14.6: the category groups the viewer folded, as `list:category` ids (`a:` Active list, `r:` Room panel). Per card, in browser storage. */
   private _foldedCats = new Set<string>();
+  /** S34.4: the card's cleaned `favourites` (read once per `setConfig`), and the entities as a set for Search. */
+  private _fav: FavouritesRead = { ids: [], warn: false };
+  private _favSet: ReadonlySet<string> = new Set();
+  /** The favourite whose Turn off is at its confirm step. Card state: kept through `hass`, dropped by `setConfig`. */
+  private _favAsk: string | null = null;
   /** S31.5: what the card's width gives it (frame.ts). Measured in `render()` and by the ResizeObserver; 0 wide (not laid
    * out) keeps the last answer. */
   private _frame: FrameMode = "bottom";
@@ -1105,8 +1121,8 @@ export class FloorplanStudioCard extends LitElement {
     this.requestUpdate();
   }
 
-  /** S14.6: one category of rows under a header button. `list` is `a` (Active) or `r` (Room); folded state is per list. */
-  private _catGroup(list: "a" | "r", id: string, label: string, count: number, rows: unknown) {
+  /** S14.6: one category of rows under a header button. `list` is `a` (Active), `r` (Room) or `f` (Favourites); folded state is per list. */
+  private _catGroup(list: "a" | "r" | "f", id: string, label: string, count: number, rows: unknown) {
     const key = `${list}:${id}`, folded = this._foldedCats.has(key);
     return html`<div class="fp-active-group" data-cat=${id}>
       <button type="button" class="fp-active-group-label fp-cat" aria-expanded=${folded ? "false" : "true"} @click=${() => this._toggleCat(key)}>
@@ -1194,6 +1210,7 @@ export class FloorplanStudioCard extends LitElement {
     this._settleTurn(false);
     this._config = config ?? {};
     this._warnActions();
+    this._readFavourites();
     this._closePopup();
     this._focusDev = null;
     this._hideTip();
@@ -2167,6 +2184,17 @@ export class FloorplanStudioCard extends LitElement {
     ring.style.width = ring.style.height = `${size}px`;
   }
 
+  /** S34.4 (F1): reads `favourites` once per config, and warns once per card when the list had junk in it. Never throws. */
+  private _favWarned = false;
+  private _readFavourites(): void {
+    this._fav = favouritesOf(this._config);
+    this._favSet = new Set(this._fav.ids);
+    this._favAsk = null;
+    if (!this._fav.warn || this._favWarned) return;
+    this._favWarned = true;
+    console.warn(`floorplan-studio-card: favourites has an item that is not an entity id (or a repeat, or more than 24), so it was left out. Use a list of ids like light.kitchen (docs/card.md).`);
+  }
+
   /** S33.4: one console warning per card for a `tap_action` or `hold_action` that is there but not usable; absent is no warning. */
   private _actionsWarned = false;
   private _warnActions(): void {
@@ -3096,6 +3124,38 @@ export class FloorplanStudioCard extends LitElement {
     </button>`;
   }
 
+  /** S34.4 (F2, F3): the Favourites section, or nothing. Every floor the card shows, whatever "All floors" says. A row is the
+   *  Active row (a tap goes to the thing) and the popup's own button beside it, from `_popupOp` and `_runOp`; a turn OFF that
+   *  asks turns the button into Confirm and Cancel. A thing with no button (a sensor, `NO_TOGGLE`, unavailable) has none. */
+  private _favouriteSection() {
+    const layout = this._layout;
+    if (!layout || !this._fav.ids.length) return nothing;
+    const shown = this._floorList()?.map(([k]) => k) ?? [this._floorKey() ?? ""];
+    const badge = shown.length > 1;
+    const rows = favouriteRefs(layout, this._fav.ids, shown).flatMap((r) => {
+      const f = layout.floors[r.floor], m = f?.furniture?.[r.ref.index];
+      const d = r.ref.what === "device" ? f?.devices[r.ref.index] : m ? pieceDevice(m) : undefined;
+      if (!d) return [];
+      const s = this._deviceSubject(d), op = this._popupOp(s), state = this._hass?.states?.[r.entity]?.state;
+      const row: OverviewRow = { entity: r.entity, name: s.name, floor: r.floor, at: r.ref, state: this._subjectText(s), type: d.type, colorVar: colorVarFor(d, this._hass?.states), attn: false };
+      const asking = !!op?.confirm && this._favAsk === r.entity;
+      const act = !op ? nothing : asking
+        ? html`<div class="fp-fav-confirm"><button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${op.confirm}</button><button type="button" class="fp-fav-cancel" @click=${() => { this._favAsk = null; this.requestUpdate(); }}>Cancel</button></div>`
+        : html`<button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${op.label}</button>`;
+      return [html`<div class=${state === "unavailable" || state === "unknown" ? "fp-fav-row fp-fav-gone" : "fp-fav-row"} data-entity=${r.entity}>${this._ovRow(row, badge)}${act}</div>`];
+    });
+    if (!rows.length) return nothing;
+    return html`<section class="fp-ov-section fp-ov-fav">${this._catGroup("f", "favourites", "Favourites", rows.length, rows)}</section>`;
+  }
+
+  /** The row button: one service call, or (a turn OFF that asks) the first press only opens the confirm step. */
+  private _favAct(s: PopupSubject, op: PopupOp): void {
+    if (op.confirm && this._favAsk !== s.entity) { this._favAsk = s.entity ?? null; this.requestUpdate(); return; }
+    this._favAsk = null;
+    this._runOp(s, op);
+    this.requestUpdate();
+  }
+
   /** S24.7: Attention on top, then Active by category, over `attn` and `items` (already cut to the scope). */
   private _overviewList(attn: Attention, items: ActiveDevice[], badge: boolean, empty: string) {
     const now = Date.now();
@@ -3158,10 +3218,10 @@ export class FloorplanStudioCard extends LitElement {
     const content = () => summary
       ? this._roomSection(summary, html`<div class="fp-filter"><span>${this._roomFilter ? scope.activeHere : "Active everywhere"}</span><button type="button" class="fp-show-all" @click=${() => { this._roomFilter = !this._roomFilter; this.requestUpdate(); }}>${this._roomFilter ? "Show all" : scope.onlyHere}</button></div>
                 <div class="fp-filtered">${list}</div>`, scope)
-      : html`<div class="fp-ov-search" data-slot="search"><fp-search .entries=${this._searchEntries()} label="Search the plan" placeholder="Search rooms and devices" @fp-pick=${(e: CustomEvent<SearchEntry>) => this._onSearchPick(e)}></fp-search></div>
+      : html`<div class="fp-ov-search" data-slot="search"><fp-search .entries=${this._searchEntries()} .first=${this._favSet} label="Search the plan" placeholder="Search rooms and devices" @fp-pick=${(e: CustomEvent<SearchEntry>) => this._onSearchPick(e)}></fp-search></div>
                 <div class="fp-ov-scopes">${this._floorOffButton()}${many ? html`<button type="button" class="fp-ov-scope" aria-pressed=${this._overviewAll ? "true" : "false"} @click=${() => this._toggleOverviewAll()}>All floors</button>` : nothing}</div>
                 <div class="fp-ov-layers" data-slot="layers">${this._layerNote()}</div>
-                ${list}
+                ${this._favouriteSection()}${list}
                 <p class="fp-ov-hint">Tap a row: the plan goes to it.</p>`;
     if (!side) return this._bottomSheet(name, crumb, summary !== null, this._chips(items, attn.items.length), content);
     const folded = this._activeCollapsed && !summary;

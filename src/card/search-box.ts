@@ -16,6 +16,7 @@ export type { SearchEntry } from "../core/search";
 export class FpSearch extends LitElement {
   static properties = {
     entries: { attribute: false },
+    first: { attribute: false },
     limit: { type: Number },
     label: { type: String },
     placeholder: { type: String },
@@ -26,6 +27,8 @@ export class FpSearch extends LitElement {
   /** Everything the box can find: `layoutEntries(layout, state)` plus any command entries of the host. */
   declare entries: SearchEntry[];
   declare limit: number;
+  /** S34.4: the host's favourite entities; they rank first within a tier (`searchIndex`). Untrusted: a non-Set is none. */
+  declare first: ReadonlySet<string> | undefined;
   /** Accessible name of the input and the listbox. */
   declare label: string;
   declare placeholder: string;
@@ -71,9 +74,9 @@ export class FpSearch extends LitElement {
 
   protected willUpdate(changed: PropertyValues) {
     if (changed.has("entries")) this.index = buildSearchIndex(Array.isArray(this.entries) ? this.entries : []);
-    if (changed.has("entries") || changed.has("query") || changed.has("limit")) {
+    if (changed.has("entries") || changed.has("query") || changed.has("limit") || changed.has("first")) {
       const limit = Number.isFinite(this.limit) && this.limit > 0 ? Math.floor(this.limit) : 10;
-      this.results = searchIndex(this.index, this.query, limit);
+      this.results = searchIndex(this.index, this.query, limit, this.first);
       if (this.active >= this.results.length || (this.active < 0 && this.results.length)) this.active = this.results.length ? 0 : -1;
     }
   }
