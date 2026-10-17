@@ -4237,18 +4237,164 @@ The spec's Q1 to Q6; Q2 and Q3 belong to Sprint 34.
    per device too, or HA's full action set.
 6. **Fan.** Default: in All off as Fans, ceiling height. Other: left out of All off, floor height.
 
-## Sprint 34: Release 0.32.0, extras part 2 (outline)
+## Sprint 34: Release 0.32.0, extras part 2
 
-Not planned in full until Diego answers Q2 and Q3 of `docs/specs/extras-s33.md`. Branch `task/s34-extras`.
+Branch `task/s34-extras`. Lanes branch off it as `task/s34-<lane>`, each in its own worktree with its own `PW_PORT`,
+and merge back. Spec: `docs/specs/extras-s34.md` (decisions F1 to F9 and H1 to H9, criteria 1 to 16, questions Q1 to
+Q3). Diego, 2026-10-17, took the defaults of S33's Q2 and Q3: favourites are a card YAML list, not per user; the heat
+map is current temperature or humidity from the room's existing sensors, no history, no new room key.
 
-- Favourites (spec X5). Default: card key `favourites: [entity ids]`, a Favourites section at the top of the Overview
-  with each row's primary button, ranked first in Search, at most 24, rows for entities not on the plan dropped. Card
-  only (the Overview is card chrome). About four tasks: reader (pure), section, Search rank, Edit-card form.
-  If Q2 picks per-user favourites: a star in the popup, kept with HA's `frontend/set_user_data`; one task more, and the
-  stub's reply copied from HA's frontend websocket (finding 21).
-- Heat map (spec X6), last and alone in its lane. Default: rooms filled by current mean temperature or humidity
-  (`meanReading`), drawn by `renderFloor` (finding 8), so the Studio's View menu gets it too and `view-parity.spec.ts`
-  a row; card key `heat_map`, a ⋯ menu item, remembered per viewer; not in 3D. About five tasks: ramp maths (pure), the
-  render pass with its CSS pairs and shots, the card item and memory, the Studio item, docs.
-- Dropped: presence over a day from the recorder's history.
-- Exit test, release and review as Sprint 33.
+**Approved by Diego 2026-10-17 on the defaults; questions below use their defaults.** Lane heat depends on Q1 in
+S34.6's scale table, on Q2 in S34.6's source rule, on Q3 in S34.7's two CSS pairs and the night branch.
+
+Exit test: one acceptance test per item, green with no `test.fail()` left: `tests/card/favourites.test.ts` (criterion
+1), `tests/card/card-favourites.spec.ts` (2 to 6), `tests/core/search.test.ts` (7), `tests/card/config-editor.spec.ts`
+(8), `tests/core/heat.test.ts` (9), `tests/core/render-heat.test.ts` (10, 11), `tests/card/heat-css.spec.ts` (12),
+`tests/card/card-heat-map.spec.ts` (13), `tests/editor/heat-map.spec.ts` and `tests/card/view-parity.spec.ts` (14);
+then the shots (15) and the full suite (16).
+
+Rules. As Sprint 33: each task one outcome, its failing test written first and watched failing, the report says how it
+failed (finding 5); real `page.mouse` at real coordinates on the real top element (finding 3); a new Playwright test
+runs `--repeat-each=10`, no `waitForTimeout` (finding 13); each command bare, `$?` on its own line (finding 14);
+card YAML and stored view memory are untrusted, every reader never throws (finding 1); every interpolated name
+escaped, tested with `"><script>` (finding 2); a per-member table iterates its union (`DEVICE_TYPES`, `RoomKind`,
+`HEAT_KINDS`) so a new member fails until decided (findings 17, 20); every CSS rule that matters gets a
+`getComputedStyle` pair that fails with the rule removed (finding 10); a change to `render.ts` or a stylesheet runs
+`npm run shots` and is looked at (finding 16); a test that pins a theme sets it first (finding 19); a stubbed `hass`
+state is copied from what Home Assistant sends (finding 21).
+
+No schema change: no new layout key, `validate` and `migrate` untouched, so no schema review pass. The Opus pass reads
+the two YAML readers and `parseStoredView` as untrusted input instead.
+
+Studio parity (memory rule). Heat map: both, through `renderFloor`; the Studio's View menu gets `#heatSub`,
+`view-parity.spec.ts` and `docs/card.md` get its row. Favourites: card only, on purpose (Overview chrome; the Studio has
+its Outline; a card cannot write a layout and the Studio does not read card YAML). Search rank: shared code, the Studio
+passes no favourites. Each DECISIONS line says which.
+
+Out of scope: per-user favourites, a popup star; heat from history; heat in 3D; a room key for the heat sensor;
+`climate` as a heat source; card keys for the scale.
+
+Models. Coders are Sonnet. **Judgement** tasks carry the spec section in the brief, and the coordinator reads the
+coder's note before accepting. Opus reviews the integrated build once.
+
+Wave 1, three lanes, pure code, no shared file:
+
+Lane fav (pure first):
+- [ ] S34.1 Read `favourites` (Sonnet). New `src/card/favourites.ts`: `favouritesOf(config)` returns `{ ids, warn }`
+      per spec F1 (`favourites`, alias `favorites`, entity-id shape, repeats, `MAX_FAVOURITES` 24). Test, failing first,
+      new `tests/card/favourites.test.ts`: criterion 1, plus a getter that throws and a 10,000-item list.
+      Files: new `src/card/favourites.ts`, new `tests/card/favourites.test.ts`.
+- [ ] S34.2 Resolve favourites to things on the plan (Sonnet). After S34.1, same file. `favouriteRefs(layout, ids,
+      floors)` returns `{ entity, floor, ref: ThingRef }[]` in the list's order: a device's `entity` or a linked piece's
+      (`pieceDevice`), first in layout order, only on the floors given; unknown entities dropped (F4). Test, failing
+      first, in `tests/card/favourites.test.ts`: order kept; a piece; an entity on a floor left out; two devices on
+      one entity; a floor named `__proto__`; junk layout rows skipped, never thrown on.
+      Files: `src/card/favourites.ts`, `tests/card/favourites.test.ts`.
+
+Lane search:
+- [ ] S34.3 Favourites rank first in Search (Sonnet). `searchIndex(index, query, limit, first?)`: within a tier a
+      favourite entity sorts first (F6). Test, failing first, in `tests/core/search.test.ts`: criterion 7 with an
+      asymmetric case (the favourite's name longer than the other's, so name length alone would put it second);
+      `first` omitted gives today's order on the demo, entry for entry.
+      Files: `src/core/search.ts`, `tests/core/search.test.ts`.
+
+Lane heat (pure first):
+- [ ] S34.6 Heat maths (Sonnet, **judgement**: the unit and bounds rules at the edges). New `src/core/heat.ts`:
+      `HEAT_KINDS` (`off`, `temperature`, `humidity`), `heatKindOf(raw)` (junk is `off` plus a warn flag),
+      `HEAT_SCALE` (spec H3), `HEAT_SOURCE: Record<DeviceType, HeatKind | null>`, `roomHeat(f, i, kind, state)`
+      returning `{ text, t } | null` by spec H2 and H3, and `heatLegend(kind)`. `readings.ts` gains `meanValue` (the
+      number and unit behind `meanReading`, which then formats it; its output is unchanged, its tests untouched).
+      Test, failing first, new `tests/core/heat.test.ts`: criterion 9; °F 75.2 is `t` 0.8; 15 °C and 30 °C clamp to
+      0 and 1 with the real number in `text`; humidity 101 and temperature 95 are not readings; a list with one
+      unavailable and one readable sensor uses the readable one; a list with none readable falls back to the devices;
+      `HEAT_SOURCE` iterates `DEVICE_TYPES` against a table written in the test; `RoomKind` iterates against
+      `ROOM_OWNS`; every `HEAT_KINDS` member but `off` has a scale and a legend.
+      Files: new `src/core/heat.ts`, `src/core/readings.ts`, `src/core/index.ts` (exports), new
+      `tests/core/heat.test.ts`.
+
+Wave 2, after wave 1. The card file takes one task at a time:
+
+- [ ] S34.7 Heat in `renderFloor` (Sonnet, **judgement**: the three humidity tokens and the mix share, read off the
+      shots in every theme). After S34.6. `RenderOpts.heat?: HeatKind`. Spec H4, H5: class `heat` and `--fp-heat` on a
+      heated room's polygon; the readout line shows the heat value for the mode's kind, also under `labels: false`
+      (class `heat-val`); no `room-night` in a heat mode; tokens `--fp-hum-dry`, `--fp-hum-mid`, `--fp-hum-wet` beside
+      the plug ramp; the rule `.room.heat` mixing the ramp 55 % into `--fp-room-fill` in oklch. Tests, failing first:
+      new `tests/core/render-heat.test.ts` (criteria 10 and 11, the byte-for-byte case run over every `RenderOpts`
+      combination the existing render tests use) and new `tests/card/heat-css.spec.ts` (criterion 12, every theme in
+      `THEMES`, each pair reverted once to watch it fail). `scripts/shots.mjs` gains `heat-temperature` and
+      `heat-humidity` states on the `on` states; `npm run shots`, blueprint, light and midnight looked at, Living and
+      Bedroom at 4x, before `--accept`.
+      Files: `src/core/render.ts`, the two new tests, `scripts/shots.mjs`, `shots/` baseline.
+- [ ] S34.4 The Favourites section (Sonnet, **judgement**: where the inline confirm sits in a row on a phone). After
+      S34.2 and S34.3. Spec F2, F3, F5, F9: the section above Attention at the Overview level, rows with the popup's
+      primary button through `_popupOp` and `_runOp`, the fold, floor badges; the card passes the favourite set to
+      Search. One `console.warn` per card from `setConfig` when `favouritesOf` says so. Test, failing first, new
+      `tests/card/card-favourites.spec.ts`: criteria 2 to 6 with real clicks and `hass.callService` recorded; a fold
+      leaves Attention in view at 390 x 844; Search ranks the favourite (criterion 7 end to end); the row button per
+      type iterates `DEVICE_TYPES` and matches what the popup offers for the same state.
+      Files: `src/card/floorplan-studio-card.ts`, `tests/card/card-favourites.spec.ts`.
+- [ ] S34.5 Favourites in the Edit-card form (Sonnet). After S34.1. Spec F7: the input with its `datalist` of the
+      layout's entities, Add, the list with remove buttons, the refusal line. Test, failing first, in
+      `tests/card/config-editor.spec.ts`: criterion 8 with real clicks and typing; a `"><script>` friendly name in the
+      datalist is text.
+      Files: `src/card/config-editor.ts`, `tests/card/config-editor.spec.ts`.
+
+Wave 3, after wave 2:
+
+- [ ] S34.8 The heat map in the card (Sonnet). After S34.4 (card file) and S34.7. Spec H7, H8: `heat_map` read with
+      `heatKindOf`, one warning; the Heat map section of the ⋯ menu after Layers, hidden in 3D, kept under
+      `view_switch: false`; `StoredView.heat` with `parseStoredView` dropping junk; `heat_map` in `_viewStorageKey`;
+      Reset view; the legend strip (`heatLegend`) at the plan's bottom left in a heat mode, 2D and 2.5D only. Test,
+      failing first, new `tests/card/card-heat-map.spec.ts`: criterion 13 with real clicks; a `hass` update keeps the
+      mode; junk `heat_map` (`"Temperature"`, `1`, `__proto__`) is off and warns once; kiosk with `heat_map:
+      temperature` heats the plan and shows the legend; a stored `heat: "lava"` is dropped. Plus a unit case in
+      `tests/card/view-state.test.ts` for `parseStoredView`. Screenshots of the legend at 1280 and 380 wide, blueprint
+      and light, looked at.
+      Files: `src/card/floorplan-studio-card.ts`, `src/card/view-state.ts`, the new spec, `tests/card/view-state.test.ts`.
+- [ ] S34.9 Heat map in the Edit-card form (Sonnet). After S34.5 (same file). A Heat map select (Off, Temperature,
+      Humidity); `off` drops the key. Test, failing first, in `tests/card/config-editor.spec.ts`: pick Humidity, the
+      config gains `heat_map: humidity`; back to Off, the key is gone; junk shows Off and fires nothing.
+      Files: `src/card/config-editor.ts`, `tests/card/config-editor.spec.ts`.
+- [ ] S34.10 The heat map in the Studio (Sonnet). After S34.7; its parity row after S34.8 merges. Spec H9: View,
+      `#heatSub` (Off, Temperature, Humidity), kept in `view-memory.ts`, passed to `renderFloor`; the status bar shows
+      `heatLegend`, or "Heat map: no readings" when no room is heated. Test, failing first, new
+      `tests/editor/heat-map.spec.ts`: criterion 14 with real clicks, panel harness with states and standalone; the
+      pick survives a reload and a `hass` update; the `heatSub` row in `tests/card/view-parity.spec.ts`
+      (`item: "heat:temperature"`) and in the `docs/card.md` table.
+      Files: `src/editor/toolbar.ts`, `src/editor/editor-app.ts`, `src/editor/view-memory.ts`,
+      `src/editor/status-bar.ts`, the new spec, `tests/card/view-parity.spec.ts`, `docs/card.md` (the parity table
+      only).
+
+Wave 4, on `task/s34-extras`:
+- [ ] S34.11 Exit, docs, shots (Sonnet; the docs part may go to Haiku). Every exit-test file green, `--repeat-each=10`
+      on each new Playwright file. Docs: `docs/card.md` (Config keys: `favourites`, `heat_map`; Overview: Favourites;
+      a Heat map section; Studio and card: the parity line for favourites), `docs/editor.md` (View, Heat map),
+      `docs/SPEC.md` (Card behaviours: heat map and favourites; no schema change), `README.md` feature list, CHANGELOG
+      under Unreleased, DECISIONS (each default that held or changed, Q1 to Q3 as answered). `npm run shots`, looked at
+      in three themes before `--accept`. `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its
+      own line.
+      Files: the docs, `shots/` baseline.
+
+Review: one Opus pass on the integrated build, against `docs/WORKFLOW.md`'s checklist plus: can junk YAML or junk
+memory throw or heat a room; can a favourite's inline button turn a non-light off without the confirm; does any heat
+value print `NaN` or disagree with the room's readout; does `heat` omitted change one byte of the plan; does every
+heat rule have a pair that fails without it; are the Studio and the card the same plan in a heat mode. Fixes with their
+tests, then the re-check.
+
+- [ ] S34.12 Release 0.32.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+      ending with the version read back from Home Assistant, a favourite switched from the phone's Overview, and the
+      heat map read on Diego's own floors.
+
+Dependencies: S34.1, S34.3, S34.6 at once; S34.2 after S34.1; S34.7 after S34.6; S34.4 after S34.2 and S34.3; S34.5
+after S34.1; S34.8 after S34.4 and S34.7; S34.9 after S34.5; S34.10 after S34.7 (its parity row after S34.8); S34.11
+after all; S34.12 after the review.
+
+### Open questions for Diego (each with the default this plan builds)
+
+The spec's Q1 to Q3.
+
+1. **Heat scale.** Default: fixed, 16 to 26 °C, 30 to 70 %, no key. Other: card keys for both ends, as the plug's.
+2. **Sensors that feed a room.** Default: the room's own list when readable, else the sensor devices in the room.
+   Other: the mean of both.
+3. **Paint and night in a heat mode.** Default: the heat covers a painted room and the night veil is not drawn. Other:
+   paint and veil stay.
