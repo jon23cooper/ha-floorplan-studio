@@ -3174,9 +3174,10 @@ export class FloorplanStudioCard extends LitElement {
       if (!d) return [];
       const s = this._deviceSubject(d), op = this._popupOp(s), state = this._hass?.states?.[r.entity]?.state;
       const row: OverviewRow = { entity: r.entity, name: s.name, floor: r.floor, at: r.ref, state: this._subjectText(s), type: d.type, colorVar: colorVarFor(d, this._hass?.states), attn: false };
-      const asking = !!op?.confirm && this._favAsk === r.entity;
+      const confirm = op ? this._favConfirm(op, r.entity) : null;
+      const asking = !!confirm && this._favAsk === r.entity;
       const act = !op ? nothing : asking
-        ? html`<div class="fp-fav-confirm"><button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${op.confirm}</button><button type="button" class="fp-fav-cancel" @click=${() => { this._favAsk = null; this.requestUpdate(); }}>Cancel</button></div>`
+        ? html`<div class="fp-fav-confirm"><button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${confirm}</button><button type="button" class="fp-fav-cancel" @click=${() => { this._favAsk = null; this.requestUpdate(); }}>Cancel</button></div>`
         : html`<button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${op.label}</button>`;
       return [html`<div class=${state === "unavailable" || state === "unknown" ? "fp-fav-row fp-fav-gone" : "fp-fav-row"} data-entity=${r.entity}>${this._ovRow(row, badge)}${act}</div>`];
     });
@@ -3184,9 +3185,16 @@ export class FloorplanStudioCard extends LitElement {
     return html`<section class="fp-ov-section fp-ov-fav">${this._catGroup("f", "favourites", "Favourites", rows.length, rows)}</section>`;
   }
 
+  /** The confirm text a row button asks with, or null when it acts at once. Same rule as `tap_action: toggle`: only a plain
+   *  on/off (`TOGGLE_AT_ONCE`) acts on one tap; a lock or a cover asks, so one phone tap never unlocks or opens anything (S33). */
+  private _favConfirm(op: PopupOp, entity: string): string | null {
+    if (op.confirm) return op.confirm;
+    return TOGGLE_AT_ONCE.has(entity.split(".")[0] ?? "") ? null : `Confirm ${op.label.toLowerCase()}`;
+  }
+
   /** The row button: one service call, or (a turn OFF that asks) the first press only opens the confirm step. */
   private _favAct(s: PopupSubject, op: PopupOp): void {
-    if (op.confirm && this._favAsk !== s.entity) { this._favAsk = s.entity ?? null; this.requestUpdate(); return; }
+    if (this._favConfirm(op, s.entity ?? "") && this._favAsk !== s.entity) { this._favAsk = s.entity ?? null; this.requestUpdate(); return; }
     this._favAsk = null;
     this._runOp(s, op);
     this.requestUpdate();

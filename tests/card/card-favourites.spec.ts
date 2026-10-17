@@ -118,6 +118,26 @@ test.describe("S34.4 the Favourites section", () => {
     await expect(rowOf(page, "sensor.garage_temperature_probe").locator("css=.fp-row-state")).toContainText("17.5");
   });
 
+  test("D1: a lock or a cover favourite asks before it acts, one tap never unlocks or opens", async ({ page }) => {
+    const favs = ["lock.cloakroom_cabinet", "cover.living_blind"];
+    await boot(page, { favourites: favs }, undefined, { ...STATES(), "lock.cloakroom_cabinet": st("locked"), "cover.living_blind": st("closed") });
+    await expect(card(page).locator(BTN("lock.cloakroom_cabinet"))).toHaveText("Unlock");
+    await clickOn(page, BTN("lock.cloakroom_cabinet"));
+    expect(await calls(page)).toEqual([]);
+    await expect(card(page).locator(BTN("lock.cloakroom_cabinet"))).toHaveText("Confirm unlock");
+    await clickOn(page, BTN("lock.cloakroom_cabinet"));
+    expect(await calls(page)).toEqual([["lock", "unlock", { entity_id: "lock.cloakroom_cabinet" }]]);
+    await expect(card(page).locator(BTN("cover.living_blind"))).toHaveText("Open");
+    await clickOn(page, BTN("cover.living_blind"));
+    expect(await calls(page)).toHaveLength(1);
+    await expect(card(page).locator(BTN("cover.living_blind"))).toHaveText("Confirm open");
+    await clickOn(page, ".fp-ov-fav .fp-fav-cancel");
+    expect(await calls(page)).toHaveLength(1);
+    await clickOn(page, BTN("cover.living_blind"));
+    await clickOn(page, BTN("cover.living_blind"));
+    expect(await calls(page)).toEqual([["lock", "unlock", { entity_id: "lock.cloakroom_cabinet" }], ["cover", "open_cover", { entity_id: "cover.living_blind" }]]);
+  });
+
   test("an unavailable favourite is dimmed and has no button", async ({ page }) => {
     await boot(page, { favourites: ["light.kitchen_spot_1"] }, undefined, { ...STATES(), "light.kitchen_spot_1": st("unavailable") });
     await expect(rowOf(page, "light.kitchen_spot_1").locator("css=.fp-fav-act")).toHaveCount(0);
