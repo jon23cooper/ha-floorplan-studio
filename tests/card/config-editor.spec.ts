@@ -669,3 +669,24 @@ test("Heat map select: Humidity writes heat_map, Off drops the key, junk shows O
   await expect(page.locator("#editor select#heat_map")).toHaveValue("off");
   expect(await events(page)).toEqual([]);
 });
+
+test("M1: a layout from the websocket is read from the { layout } reply, so floors and Favourites choices appear", async ({ page }) => {
+  await open(page);
+  await page.evaluate((layout) => {
+    const Ctor = customElements.get("floorplan-studio-card") as unknown as { getConfigElement(): HTMLElement };
+    const el = Ctor.getConfigElement();
+    el.id = "editor";
+    document.body.appendChild(el);
+    (el as unknown as { setConfig(c: unknown): void }).setConfig({});
+    // Shape copied from custom_components/floorplan_studio/websocket.py ws_load: send_result(id, {"layout": ...}).
+    (el as unknown as { hass: unknown }).hass = {
+      states: {},
+      connection: { sendMessagePromise: () => Promise.resolve({ layout }) },
+    };
+  }, demo);
+  const editor = page.locator("#editor");
+  await expect(editor.locator('input[type="checkbox"][data-floor]')).toHaveCount(3);
+  const ids = await editor.locator('input[type="checkbox"][data-floor]').evaluateAll((els) => els.map((e) => e.getAttribute("data-floor")));
+  expect(ids).toEqual(["ground", "first", "test"]);
+  await expect(editor.locator("datalist#favourites_choices option").first()).toBeAttached();
+});

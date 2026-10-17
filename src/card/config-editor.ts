@@ -5,7 +5,7 @@ import type { FloorplanStudioCardConfig, Hass } from "./floorplan-studio-card";
 import { defineElement } from "./define";
 import { MAX_FAVOURITES, favouritesOf } from "./favourites";
 import { holdActionOf, tapActionOf, type HoldAction, type TapAction } from "./tap-action";
-import { BELOW_LABELS, BELOW_MODES, ROTATION_STEP, belowModeOf, normaliseRotation } from "./view-state";
+import { BELOW_LABELS, BELOW_MODES, HEAT_LABELS, ROTATION_STEP, belowModeOf, normaliseRotation } from "./view-state";
 
 /** The form edits the card's own config type; every key it shows is one the card reads (S7.5 kiosk, S7.6 night and sun). */
 export type EditorConfig = FloorplanStudioCardConfig & { favourites?: string[]; favorites?: unknown; heat_map?: HeatKind };
@@ -130,8 +130,9 @@ export class FloorplanStudioCardEditor extends LitElement {
       if (this._wsRequested) return;
       this._wsRequested = true;
       this._hass.connection
-        .sendMessagePromise({ type: "floorplan_studio/load" })
-        .then((layout) => this._applyLayout(layout))
+        // websocket.py answers `{ layout }`, same as the card reads it (S34 review M1).
+        .sendMessagePromise<{ layout: unknown }>({ type: "floorplan_studio/load" })
+        .then((r) => this._applyLayout(r?.layout))
         .catch(() => { /* no layout: the floor list just stays empty */ });
     }
   }
@@ -622,7 +623,7 @@ export class FloorplanStudioCardEditor extends LitElement {
       <div class="row">
         <label class="main" for="heat_map">Heat map</label>
         <select id="heat_map" title="Fill the rooms by the current temperature or humidity" @change=${this._onHeatMap}>
-          ${HEAT_KINDS.map((k) => html`<option value=${k} ?selected=${heatKindOf(this._config.heat_map).kind === k}>${k === "off" ? "Off" : k === "temperature" ? "Temperature" : "Humidity"}</option>`)}
+          ${HEAT_KINDS.map((k) => html`<option value=${k} ?selected=${heatKindOf(this._config.heat_map).kind === k}>${HEAT_LABELS[k]}</option>`)}
         </select>
       </div>
 
