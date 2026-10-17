@@ -16,6 +16,28 @@ Newest first. A change supersedes; nothing is edited.
 - A `first` that is not a `Set` (card YAML is untrusted) or is empty means no favourites: the same code path as before. The Studio passes none, so its search is as before; shared code, no Studio change, on purpose (F8).
 - Proof. 4 of 5 new tests in `tests/core/search.test.ts` failed first (the asymmetric case: the favourite's name is longer than the other's). The demo's order for "li", "light" and "a" is pinned as literals taken before the change.
 
+## 2026-10-17: S34.7 heat in renderFloor, the humidity tokens and the mix share (Sonnet)
+
+- Judgement, read off `npm run shots` (light, blueprint, midnight, ha-dark; 4x crops of the hottest, coldest, driest and wettest room; the `off` shots as the before). Humidity tokens: `--fp-hum-dry #d8b36a` (sand), `--fp-hum-mid #7fc79a` (pale green), `--fp-hum-wet #2b6fcf` (blue). Dry 28 % reads as a deeper sand than an unheated room, wet 72 % as a clear blue, and neither is mistaken for temperature (`--fp-heat-cool #2f86c9`, `--fp-heat-mid #f0a020`, `--fp-heat-hot #d63a2a`: blue, amber, red) because the middle is green, not amber. Wet blue is close to the cool blue and to water; the legend and the readout unit tell them apart, and I did not spend a fourth hue on it.
+- Judgement, the mix share is 55 % ramp into the kind's colour, in oklch. At 55 % a garden or pond still reads as a garden or a pond; at higher shares the heated rooms flatten into one colour field and the kind is lost. Checked at 4x: the room's name and value stay legible on the halo in every theme, so `underOf` needed no change.
+- Heat beats glow, paint, texture, the paint-dim filter and water's own rule through one rule, `.room.heat[data-r]` (0,3,0), equal to the glow and paint rules and later in the source. No night veil in a heat mode: a heated room is as light at night as by day (shot `heat-ground-temperature-night-blueprint.png`).
+- The readout line shows the heat value for the mode's kind, also under `labels: false`, class `heat-val`. A plug that is on takes the temperature ramp through `--fp-heat` too.
+- Supersedes the S34.6 unit line: the heat text now always carries a unit. A sensor with no unit prints the scale's (`°C`, `%`), where S34.6 printed none; `°F` stays `°F`. The readout and the colour then say the same thing.
+- Shots: the card and the Studio have no heat option yet (S34.8, S34.10), so `scripts/shots.mjs` bundles `render.ts` with esbuild and calls `renderFloor` directly with `heat` set; the images are `shots/current/heat-*`. `shots/` is gitignored; there is no baseline to accept.
+- Proof. `tests/core/render-heat.test.ts` (12) failed first; byte for byte with heat omitted against a pre-change matrix of about 7 MB. `tests/card/heat-css.spec.ts` (4 computed-style pairs, `--repeat-each=10` 40 of 40): each failed when its rule was reverted.
+
+## 2026-10-17: S34.6 heat maths, the unit and bounds rules at the edges (Sonnet)
+
+- Built to spec H2 and H3 in `src/core/heat.ts`; `meanValue` in `readings.ts` is the number and unit behind `meanReading`, which only formats it (its tests are untouched). Core only; the card and Studio draw it in S34.7 onwards.
+- Judgement, a bad reading is left out per sensor, not per mean. The range and unit tests run on each sensor before the first unit is picked (`keep` in `meanValue`). So a faulty 95 °C or 200 °F in a list of two does not colour the room, and does not choose the unit either: the other sensor is read. Whole-mean rejection would blank a room for one broken probe.
+- Judgement, the bounds. Temperature: -60 to 90 °C, ends included, checked after the °F conversion (200 °F is 93 °C: out; 95 °F is 35 °C: in). Humidity: 0 to 100, ends included. Units: temperature takes `°C`, `°F` and none (taken as °C); humidity takes `%` and none. Any other unit (`K`, `%` on a temperature, `°C` on a humidity) is not a reading. A unit is matched exactly, as the readout does.
+- Judgement, mixed units. The first readable unit in the list wins and the others are left out, as `meanReading` does. `""` and `°C` are two units for this, so a list of one unit-less and one `°C` sensor reads the first's group only. The printed text keeps the sensors' unit (°F stays °F, none prints none); `t` is on the °C (or %) scale, clamped to 0..1, rounded to 0.001 so 75.2 °F is 0.8 and not 0.8000000000000004.
+- Judgement, the scale is linear and the middle is the half-way point (21 °C, 50 %), so `t` 0.5 is the mid token. Values past an end clamp; the number printed is the real one.
+- Judgement, `heatKindOf` is exact: `temperature`, `humidity`, `off`. Absent and `null` (an empty YAML key) are `off` with no warning; every other value, `Temperature` and `__proto__` included, is `off` with `warn` set. `HEAT_KINDS.find`, never a property lookup on the input, so a prototype name cannot match.
+- One difference from the plain readout is deliberate. The readout (`roomReadout`) means every readable sensor, in range or not; the heat text means only those in range. A room with one faulty 95 °C sensor and a good 23 °C one prints `23 °C` in heat mode and the readout's own mean beside it. S34.7 prints the heat value for the mode's kind (spec H5), so the colour and the heat number always agree.
+- `heat.ts` imports `roomAt`, `roomList` and `ROOM_OWNS` from `render.ts` and not `deviceCentre` from `room-info.ts` (it reads its own point). `render.ts` will import `heat.ts` in S34.7; the cycle is safe because each side uses the other only inside functions, and `room-info.ts` (which reads render's constants at load) is kept out of it.
+- Proof. `tests/core/heat.test.ts`, 21 tests: the file failed first (module `heat` not found), 21 of 21 pass after. Reverting the `ROOM_OWNS` gate fails the RoomKind test; replacing `keep` with accept-all fails the faulty-sensor test.
+
 ## 2026-10-15: S33 Opus review fixes (Sonnet)
 
 - 1, blocker. `tap_action: toggle` ran any op without a confirm at once: a lock's Unlock, a cover's Open and an off siren's Turn on. Supersedes the S33.4 rule "ON acts at once". Now `TOGGLE_AT_ONCE` (card) lists the entity domains that act at once: `light`, `switch`, `input_boolean`, `fan`. Every other domain opens the popup. Domains checked against `SWITCHABLE` and `popupOp`: lock and cover (no confirm, a physical door: popup), siren (loud: popup), climate, humidifier, water_heater (a setpoint device, not a lamp), automation (Turn off disables it), remote, media_player, group (`homeassistant.turn_off` reaches every member). A `switch` can drive a garage relay; that is the user's wiring and it stays a plain switch. The popup then shows the same button; nothing else changed. Test: `card-tap-action.spec.ts`, lock, cover and siren (3 failed first, with a real click and no popup), plus a fan and an automation as guards.
@@ -5134,7 +5156,6 @@ its side effect (registering the custom element) so it ships inside the same
 `dist/floorplan-studio-card.js` the vite config already builds — no second
 built file, no change to `vite.config.ts`.
 
-
 ## 2026-09-24 S7.5 Kiosk mode: how the brief was read
 
 - **"No version"** was already moot: the card has never shown a version
@@ -5160,7 +5181,6 @@ built file, no change to `vite.config.ts`.
   typo, not an intentional new value.
 - **Four places, not five,** for `kiosk`, same reason as `zoom` in S7.4: the
   config form (S7.7) does not exist yet.
-
 
 ## 2026-09-24 S7.6 Night: four departures from the brief
 
