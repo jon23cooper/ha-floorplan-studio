@@ -2,6 +2,24 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-17: S35.2 car models and shape (Sonnet)
+
+- `src/core/car.ts`: `CAR_SPEC` (footprint, height, profile, axles, grille, bed), `carSpec` (junk is the sedan; `includes`, so `__proto__` never matches), `carParts` (unit-frame polygons, +x the nose), `carTop` (polygons in the 100 x 100 frame, classes `car-body`, `car-bed`, `car-tyre`, `car-glass`, `car-roof`, `car-mirror`, `car-grille`, numbers only, no colour attribute). `FURNITURE.car` is 470 x 182; `FURNITURE_HEIGHTS.car` 145 (the sedan's); `furnitureHeight` of a car with no `height` is its model's. `FURNITURE.car.svg` is still the old rounded box: S35.4 swaps it for `carTop`.
+- Profile numbers are the spec's table as written, one change: the nose chamfer is 1.4 times the tail's in the cross-car direction (capped at 0.3 of the width), so the front tapers. Looked at top-down and in an oblique three.js preview of the same polygons (body prism, glass loft, roof, box wheels, grille, bed) from the front and the rear. Each model reads as itself: the truck by its open bed, the van by its tall box, the electric by long raked glass at both ends, the citycar by its length, the utility (Golf) by a short hood and a cabin to the tail. Sedan, wagon and SUV differ by the rear glass and the roof line, which is small in the top view.
+- Open for S35.5: a wheel is flush with the body side by spec, so its outer face and the body's side z-fight in the preview. Inset the wheel by a millimetre or two there.
+- Moved tests: `tests/core/icons.test.ts` (the car footprint 450 x 180 to 470 x 182). `heights.test.ts` and `solids-objects.test.ts` read `FURNITURE_HEIGHTS` and moved with it.
+- Card file: 117,417 gz before (S35.1), 117,870 after (`gzip -9`; the table and `carSpec` are reached through `furnitureHeight`). Cap 118,000 until S35.8.
+- Parity: core only, nothing drawn differently yet.
+
+## 2026-10-17: S35.1 car keys in the schema (Sonnet)
+
+- Spec C2 as written. `CarModel`, `CAR_MODELS`, `MAX_CAR_ATTACHED` and the three `Furniture` keys are in `src/core/schema.ts`; `docs/schema.md` regenerated. `validate` reports a bad `model`, `color`, `attached` (not a list, a non-entity, a repeat, more than 24) and any of the three on a piece that is not a car, naming the piece. `migrate` (`dropBadCar`) deletes a bad model or colour, keeps the first 24 distinct entity-id strings of `attached` in order (deleted when none), and strips the three keys from a non-car.
+- "Entity id" is the schema's own test, a string holding a dot, as for every other list. The repeat check is new, in the car branch only.
+- `attachedEntities` counts a car's `attached`; its main `entity` stays in `placedEntities`.
+- The hostile-input test uses JSON shapes (null, nesting, wrong types). A getter that throws cannot come from `JSON.parse`, and no other field of `validate` defends against one.
+- Card file: 117,117 gz before (main), 117,417 after (`gzip -9`).
+- Parity: schema only, no visible change in either view.
+
 ## 2026-10-17: pixel reads leave page.screenshot (Sonnet)
 
 - On the GitHub runner `Page.captureScreenshot` fails at random ("Unable to capture screenshot"): frame-25d three times (fixed in 0.30.1), shade-25d on the 0.32.0 push. Root cause on the runner is unconfirmed.
@@ -9,6 +27,7 @@ Newest first. A change supersedes; nothing is edited.
 - WebGL: the canvas has no `preserveDrawingBuffer`, so `readCanvasRect` calls the test hook `__fp3d.calls()` (one frame, drawn now) and `drawImage`s the canvas in the same synchronous run, over the first opaque background behind it. No change in `src`, no wait. It reads the canvas only, not the DOM over it (icons, labels, the Active list); no probe point sat under an overlay, and the suites pass unchanged. Mutation proof: card-3d-shade fails with the contact shadows hidden in `view3d.ts`; card-3d-live "lights" fails 4 of 5 with the lamp pools capped at 0.
 - Deliberate artifact screenshots (`path:` in card-room-scenes, `shots`) stay on `page.screenshot`; they read no pixel. No spec reads a pixel from a screenshot now. `tests/core/util/png.ts` (the PNG decoder) and its unit test stay, unused by the specs.
 - Mutation proof, shade-25d: with `.shade{display:none}` added in `render.ts`, 8 of 9 tests fail (foot and mid read the same colour); restored. camera-cone-clip: with the cone's `clip-path` dropped, "past the wall the floor is bare" fails (179 against 214). light-glow: with the aura's clip dropped, "just outside the room's wall: no glow" fails in both themes. Each restored.
+
 
 ## 2026-10-17: Sprint 35 planned: the car (developer)
 

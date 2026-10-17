@@ -112,10 +112,18 @@ export interface Extra { id: string; name: string; a: Pt; b: Pt }
  * `locked` (S26.1): the device does not move when dragged, alone or in a group; it can still be edited and deleted. Absent is false.
  */
 export type Device = { id: string; type: DeviceType; entity: string; name?: string; bound?: string; trvs?: string[]; tempSensors?: string[]; linked?: string[]; room?: string; targets?: { x: string; y: string }[]; rot?: number; motion?: string; power?: string; z?: number; fx?: number; locked?: boolean } & ({ x: number; y: number } | { a: Pt; b: Pt });
+/**
+ * S35.1: the car models, in the order the Studio lists them. `model`, `color` (`#rrggbb`) and `attached` (at most
+ * `MAX_CAR_ATTACHED` entity ids) exist on a furniture piece with symbol `car` only; `entity` is then the car's main
+ * entity (a tap opens it). An older card ignores the three keys.
+ */
+export type CarModel = "sedan" | "wagon" | "suv" | "offroad" | "truck" | "van" | "utility" | "citycar" | "electric";
+export const CAR_MODELS: readonly CarModel[] = ["sedan", "wagon", "suv", "offroad", "truck", "van", "utility", "citycar", "electric"];
+export const MAX_CAR_ATTACHED = 24;
 /** `name` is a plan name; `entity` is an HA entity whose state the piece shows. Both optional. `locked` (fixed):
  *  a right-click "Fix" on the plan stops it being dragged or resized until "Unfix"; panel edits still apply. `height` is the size of the piece, `z` its bottom above the floor
  *  (a wall TV, a speaker): the top is z + height. */
-export interface Furniture { id: string; symbol: FurnitureSymbol; x: number; y: number; rot: number; w: number; h: number; name?: string; entity?: string; locked?: boolean; height?: number; z?: number }
+export interface Furniture { id: string; symbol: FurnitureSymbol; x: number; y: number; rot: number; w: number; h: number; name?: string; entity?: string; locked?: boolean; height?: number; z?: number; model?: CarModel; color?: string; attached?: string[] }
 /**
  * S4.25: an appliance placed on the plan with a fixed icon (by `type`, from `UNLINKED_TYPES`), not tied to a
  * single entity's state. `attached` is zero or more HA entities linked to it for reference only — it never
@@ -501,6 +509,14 @@ export function validate(x: unknown): { ok: true; layout: Layout } | { ok: false
       // S1.51: a piece of furniture is never smaller than 5 cm or bigger than 2000 cm on a side.
       for (const k of ["w", "h"] as const) if (typeof m[k] === "number" && Number.isFinite(m[k]) && (m[k] < 5 || m[k] > 2000)) errors.push(`${at} ${m.id} ${k} must be between 5 and 2000`);
       if (m.locked !== undefined && typeof m.locked !== "boolean") errors.push(`${at} ${m.id} locked must be true or false`);
+      // S35.1: the car keys. `includes` on a list, so `__proto__` or `constructor` never match.
+      for (const k of ["model", "color", "attached"]) if (m[k] !== undefined && m.symbol !== "car") errors.push(`${at} ${m.id} ${k} is only allowed on a car`);
+      if (m.symbol === "car") {
+        if (m.model !== undefined && !CAR_MODELS.includes(m.model)) errors.push(`${at} ${m.id} model must be one of ${CAR_MODELS.join(", ")}; leave it out for a sedan`);
+        if (m.color !== undefined && !(typeof m.color === "string" && /^#[0-9a-fA-F]{6}$/.test(m.color))) errors.push(`${at} ${m.id} color must be a colour like #aabbcc`);
+        entityList(m, "attached", "sensor.name", undefined, MAX_CAR_ATTACHED);
+        if (Array.isArray(m.attached) && new Set(m.attached).size !== m.attached.length) errors.push(`${at} ${m.id} attached lists an entity twice; remove the repeat`);
+      }
     });
     each("unlinked", (u) => {
       oneOf(`${u.id} type`, u.type, DEVICE_TYPES);

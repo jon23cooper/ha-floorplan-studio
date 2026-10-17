@@ -36,7 +36,7 @@ describe("icons", () => {
   it("has a symbol for every furniture type with the agreed size", () => {
     expect(Object.keys(FURNITURE).sort()).toEqual([...SYMBOLS].sort());
     expect(FURNITURE.bed).toMatchObject({ w: 160, h: 200 });
-    expect(FURNITURE.car).toMatchObject({ w: 450, h: 180 });
+    expect(FURNITURE.car).toMatchObject({ w: 470, h: 182 }); // S35.2: the sedan's footprint (was 450 x 180)
     for (const s of SYMBOLS) {
       expect(FURNITURE[s].w).toBeGreaterThan(0);
       expect(FURNITURE[s].svg).toMatch(/^</);

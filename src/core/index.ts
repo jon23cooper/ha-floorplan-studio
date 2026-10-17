@@ -25,6 +25,8 @@ export type { LayerId } from "./layers";
 export type { CategoryGroup, CategoryId } from "./categories";
 export { entitiesOfDevice, entitiesOfDoor, moreInfoEntities, playerOf } from "./attachments";
 export * from "./heights";
+export { CAR_SPEC, ROOF_INSET, WHEEL_LENGTH, WHEEL_WIDTH, carParts, carSpec, carTop } from "./car";
+export type { CarParts, CarPoly, CarSpec } from "./car";
 export { TRUNK_SIDE, treeShape } from "./tree";
 export type { TreeShape } from "./tree";
 export { HEAT_FROM, HEAT_TO, PLUG_ACTIVE_WATTS, findPowerSensor, heatRange, plugThreshold, powerHeat, wattsOf } from "./power";
