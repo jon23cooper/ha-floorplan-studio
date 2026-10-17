@@ -12,6 +12,13 @@ Newest first. A change supersedes; nothing is edited.
 - One `console.warn` per card from `setConfig`, as `tap_action` does. `favouritesOf` runs once per `setConfig`.
 - Proof. `tests/card/card-favourites.spec.ts` (17 tests, 190 runs with `--repeat-each=10`): all 16 then written failed first (no section). Removing `.first` from the search box fails the criterion 7 test. The popup-match test walks `DEVICE_TYPES` in three states. Two tests were flaky at 390 px (a click at a point read while the sheet was still moving); the helper now uses Playwright's click, which waits for the box to settle.
 
+## 2026-10-17: S34.5 favourites in the Edit-card form (Sonnet)
+
+- Spec F7. The form reuses `favouritesOf` as the one rule for what an entity id is (`favouritesOf({favourites:[raw]})`), so the form and the card cannot disagree. Add trims, and Enter in the field adds. Refused with a line, nothing fired: empty, not an entity id (a capital too), a repeat, a 25th. An id that is a valid entity but not on the plan is accepted: it is valid YAML, and the card leaves it out (F4).
+- Judgement, the datalist names use the device's own name, else HA's `friendly_name` from `hass`, else the id, the card's `nameFor` order. `nameFor` is not exported from core, and the task names no core file, so the order is repeated in six lines here. Linked pieces count (`pieceDevice`). Text through Lit's bindings, so a `"><script>` name is text.
+- The alias shows as rows, fires nothing on load, and goes only when the person adds or removes. `EditorConfig` gains `favourites` and `favorites` locally (an intersection), since the card's config interface gets the key in S34.4.
+- Proof. Two tests in `tests/card/config-editor.spec.ts` failed first (no `#favourites_input`); `--repeat-each=10` 20 of 20; with `delete next.favorites` removed the add test fails.
+
 ## 2026-10-17: S34.2 favourites on the plan (Sonnet)
 
 - `favouriteRefs(layout, ids, floors)`, spec F4. Output follows the list, not the layout. Per entity the first thing in layout order wins: floors in key order, a floor's devices before its linked pieces (`pieceDevice`); so a device beats a piece on the same entity. `floors` are layout keys; a floor not listed is not searched. Floors are read through `Object.keys`, so a floor named `__proto__` or `toString` is an ordinary one. Rows that are not objects, and lists that are not lists, are skipped; a layout that is not a layout gives `[]`. A getter that throws gives `[]`, not a throw. Test: `tests/card/favourites.test.ts`; 11 tests failed first (`favouriteRefs is not a function`), and with first-wins removed 2 fail.
