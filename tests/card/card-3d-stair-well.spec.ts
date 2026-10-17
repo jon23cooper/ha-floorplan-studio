@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, drawn, cam } from "./helpers-3d";
+import { readCanvasRect } from "../helpers/pixels";
 
 // 0.26.2: a down flight on the first floor of a real house stayed hidden in 3D. The 0.26.1 well was cut only where the flight lay
 // strictly inside a room's outline. In that house the flight touches the edge of its room, so no hole was cut in the room fill and
@@ -38,14 +39,8 @@ async function boot(page: Page, layout: unknown, theme: string) {
   await hook(page, (h) => h.look(0, 0.1));
 }
 async function rgbAt(page: Page, p: { x: number; y: number }): Promise<number[]> {
-  const buf = await page.screenshot({ clip: { x: Math.round(p.x) - 1, y: Math.round(p.y) - 1, width: 3, height: 3 } });
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const d = c.getContext("2d")!; d.drawImage(img, 0, 0);
-    const v = d.getImageData(1, 1, 1, 1).data;
-    return [v[0], v[1], v[2]];
-  }, buf.toString("base64"));
+  // The one pixel at the point, from the canvas read in the page (not page.screenshot; tests/helpers/pixels.ts).
+  return (await readCanvasRect(page, { x: Math.round(p.x), y: Math.round(p.y), width: 1, height: 1 })).data;
 }
 const pink = ([r, g, b]: number[]) => r > g + 40 && b > g + 20;
 

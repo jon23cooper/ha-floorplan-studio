@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, open, card, canvas, holder, drawn } from "./helpers-3d";
+import { readCanvasRect } from "../helpers/pixels";
 
 // S12 review S4: at phone width the Active list folds to a 36 px header. The camera must not give half the card's width
 // to that header; it frames the house in the whole width. An open list (a wide card, or one the user opened) still gets its inset.
@@ -7,19 +8,15 @@ import { demo, open, card, canvas, holder, drawn } from "./helpers-3d";
 /** The model's left and right edge in the canvas, as shares of its width (the list is hidden so it is not read as model). */
 const spread = async (page: Page) => {
   await card(page).locator("css=.fp-active").evaluate((el: HTMLElement) => { el.style.visibility = "hidden"; });
-  const png = await canvas(page).screenshot();
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data;
-    let min = c.width, max = 0;
-    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
-      const i = (y * c.width + x) * 4;
-      if (Math.abs(d[i] - d[0]) + Math.abs(d[i + 1] - d[1]) + Math.abs(d[i + 2] - d[2]) > 24) { min = Math.min(min, x); max = Math.max(max, x); }
-    }
-    return { min: min / c.width, max: max / c.width, width: max / c.width - min / c.width };
-  }, png.toString("base64"));
+  const box = (await canvas(page).boundingBox())!;
+  // The canvas read in the page (tests/helpers/pixels.ts), not page.screenshot.
+  const { w, h, data: d } = await readCanvasRect(page, box);
+  let min = w, max = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 3;
+    if (Math.abs(d[i] - d[0]) + Math.abs(d[i + 1] - d[1]) + Math.abs(d[i + 2] - d[2]) > 24) { min = Math.min(min, x); max = Math.max(max, x); }
+  }
+  return { min: min / w, max: max / w, width: max / w - min / w };
 };
 // S32.5: `data-frame` is the px the card covers, "top,right,bottom,left" (it was `data-inset`, two horizontal shares).
 const frame = async (page: Page) => ((await holder(page).getAttribute("data-frame")) ?? "").split(",").map(Number);

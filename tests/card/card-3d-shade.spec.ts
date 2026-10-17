@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, drawn, cam } from "./helpers-3d";
+import { readCanvasRect } from "../helpers/pixels";
 
 // S28.8: the ground plane and the contact shadows in 3D. Real card, the demo ground floor emptied of furniture, devices and
 // unlinked boxes (so the pixels next to a wall are the wall's shade alone), the test-build hook, real screenshots.
@@ -46,18 +47,12 @@ async function select(page: Page, floor: string) {
   await expect.poll(async () => (await cam(page)).drawn, { timeout: 8000 }).toBeGreaterThan(n);
   await still(page);
 }
-/** Mean luminance of a square of the page, from a real screenshot. */
+/** Mean luminance of a square of the page, from the canvas read in the page (not page.screenshot; tests/helpers/pixels.ts). */
 async function lumaAt(page: Page, p: { x: number; y: number }, half: number): Promise<number> {
-  const buf = await page.screenshot({ clip: { x: Math.round(p.x - half), y: Math.round(p.y - half), width: 2 * half, height: 2 * half } });
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data;
-    let s = 0;
-    for (let i = 0; i < d.length; i += 4) s += 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
-    return s / (d.length / 4);
-  }, buf.toString("base64"));
+  const { data } = await readCanvasRect(page, { x: Math.round(p.x - half), y: Math.round(p.y - half), width: 2 * half, height: 2 * half });
+  let s = 0;
+  for (let i = 0; i < data.length; i += 3) s += 0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2];
+  return s / (data.length / 3);
 }
 const at = (page: Page, x: number, y: number, z: number) => hook(page, (h, a) => h.project(a[0], a[1], a[2]), [x, y, z]);
 

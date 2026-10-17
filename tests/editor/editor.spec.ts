@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { DEVICE_COLOURS, FLOORPLAN_CSS, planPivot, rotateAbout, renderFloor, viewBoxFor } from "../../src/core/render";
 import { validate, FURNITURE_SYMBOLS, type Layout, type Floor, type WallKind } from "../../src/core/schema";
 import { GUIDE_STEPS, plainBody } from "../../src/editor/guide";
-import { decodePng, pixelAt } from "../core/util/png";
+import { readSvg } from "../helpers/pixels";
 import { openLabels, pickFurniture, pickUnlinked } from "./menu-helpers";
 
 // Every pointer action goes through page.mouse at real screen coordinates, so the
@@ -8222,11 +8222,9 @@ const OFF_CENTRELINE = 8; // cm north of the wall centreline: inside the room, i
 const ROOM_FILL_LIGHT: [number, number, number] = [0x4a, 0x6f, 0xa5];
 const WALL_LIGHT: [number, number, number] = [0x1a, 0x19, 0x17]; // --fp-wall-external, light theme
 
-async function pngAt(page: Page): Promise<ReturnType<typeof decodePng>> {
-  const buf = await page.screenshot();
-  return decodePng(buf);
-}
-function closeTo(px: [number, number, number, number], rgb: [number, number, number]) {
+/** The colour under each screen point, from the editor's svg rasterised in the page (tests/helpers/pixels.ts), not page.screenshot. Truncated to a whole pixel, as `pixelAt` was. */
+const pixelsAt = (page: Page, at: { x: number; y: number }[]) => readSvg(page, { host: EDITOR, svg: "svg", client: true }, at.map((q) => [Math.trunc(q.x), Math.trunc(q.y)]));
+function closeTo(px: number[], rgb: [number, number, number]) {
   return Math.abs(px[0] - rgb[0]) <= 2 && Math.abs(px[1] - rgb[1]) <= 2 && Math.abs(px[2] - rgb[2]) <= 2;
 }
 
@@ -8239,9 +8237,7 @@ test("S8.11: the opening is a real hole — the room fill shows through it, and 
 
   const inHole = await screenOf(page, OPENING_MID_X, 600 - OFF_CENTRELINE);
   const onWall = await screenOf(page, 760, 600 - OFF_CENTRELINE); // 760: outside the opening's cap radius (711) and inside the outline (800)
-  const png = await pngAt(page);
-  const holePx = pixelAt(png, inHole.x, inHole.y);
-  const wallPx = pixelAt(png, onWall.x, onWall.y);
+  const [holePx, wallPx] = await pixelsAt(page, [inHole, onWall]);
 
   expect(closeTo(holePx, ROOM_FILL_LIGHT), `hole pixel ${holePx} should be the Office's room fill`).toBe(true);
   expect(closeTo(holePx, WALL_LIGHT), `hole pixel ${holePx} must not be the wall colour`).toBe(false);

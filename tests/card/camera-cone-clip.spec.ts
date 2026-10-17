@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { readSvg } from "../helpers/pixels";
 
 // S21.1: a camera's cone stops at the walls of its room. The test looks at pixels, because the markup can name a clip that the
 // browser never applies (a `url(#id)` has to resolve inside the card's shadow root). Demo ground floor, Living room x 0..500,
@@ -34,24 +35,14 @@ const layout = () => {
   return l;
 };
 
-/** The colour of the screen pixel under a plan point: svg -> client by the real CTM, then a pixel of a real screenshot. */
+/** The colour of the screen pixel under a plan point: svg -> client by the real CTM, then a pixel of the svg rasterised in the page (tests/helpers/pixels.ts, not page.screenshot). */
 async function pixels(page: Page, planPts: [number, number][]) {
   const client = await page.evaluate((pts) => {
     const svg = document.querySelector("floorplan-studio-card")!.shadowRoot!.querySelector("svg")!;
     const m = svg.getScreenCTM()!;
     return pts.map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]);
   }, planPts);
-  const png = (await page.screenshot()).toString("base64");
-  return page.evaluate(async ([b64, at]) => {
-    const img = new Image();
-    img.src = `data:image/png;base64,${b64}`;
-    await img.decode();
-    const c = document.createElement("canvas");
-    c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!;
-    g.drawImage(img, 0, 0);
-    return (at as number[][]).map(([x, y]) => Array.from(g.getImageData(Math.round(x), Math.round(y), 1, 1).data.slice(0, 3)));
-  }, [png, client] as const);
+  return readSvg(page, { host: "floorplan-studio-card", svg: "svg", client: true }, client);
 }
 const apart = (a: number[], b: number[]) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
 

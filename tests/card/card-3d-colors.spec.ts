@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, open, holder, drawn, serve, ORIGIN } from "./helpers-3d";
+import { readCanvasRect, meanRgb } from "../helpers/pixels";
 
 // S19.E3 in 3D: the view and its icons resolve `--fp-dev-*` from the .fp-3d box, so layout.colors goes on that box.
 test("3D: layout.colors reaches the 3D box and the icons inside it", async ({ page }) => {
@@ -47,15 +48,9 @@ test("3D: a lit lamp's pool takes its colour from the layout.colors entry", asyn
 const HA_DARK = "--primary-text-color:#e1e1e1;--secondary-text-color:#9b9b9b;--card-background-color:#1c1c1c;--secondary-background-color:#282828";
 const hook = <T, A = undefined>(page: Page, fn: (h: any, a: A) => T, arg?: A) => page.evaluate(`(${fn.toString()})(window.__fp3d, ${JSON.stringify(arg ?? null)})`) as Promise<Awaited<T>>;
 async function rgbAt(page: Page, p: { x: number; y: number }, half = 2) {
-  const buf = await page.screenshot({ clip: { x: Math.round(p.x - half), y: Math.round(p.y - half), width: 2 * half, height: 2 * half } });
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data; let r = 0, gg = 0, b = 0; const n = d.length / 4;
-    for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; }
-    return [Math.round(r / n), Math.round(gg / n), Math.round(b / n)];
-  }, buf.toString("base64"));
+  // The canvas read in the page, not page.screenshot (tests/helpers/pixels.ts).
+  const { data } = await readCanvasRect(page, { x: Math.round(p.x - half), y: Math.round(p.y - half), width: 2 * half, height: 2 * half });
+  return meanRgb(data).map(Math.round);
 }
 const L = (c: number[]) => Math.round(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]);
 

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import type { Layout } from "../../src/core/schema";
 import { validate } from "../../src/core";
 import { serve, ORIGIN, drawn } from "../card/helpers-3d";
+import { differing, readPatches } from "../helpers/pixels";
 import { FIRST_TO_GROUND } from "../fixtures/hand-align-truth";
 
 // S29.12, the exit test of Sprint 29 (acceptance criterion 12). In the Studio, on the fixture, with real clicks: Align stairs on the ground
@@ -139,20 +140,14 @@ test("the card's ghost of the aligned ground floor is drawn where the truth puts
     });
   }, walls);
   for (const [i, s] of spots.entries()) expect(s.n, `wall ${i}: some of it is outside the first floor and inside the card`).toBeGreaterThan(2);
-  const shot = (at: { x: number; y: number }, r: number) => page.screenshot({ clip: { x: Math.round(at.x) - r, y: Math.round(at.y) - r, width: 2 * r + 1, height: 2 * r + 1 } });
+  // The svg rasterised in the page (tests/helpers/pixels.ts), not page.screenshot: a (2r + 1) px square at the point, at device scale 1.
+  const shot = (at: { x: number; y: number }, r: number) => readPatches(page, { host: "floorplan-studio-card", svg: "svg", client: true }, [[at.x, at.y]], 2 * r + 1).then((p) => p[0]!);
   const withGhost = await Promise.all(spots.map((s) => Promise.all([shot(s.c, 7), shot(s.off, 1)])));
   await bootCard(page, saved, { floor: "first", view: "2d", ghost_floor: false });
   await expect(page.locator("floorplan-studio-card svg g.ghost")).toHaveCount(0);
-  const differing = (a: Buffer, b: Buffer) => page.evaluate(async ({ a, b }) => {
-    const read = async (s: string) => { const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob()); const cx = new OffscreenCanvas(bmp.width, bmp.height).getContext("2d")!; cx.drawImage(bmp, 0, 0); return cx.getImageData(0, 0, bmp.width, bmp.height).data; };
-    const x = await read(a), y = await read(b);
-    let n = 0;
-    for (let i = 0; i < x.length; i += 4) if (Math.abs(x[i]! - y[i]!) > 4 || Math.abs(x[i + 1]! - y[i + 1]!) > 4 || Math.abs(x[i + 2]! - y[i + 2]!) > 4) n++;
-    return n;
-  }, { a: a.toString("base64"), b: b.toString("base64") });
   for (const [i, s] of spots.entries()) {
     const bare = await Promise.all([shot(s.c, 7), shot(s.off, 1)]);
-    expect(await differing(withGhost[i]![0], bare[0]), `the ghost is drawn on wall ${i}`).toBeGreaterThan(3);
-    expect(await differing(withGhost[i]![1], bare[1]), `nothing of it 6 px off wall ${i}`).toBe(0);
+    expect(differing(withGhost[i]![0], bare[0]), `the ghost is drawn on wall ${i}`).toBeGreaterThan(3);
+    expect(differing(withGhost[i]![1], bare[1]), `nothing of it 6 px off wall ${i}`).toBe(0);
   }
 });

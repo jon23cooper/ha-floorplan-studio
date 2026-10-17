@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { demo, serve, ORIGIN, cam, drawn } from "./helpers-3d";
+import { readCanvasRect, meanRgb } from "../helpers/pixels";
 
 // S14.5 item 9: an open doorway (door.kind "open") has no leaf, so in 3D its live state is a thin alert-coloured slab in the gap,
 // driven by the door's sensors. Closed: nothing shows. Real card, real pointer, the scene's own state from `__fp3d.live()` (test build only).
@@ -49,16 +50,7 @@ async function setStates(page: Page, states: Record<string, unknown>) {
 const at = (page: Page, x: number, y: number, z: number) => page.evaluate(([x, y, z]) => (window as unknown as { __fp3d: { project(x: number, y: number, z: number): { x: number; y: number } } }).__fp3d.project(x, y, z), [x, y, z] as const);
 const picks = (page: Page, p: { x: number; y: number }) => page.evaluate((p) => (window as unknown as { __fp3d: { pick(x: number, y: number): unknown } }).__fp3d.pick(p.x, p.y), p);
 async function mean(page: Page, p: { x: number; y: number }, half = 4): Promise<[number, number, number]> {
-  const buf = await page.screenshot({ clip: { x: p.x - half, y: p.y - half, width: 2 * half, height: 2 * half } });
-  return page.evaluate(async (b64) => {
-    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
-    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-    const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data, n = d.length / 4;
-    let r = 0, gr = 0, b = 0;
-    for (let i = 0; i < d.length; i += 4) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
-    return [r / n, gr / n, b / n] as [number, number, number];
-  }, buf.toString("base64"));
+  return meanRgb((await readCanvasRect(page, { x: p.x - half, y: p.y - half, width: 2 * half, height: 2 * half })).data); // the canvas read in the page, not page.screenshot
 }
 
 test.describe("3D view: the open doorway's alert band", () => {

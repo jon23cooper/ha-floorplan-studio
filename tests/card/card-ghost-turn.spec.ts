@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { differing, readPatches } from "../helpers/pixels";
 import { FIRST_TO_GROUND, GROUND_TO_BASEMENT } from "../fixtures/hand-align-truth";
 
 // S29.3 + S29.5: the card's ghost follows the floors' rotation. The fixture stores no pose; the truth (hand-align-truth.ts) says the ground is turned
@@ -47,16 +48,8 @@ async function boot(page: Page, layout: unknown, config: Record<string, unknown>
   await configure(page, layout, { ghost_floor: true, ...config });
   await expect(page.locator("floorplan-studio-card svg g.ghost")).toHaveCount(1);
 }
-const shot = (page: Page, at: { x: number; y: number }, r: number) => page.screenshot({ clip: { x: Math.round(at.x) - r, y: Math.round(at.y) - r, width: 2 * r + 1, height: 2 * r + 1 } });
-/** How many pixels differ between two PNGs of the same size, by more than a few levels in any channel. */
-const differing = (page: Page, a: Buffer, b: Buffer) => page.evaluate(async ({ a, b }) => {
-  const read = async (s: string) => { const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob()); const cx = new OffscreenCanvas(bmp.width, bmp.height).getContext("2d")!; cx.drawImage(bmp, 0, 0); return cx.getImageData(0, 0, bmp.width, bmp.height).data; };
-  const x = await read(a), y = await read(b);
-  let n = 0;
-  for (let i = 0; i < x.length; i += 4) if (Math.abs(x[i]! - y[i]!) > 4 || Math.abs(x[i + 1]! - y[i + 1]!) > 4 || Math.abs(x[i + 2]! - y[i + 2]!) > 4) n++;
-  return n;
-}, { a: a.toString("base64"), b: b.toString("base64") });
-
+// The svg rasterised in the page (tests/helpers/pixels.ts), not page.screenshot: a (2r + 1) px square at the point, at device scale 1.
+const shot = (page: Page, at: { x: number; y: number }, r: number) => readPatches(page, { host: "floorplan-studio-card", svg: "svg", client: true }, [[at.x, at.y]], 2 * r + 1).then((p) => p[0]!);
 for (const view of [0, 90]) {
   test(`the ghost's corner is drawn where the truth puts it, and 6 px off along its bisector there is none (view turn ${view})`, async ({ page }) => {
     await boot(page, posed, { rotation: view });
@@ -86,8 +79,8 @@ for (const view of [0, 90]) {
     await expect(page.locator("floorplan-studio-card svg g.ghost")).toHaveCount(0);
     for (const [i, s] of free.entries()) {
       const bare = await Promise.all([shot(page, s.c, 7), shot(page, s.off, 1)]);
-      expect(await differing(page, withGhost[i]![0], bare[0]), `the ghost is drawn at corner ${s.idx}`).toBeGreaterThan(3);
-      expect(await differing(page, withGhost[i]![1], bare[1]), `nothing of it 6 px off corner ${s.idx}`).toBe(0);
+      expect(await differing(withGhost[i]![0], bare[0]), `the ghost is drawn at corner ${s.idx}`).toBeGreaterThan(3);
+      expect(await differing(withGhost[i]![1], bare[1]), `nothing of it 6 px off corner ${s.idx}`).toBe(0);
     }
   });
 }

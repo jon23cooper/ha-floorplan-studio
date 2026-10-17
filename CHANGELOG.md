@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.1 - 2026-10-17
+
+- Tests only: pixel reads no longer use `page.screenshot`, which fails at random on the CI runner ("Unable to capture screenshot"). Plans are rasterised from the SVG onto a canvas by `tests/helpers/pixels.ts`. Same colours, same tolerances. Converted so far: frame-25d, shade-25d, tree-25d, window-pane, camera-cone-clip, light-glow, card-ghost-turn, hand-align-exit, card.spec (five mask pixel tests), editor.spec (the opening hole), and the 3D specs live, doorway, linked-piece, colors, shade, stair-down, stair-well, tex-glow, plus card-3d and card-3d-narrow, which read the WebGL canvas right after a frame the test hook draws.
+
 ## 0.32.0 - 2026-10-17
 
 - Card (S34 review): the Edit-card form read the websocket reply as the layout itself, so on a real dashboard the floor list and the Favourites choices stayed empty; it now reads `{ layout }` as the card does. A favourite that is not a light, switch, input_boolean or fan (a lock, a cover, a group, ...) asks (Confirm unlock, Confirm open, ...) before it acts, turn on included; only those four act on one tap. With the heat map on, the room panel prints the number the plan prints, and the legend says "no readings" when no room on the floor has one. When 3D falls back to 2D the legend moves to the top so it no longer overlaps the note. The Studio's status-bar ramp blends in oklch like the card's.

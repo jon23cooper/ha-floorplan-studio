@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { FLOORPLAN_CSS, OBLIQUE, THEMES, renderFloor, type Theme } from "../../src/core/render";
 import type { Floor } from "../../src/core/schema";
+import { readSvg } from "../helpers/pixels";
 
 // S28.4: the 2.5D tree on real pixels, at 4x, in every theme (finding 17). A bare floor on a white page, so the background is known:
 // the pixel at the lifted crown centre is the crown fill at .35 over white, the pixel on the trunk halfway up is the trunk stroke, the
@@ -34,7 +35,7 @@ test.describe("S28.4 the 2.5D tree stands", () => {
   for (const [i, c] of CASES.entries()) {
     test(`${c.t}${c.dark ? " (dark)" : ""}: crown, trunk and shade paint their own colours at the right spots`, async ({ page }) => {
       await page.setContent(html);
-      const svgBox = await page.evaluate((k) => { for (let j = 0; j < 14; j++) if (j !== k) document.getElementById(`c${j}`)!.style.display = "none"; const r = document.getElementById(`c${k}`)!.getBoundingClientRect(); return { x: r.x, y: r.y }; }, i);
+      await page.evaluate((k) => { for (let j = 0; j < 14; j++) if (j !== k) document.getElementById(`c${j}`)!.style.display = "none"; }, i);
       const style = await page.evaluate((k) => {
         const svg = document.getElementById(`c${k}`)!, s = (sel: string) => getComputedStyle(svg.querySelector(sel)!);
         return { crown: s(".tree-crown").fill, op: s(".tree-crown").fillOpacity, trunk: s(".trunk").stroke, edge: s(".tree-crown").stroke, trunkW: s(".trunk").strokeWidth, lift: s(".trunk").getPropertyValue("--fp-crown-lift").trim(), shade: s(".tree-shade").fill, shadeOp: s(".tree-shade").fillOpacity };
@@ -44,13 +45,7 @@ test.describe("S28.4 the 2.5D tree stands", () => {
       // S28 final: the trunk is the crown's edge colour on a light theme (--fp-tree-edge, not the furniture blue) and a dark, ground-like version on a dark one (--fp-trunk), never lighter than the edge
       if (!(Number.parseFloat(lift) > 0)) expect(style.trunk, "the trunk takes the crown's edge colour (--fp-tree-edge), not the furniture blue").toBe(style.edge);
       else expect(rgb(style.trunk).reduce((a, v) => a + v, 0), "a dark theme's trunk is darker than its crown's edge").toBeLessThan(rgb(style.edge).reduce((a, v) => a + v, 0));
-      const shot = (await page.screenshot({ clip: { x: svgBox.x, y: svgBox.y, width: VB[2], height: VB[3] } })).toString("base64");
-      const probe = async (pts: number[][]) => page.evaluate(async ([b64, pts]) => {
-        const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
-        const cv = document.createElement("canvas"); cv.width = bmp.width; cv.height = bmp.height;
-        const g = cv.getContext("2d")!; g.drawImage(bmp, 0, 0);
-        return (pts as number[][]).map(([x, y]) => Array.from(g.getImageData(Math.round(x * 4), Math.round(y * 4), 1, 1).data.slice(0, 3)));
-      }, [shot, pts] as const);
+      const probe = (pts: number[][]) => readSvg(page, { svg: `#c${i}`, css: FLOORPLAN_CSS }, pts);
       const white = [255, 255, 255];
       const [crownAt, trunkAt, shadeAt, emptyAt] = [scr(TREE.x, TREE.y, 300), scr(TREE.x, TREE.y, 120), [scr(TREE.x, TREE.y, 0)[0] + 19, scr(TREE.x, TREE.y, 0)[1] + 6], [20, 20]];
       const [crown, trunk, shade, empty] = await probe([crownAt, trunkAt, shadeAt, emptyAt]);
