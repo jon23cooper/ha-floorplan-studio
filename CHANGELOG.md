@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.33.1 - 2026-10-18
 
-- Studio: every Remove in a list is now the small round red X, placed before the name (door, Controls, TRV, sensors, the car's attached entities, scenes offered, radar targets). It keeps its name in the tooltip and for screen readers.
+- Studio: every Remove in a list is now the small round red X, placed before the name (door, Controls, TRV, sensors, the car's attached entities, scenes offered, radar targets, the card's Favourites). It keeps its name in the tooltip and for screen readers.
 
 ## 0.33.0 - 2026-10-18
 
