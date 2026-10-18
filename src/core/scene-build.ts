@@ -68,7 +68,7 @@ export const CUT_WALL_HEIGHT = 110;
 /** cm. A device's icon and point stay this far under the top of the floor's walls, so a ceiling light or camera does not float over the house (S14.5: 10 -> 25, with the lower presets). */
 export const ICON_MARGIN = 25;
 /** cm. A car (S35.5): the body clears the ground by 18; the tyres are 64 high; the roof slab is 4; a wheel's outer face is 0.3 inside the body side; the grille plate is 1 proud of the nose and 0.7 deep. */
-export const CAR_CLEARANCE = 18, CAR_TYRE = 64, CAR_ROOF = 4, CAR_WHEEL_INSET = 0.3, CAR_GRILLE_PROUD = 1, CAR_GRILLE_DEPTH = 0.7;
+export const CAR_CLEARANCE = 18, CAR_TYRE = 64, CAR_ROOF = 4, CAR_WHEEL_INSET = 1.2, CAR_GRILLE_PROUD = 1, CAR_GRILLE_DEPTH = 0.7;
 /** Most rooms for which nesting is worked out (it is quadratic); more than this and every fill sits at the same height. */
 const NEST_LIMIT = 300;
 /** The most point tests nesting may cost: the square of the total points of all rooms bounds it (S12 review). Over it, no nesting, as past NEST_LIMIT. */

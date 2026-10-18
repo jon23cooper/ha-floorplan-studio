@@ -86,3 +86,10 @@ describe("palette: the car's roles", () => {
     expect(roleStyle("car-body").css).toContain("--fp-furniture");
   });
 });
+
+describe("the car's wheels (review finding 11)", () => {
+  it("each tyre's outer face stands at least a centimetre inside the body side: 0.3 cm was within the depth buffer's noise and drew seam lines", async () => {
+    const { CAR_WHEEL_INSET } = await import("../../src/core/scene-build");
+    expect(CAR_WHEEL_INSET).toBeGreaterThanOrEqual(1);
+  });
+});
