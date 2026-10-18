@@ -836,6 +836,8 @@ function plugOn(d: Device, o: RenderOpts, sw: StateOverlay[string]): boolean {
  *  disagree about which devices are "on" (CLAUDE.md finding 17). */
 export function classOf(d: Device, o: RenderOpts): Cls {
   if (d.type === "light" && d.bound) return boundClassOf(d, o);
+  // S35.3: a car is on while it charges, even when its tracker is dead: the charging sensor is another entity (review finding 5).
+  if (d.type === "car" && carStatus(d, o.state).charging) return "on";
   const s = o.state?.[d.entity];
   if (!s) return "off";
   if (dead(s.state)) return "unavailable"; // S23.5: every type, a light, switch or plug too: "I don't know" is not "off"

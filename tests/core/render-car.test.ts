@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { CAR_MODELS, type Floor, type Furniture } from "../../src/core/schema";
-import { renderFloor, viewBoxFor, contentPoints, FLOORPLAN_CSS, THEMES, type StateOverlay } from "../../src/core/render";
+import { activeDevices } from "../../src/core/active";
+import { classOf, renderFloor, viewBoxFor, contentPoints, FLOORPLAN_CSS, THEMES, type StateOverlay } from "../../src/core/render";
 import { carParts, carTop } from "../../src/core/car";
 import { migrate } from "../../src/core/migrate";
 
@@ -87,6 +88,15 @@ describe("renderFloor: what a car's states do on the plan", () => {
     for (const html of [renault, tesla]) { expect(groupOf(html)).toMatch(/ charging/); expect(html).toContain("car-bolt"); }
     const stopped = draw(car({ entity: "device_tracker.car", attached: ["sensor.car_charge_state"] }), { "device_tracker.car": st("home"), "sensor.car_charge_state": st("stopped") });
     expect(groupOf(stopped)).not.toMatch(/ charging/);
+  });
+  it("review finding 5: a charging car whose tracker is unavailable still counts as on, strokes green and shows in Active", () => {
+    const state = { ...HOME, "device_tracker.car": st("unavailable"), "binary_sensor.car_charging": st("on", { device_class: "battery_charging" }) };
+    const dev = { id: "c", type: "car", entity: "device_tracker.car", attached: ["binary_sensor.car_charging"], x: 1, y: 1 } as never;
+    expect(classOf(dev, { scale: 1, state })).toBe("on");
+    expect(groupOf(draw(car(WIRED), state))).toMatch(/ charging/);
+    expect(classOf(dev, { scale: 1, state: { ...state, "binary_sensor.car_charging": st("off", { device_class: "battery_charging" }) } })).toBe("unavailable");
+    const floor = floorOf([car(WIRED)]);
+    expect(activeDevices({ version: 2, unit: "cm", north: 0, catalog: [], floors: { f: floor } } as never, state as never).map((a) => a.name)).toHaveLength(1);
   });
   it("alert (an unlocked lock): class alert; charging and alert both ride the group", () => {
     const html = draw(car(WIRED), { ...HOME, "lock.car_doors": st("unlocked") });

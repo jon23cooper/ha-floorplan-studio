@@ -126,7 +126,8 @@ function isActive(d: Device, state: StateOverlay | undefined, opts: ActiveOpts):
   if (typeof d.entity !== "string" || !d.entity) return false;
   const rule = ACTIVE_LIST_RULE[d.type];
   const s = state?.[d.entity]?.state;
-  if (s === "unavailable" || s === "unknown") return false;
+  // A car is the exception: its tracker may be dead while its charging sensor is not, and `classOf` knows (review finding 5).
+  if ((s === "unavailable" || s === "unknown") && d.type !== "car") return false;
   if (rule === "never") return false;
   if (rule === "cleaning") return s === "cleaning";
   return classOf(d, { scale: 1, state, ...opts }) === "on";
