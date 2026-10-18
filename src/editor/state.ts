@@ -1,11 +1,13 @@
-import { alignFloor, floorBelow, floorPlace, floorPose, normaliseTurn, placePoint, poseFromPlace, DETAIL_MODES, parseDetailMode, FURNITURE, MAX_ROOM_SENSORS, DEVICE_TYPES, furnitureForEntity, FLOOR_COLOURS, inside, roomAt, MAX_PALETTE, TEXTURE_IDS, THEMES, contentPoints, findPowerSensor, haFloorIdsForPlanFloor, migrate, parseLayers, placeableDevicesInArea, placedEntities, planPivot, rotateAbout, stairSteps, switchChoicesForLight, typeForEntity, unplacedCatalog, unplacedHaEntities, validate, viewBoxFor } from "../core";
-import { COORD_LIMIT, MAX_VIEWS, MAX_VIEW_ZOOM } from "../core/schema";
+import { alignFloor, floorBelow, floorPlace, floorPose, normaliseTurn, placePoint, poseFromPlace, DETAIL_MODES, parseDetailMode, CAR_SPEC, FURNITURE, MAX_ROOM_SENSORS, DEVICE_TYPES, furnitureForEntity, FLOOR_COLOURS, inside, roomAt, MAX_PALETTE, TEXTURE_IDS, THEMES, contentPoints, findPowerSensor, haFloorIdsForPlanFloor, migrate, parseLayers, placeableDevicesInArea, placedEntities, planPivot, rotateAbout, stairSteps, switchChoicesForLight, typeForEntity, unplacedCatalog, unplacedHaEntities, validate, viewBoxFor } from "../core";
+import { CAR_MODELS, COORD_LIMIT, MAX_CAR_ATTACHED, MAX_VIEWS, MAX_VIEW_ZOOM } from "../core/schema";
 import type { SavedView } from "../core/schema";
 import type { DetailMode, HeatKind, CatalogEntry, DeviceType, Floor, HaData, LayerId, Layout, Pt, Stairs, SwitchChoice, Theme, Trace } from "../core";
+import type { GroupedChoice } from "./sensor-order";
 import { setRoomList, type RoomSensorField } from "./ops";
 import { normaliseRotation } from "../card/view-state";
 import { MAX_ZOOM, MIN_ZOOM } from "../card/viewport";
 import type { ViewMemory } from "./view-memory";
+import { carAttachGroups, carDeviceEntities, convertedCar } from "./car-ops";
 
 /** localStorage key for the autosaved edit. */
 export const STORAGE_KEY = "floorplan-studio:layout";
@@ -299,7 +301,7 @@ export class EditorState {
       stairs: f.stairs.map((t) => drop(t, paint)),
       doors: f.doors.map((d) => drop(d, ["name", "sensors", "vibration", "locks", "cover"])),
       extras: f.extras.map((x) => drop(x, ["name"])),
-      furniture: f.furniture.map((m) => drop(m, ["name", "entity", "locked"])),
+      furniture: f.furniture.map((m) => drop(m, ["name", "entity", "locked", "attached", "color"])), // a car's links and paint are not geometry; its model, which sets the footprint, is
     });
   }
 
@@ -1130,19 +1132,21 @@ export class EditorState {
    * when `apply` wrote nothing (an empty entity, or a no-op); `pulled: true` when an icon was actually removed,
    * so the caller can tell the difference in its status line.
    */
-  attachEntity(entity: string, apply: (f: Floor) => void, keepDeviceId?: string): { changed: boolean; pulled: boolean } {
-    if (!entity) return { changed: false, pulled: false };
+  attachEntity(entity: string | string[], apply: (f: Floor) => void, keepDeviceId?: string): { changed: boolean; pulled: boolean } {
+    const entities = (Array.isArray(entity) ? entity : [entity]).filter(Boolean);
+    if (!entities.length) return { changed: false, pulled: false };
     const next = structuredClone(this.layout);
     apply(next.floors[this.floor]);
-    if (!next.catalog.some((c) => c.entity === entity)) {
-      const e = this.ha?.entities.find((x) => x.id === entity);
+    for (const id of entities) {
+      if (next.catalog.some((c) => c.entity === id)) continue;
+      const e = this.ha?.entities.find((x) => x.id === id);
       if (e) next.catalog.push({ id: e.id, floor: this.floor, room: "", type: typeForEntity(e, this.ha), name: e.name || e.id, entity: e.id });
     }
     const selDevId = this.sel?.t === "dev" ? this.f.devices[this.sel.i]?.id : undefined;
     let pulled = false;
     for (const fl of Object.values(next.floors)) {
       const before = fl.devices.length;
-      fl.devices = fl.devices.filter((d) => d.id === keepDeviceId || d.entity !== entity);
+      fl.devices = fl.devices.filter((d) => d.id === keepDeviceId || !entities.includes(d.entity));
       if (fl.devices.length !== before) pulled = true;
     }
     if (JSON.stringify(next) === JSON.stringify(this.layout)) return { changed: false, pulled: false };
@@ -1153,6 +1157,73 @@ export class EditorState {
       this.sel = ni >= 0 ? { t: "dev", i: ni } : null;
     }
     return { changed: true, pulled };
+  }
+
+  /**
+   * S35.7 (spec C9): picks a car model: `model`, `w` and `h` follow it and a typed `height` goes, one undo step. A sedan is the
+   * absent model (C2), so its key is deleted. False, nothing recorded, for a piece that is not a car, a model that is not
+   * one (`includes`, so `__proto__` never matches) or a car that already is that model at that size.
+   */
+  setCarModel(i: number, model: string): boolean {
+    const m = this.f.furniture[i];
+    if (m?.symbol !== "car" || !(CAR_MODELS as readonly string[]).includes(model)) return false;
+    const spec = CAR_SPEC[model as keyof typeof CAR_SPEC];
+    return this.edit((f) => {
+      const c = f.furniture[i];
+      if (model === "sedan") delete c.model; else c.model = model as typeof c.model;
+      c.w = spec.w; c.h = spec.h; delete c.height;
+    });
+  }
+
+  /**
+   * S35.7: the car's body colour, as `paint` does for a room: lower-cased `#rrggbb`, and a colour that is not a built-in swatch
+   * joins `layout.palette` in the same undo step. `null` is Theme colour (the key goes). False, nothing recorded, for junk,
+   * a piece that is not a car, or no change.
+   */
+  paintCar(i: number, colour: string | null): boolean {
+    this.planBlocked = false; // a colour is not geometry: the plan lock lets it through
+    if (this.f.furniture[i]?.symbol !== "car") return false;
+    const next: Layout = structuredClone(this.layout);
+    const car = next.floors[this.floor].furniture[i];
+    if (colour === null) delete car.color;
+    else {
+      const hex = colour.toLowerCase();
+      if (!/^#[0-9a-f]{6}$/.test(hex)) return false;
+      car.color = hex;
+      if (!FLOOR_COLOURS.some((k) => k.hex === hex) && !(next.palette ?? []).includes(hex)) next.palette = [...(next.palette ?? []), hex].slice(-MAX_PALETTE);
+    }
+    if (JSON.stringify(next) === JSON.stringify(this.layout)) return false;
+    this.snapshot();
+    this.layout = next;
+    return true;
+  }
+
+  /** S35.7: the "Attached" picker of car `i`, ordered and headed as `carAttachGroups` says. Empty when the car already holds 24. */
+  carAttachChoices(i: number): GroupedChoice[] {
+    const m = this.f.furniture[i];
+    return m?.symbol === "car" && (m.attached?.length ?? 0) < MAX_CAR_ATTACHED ? carAttachGroups(m, this.ha, this.layout.catalog) : [];
+  }
+
+  /** S35.7: what "Add all from this car" would attach: the main entity's device, minus what is attached, up to 24 in all. Empty hides the button. */
+  carDeviceEntities(i: number): string[] {
+    const m = this.f.furniture[i];
+    return m?.symbol === "car" ? carDeviceEntities(m, this.ha) : [];
+  }
+
+  /**
+   * S35.7: replaces the device or unlinked appliance of type `car` at `i` with a car piece (a sedan) at the same point and turn,
+   * one undo step, and selects it. False, nothing recorded, for anything else.
+   */
+  convertToCar(on: "dev" | "unl", i: number): boolean {
+    const old = on === "dev" ? this.f.devices[i] : this.f.unlinked[i];
+    if (old?.type !== "car") return false;
+    const done = this.edit((f) => {
+      const piece = convertedCar(on === "dev" ? f.devices[i] : f.unlinked[i], newId(f, this.floor, "furniture", this.layout));
+      if (on === "dev") f.devices.splice(i, 1); else f.unlinked.splice(i, 1);
+      f.furniture.push(piece);
+    });
+    if (done) this.sel = { t: "furn", i: this.f.furniture.length - 1 };
+    return done;
   }
 
   /**

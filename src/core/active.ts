@@ -61,7 +61,7 @@ function standsAt(d: Device): Pt | null {
  * Every `DeviceType` is a decision (CLAUDE.md finding 17), written down here rather than left to fall through a
  * catch-all:
  * - `"on"`: listed while `classOf` (the same function `renderFloor` uses to paint the plan) says "on" — light,
- *   motion, contact, heater, climate, ac, tv, media, plug, computer, person, and cover: only a garage door, gate or
+ *   motion, contact, heater, climate, ac, tv, media, plug, computer, person, car (while it charges, S35.3), and cover: only a garage door, gate or
  *   door is ever "on" (`coverActive`, Diego 2026-10-03), a curtain or blind is not. The list and the plan can
  *   never disagree about one of these.
  * - `"cleaning"`: vacuum. `classOf` reads both "cleaning" and "returning" as one active colour on the plan (S7.10:
@@ -72,7 +72,7 @@ function standsAt(d: Device): Pt | null {
  *   camera is a view, not something on, and "recording" or "streaming" is its normal state, so no state of it is
  *   "on" either), and every other type — a sensor with no on/off shape of its own (temp, humidity), a plain switch or
  *   lock (not asked for), or a type the card only ever watches through its own dialog (battery, inverter, server,
- *   access_point, boiler, car, ups, printer, other). A radar is "on" like a motion sensor (`MOTION_TYPES`).
+ *   access_point, boiler, ups, printer, other). A radar is "on" like a motion sensor (`MOTION_TYPES`).
  */
 export const ACTIVE_LIST_RULE: Record<DeviceType, "on" | "cleaning" | "never"> = {
   light: "on", motion: "on", contact: "on", heater: "on", climate: "on", ac: "on", tv: "on", media: "on",
@@ -80,7 +80,7 @@ export const ACTIVE_LIST_RULE: Record<DeviceType, "on" | "cleaning" | "never"> =
   camera: "never",
   vacuum: "cleaning",
   cover: "on", switch: "never", temp: "never", humidity: "never", battery: "never", inverter: "never", server: "never",
-  access_point: "never", lock: "never", vibration: "never", other: "never", boiler: "never", car: "never",
+  access_point: "never", lock: "never", vibration: "never", other: "never", boiler: "never", car: "on", // a charging car (classOf); a parked one is not something running
   ups: "never", printer: "never",
   siren: "on", alarm: "on", // a sounding siren; an alarm panel that is armed or triggered
   radar: "on", // a radar that sees someone is motion like any other (MOTION_TYPES); it was "never" until 0.12.24
@@ -103,7 +103,7 @@ const COLOR_VAR: Partial<Record<DeviceType, string>> = {
   light: "--fp-dev-light", motion: "--fp-dev-motion", contact: "--fp-dev-contact", heater: "--fp-dev-heater",
   climate: "--fp-dev-climate", tv: "--fp-dev-tv", media: "--fp-dev-media",
   plug: "--fp-dev-plug", computer: "--fp-dev-computer", camera: "--fp-ink", person: "--fp-dev-person",
-  vacuum: "--fp-dev-vacuum", fan: "--fp-dev-fan", speaker: "--fp-dev-speaker", radar: "--fp-dev-radar",
+  vacuum: "--fp-dev-vacuum", fan: "--fp-dev-fan", car: "--fp-dev-car", speaker: "--fp-dev-speaker", radar: "--fp-dev-radar",
   siren: "--fp-danger", alarm: "--fp-danger", // no token of their own: the danger red every theme already has
 };
 
@@ -126,7 +126,8 @@ function isActive(d: Device, state: StateOverlay | undefined, opts: ActiveOpts):
   if (typeof d.entity !== "string" || !d.entity) return false;
   const rule = ACTIVE_LIST_RULE[d.type];
   const s = state?.[d.entity]?.state;
-  if (s === "unavailable" || s === "unknown") return false;
+  // A car is the exception: its tracker may be dead while its charging sensor is not, and `classOf` knows (review finding 5).
+  if ((s === "unavailable" || s === "unknown") && d.type !== "car") return false;
   if (rule === "never") return false;
   if (rule === "cleaning") return s === "cleaning";
   return classOf(d, { scale: 1, state, ...opts }) === "on";

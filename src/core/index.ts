@@ -25,6 +25,8 @@ export type { LayerId } from "./layers";
 export type { CategoryGroup, CategoryId } from "./categories";
 export { entitiesOfDevice, entitiesOfDoor, moreInfoEntities, playerOf } from "./attachments";
 export * from "./heights";
+export { CAR_SPEC, ROOF_INSET, WHEEL_LENGTH, WHEEL_WIDTH, carParts, carSpec, carTop } from "./car";
+export type { CarParts, CarPoly, CarSpec } from "./car";
 export { TRUNK_SIDE, treeShape } from "./tree";
 export type { TreeShape } from "./tree";
 export { HEAT_FROM, HEAT_TO, PLUG_ACTIVE_WATTS, findPowerSensor, heatRange, plugThreshold, powerHeat, wattsOf } from "./power";
@@ -41,6 +43,8 @@ export type { HaSceneRow, RoomSceneMenu, SceneCall, SceneHass } from "./room-sce
 export { ALL_OFF_SHARED, ALL_OFF_TITLE, ROOM_ROW_TAP, allOffTitle, deviceCentre, deviceInfo, filterToRoom, formatAge, formatChanged, relayText, floorSummary, lampOffEntities, roomAreaM2, roomSummary } from "./room-info";
 export type { InfoHass, InfoRow, RoomDeviceRow, RoomSensorRow, RoomSummary } from "./room-info";
 export { meanText, readingText, stateText } from "./state-text";
+export { carEntities, carMain, carStatus, carText } from "./car-status";
+export type { CarStatus } from "./car-status";
 export { HEAT_KINDS, HEAT_SCALE, HEAT_SOURCE, anyRoomHeated, heatKindOf, heatLegend, roomHeat } from "./heat";
 export type { HeatKind } from "./heat";
 export { meanValue } from "./readings";

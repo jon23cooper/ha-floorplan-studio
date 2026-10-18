@@ -61,6 +61,12 @@ TABLE.set("driver-on", solid("var(--fp-dev-speaker)"));
 TABLE.set("motion", solid("var(--fp-dev-motion)"));
 TABLE.set("motion-radar", solid("var(--fp-dev-radar)"));
 TABLE.set("lamp", solid("var(--fp-dev-light)"));
+// S35.5, the car (spec C7). Paint and charge follow the theme; the glass and the tyres are near-black in every theme (Diego, 2026-10-17: black glass, black tyres, never themed light).
+TABLE.set("car-body", solid(mix("--fp-furniture", 70, "--fp-bg"))); // the piece's own `color` replaces it
+TABLE.set("car-glass", solid("color-mix(in srgb, var(--fp-glass) 15%, black)"));
+TABLE.set("car-tyre", solid("color-mix(in srgb, var(--fp-bg) 8%, black)"));
+TABLE.set("car-trim", solid("color-mix(in srgb, var(--fp-ink) 25%, black)"));
+TABLE.set("car-charge", solid("var(--fp-dev-car, var(--fp-active))")); // --fp-dev-car is S35.4's token; --fp-active until it lands
 TABLE.set("backdrop", solid("var(--fp-bg)"));
 TABLE.set("ground", solid(mix("--fp-ink", 6, "--fp-bg"))); // S28.8: the plane under the house
 TABLE.set("shade", solid("var(--fp-shade)")); // S28.8: contact shadows; their strength is --fp-shade-alpha, read by the viewer

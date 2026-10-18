@@ -21,7 +21,7 @@ const WEARS_ON: Record<DeviceType, [state: string, attrs: Record<string, unknown
   computer: ["on", {}, true], person: ["home", {}, true], vacuum: ["cleaning", {}, true],
   switch: ["on", {}, true], temp: ["21", {}, false], humidity: ["50", {}, false], battery: ["on", {}, true], inverter: ["on", {}, true],
   server: ["on", {}, true], access_point: ["on", {}, true], lock: ["locked", {}, false], vibration: ["on", {}, true], other: ["on", {}, true],
-  boiler: ["on", {}, true], car: ["on", {}, true], ups: ["on", {}, true], printer: ["on", {}, true], radar: ["on", {}, true], camera: ["idle", {}, false],
+  boiler: ["on", {}, true], car: ["on", {}, false], /* S35.3: on only while charging; a plain entity is off. Was true. car-status.test.ts holds the charging cases. */ ups: ["on", {}, true], printer: ["on", {}, true], radar: ["on", {}, true], camera: ["idle", {}, false],
   siren: ["on", {}, true], alarm: ["armed_away", {}, true], // S18.14
   fan: ["on", {}, true], // S33.1: --fp-dev-fan
 };

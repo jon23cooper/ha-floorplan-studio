@@ -4454,7 +4454,7 @@ coder's note before accepting. The docs part of S35.8 may go to Haiku. Opus revi
 Wave 1, pure core, two lanes:
 
 Lane schema:
-- [ ] S35.1 Car keys in the schema (Sonnet). Spec C2. `CarModel`, `CAR_MODELS`, `MAX_CAR_ATTACHED` in
+- [x] S35.1 Car keys in the schema (Sonnet). Spec C2. `CarModel`, `CAR_MODELS`, `MAX_CAR_ATTACHED` in
       `src/core/schema.ts`; `Furniture` gains `model`, `color`, `attached`; `validate` reports each junk shape, car only;
       `migrate` keeps the good parts and drops the rest; `attachedEntities` counts a car's `attached`. Test, failing
       first, new `tests/core/car-schema.test.ts`: criterion 1, every junk case through `validate` (no throw, the piece
@@ -4462,7 +4462,7 @@ Lane schema:
       `attachedEntities` lists a car's attached. `npm run docs:schema`.
       Files: `src/core/schema.ts`, `src/core/migrate.ts`, `src/core/bind.ts`, new `tests/core/car-schema.test.ts`,
       `docs/schema.md`.
-- [ ] S35.2 Car models and shape (Sonnet, **judgement**: the profile numbers and the `truck` and `utility` reading, Q6,
+- [x] S35.2 Car models and shape (Sonnet, **judgement**: the profile numbers and the `truck` and `utility` reading, Q6,
       tuned by looking at the shots). After S35.1 (the union). Spec C3, C4. New `src/core/car.ts`: `CAR_SPEC` (footprint,
       height, profile), `carParts(model)` (unit-frame polygons: outline, rear glass, roof, windscreen, mirrors, bed,
       wheels, grille), `carTop(model)` (the 2D markup in the 100 x 100 symbol frame, paths built from the polygons).
@@ -4473,7 +4473,7 @@ Lane schema:
       moved tests.
 
 Lane status:
-- [ ] S35.3 Car status and the per-type decisions (Sonnet, **judgement**: the role rules at their edges). Spec C5. In
+- [x] S35.3 Car status and the per-type decisions (Sonnet, **judgement**: the role rules at their edges). Spec C5. In
       `src/core/car.ts` (own section; coordinate with S35.2 by committing it after S35.2's first commit, or in a
       separate `src/core/car-status.ts` if S35.2 is not merged yet): `carStatus(m, states)`, `carText`. `pieceDevice`
       reports a car piece with a main entity as `{ type: "car", entity, attached }`; `classOf` of a car is on while
@@ -4490,7 +4490,7 @@ Lane status:
 Wave 2, after wave 1. Three lanes; the card file takes one task at a time:
 
 Lane plan:
-- [ ] S35.4 The car in 2D and 2.5D (Sonnet, **judgement**: how each model and state reads, in every theme). After S35.2
+- [x] S35.4 The car in 2D and 2.5D (Sonnet, **judgement**: how each model and state reads, in every theme). After S35.2
       and S35.3. Spec C4, C5, C7. `renderFloor` draws `carTop` for a car piece, the body colour through
       `--fp-car-body`, the classes `away`, `charging`, `alert`, the away mark and bolt badge, the level value (hidden at
       far detail); 2.5D draws the body and cabin prisms. `--fp-dev-car` in light, midnight and solarized, `devFor` in
@@ -4505,7 +4505,7 @@ Lane plan:
       `demo/layout.v1.json`, `scripts/shots.mjs`, the two new tests, `shots/` baseline.
 
 Lane 3D:
-- [ ] S35.5 The car in 3D (Sonnet, **judgement**: the depth pre-pass and how the parts read at the 3D camera's angles).
+- [x] S35.5 The car in 3D (Sonnet, **judgement**: the depth pre-pass and how the parts read at the 3D camera's angles).
       After S35.2 and S35.3. Spec C4, C6, C7. `Shape` gains `loft`; `scene-build.ts` emits the car's parts for its model
       (index, entity, role on each); the viewer meshes a loft, builds a car's parts as piece bodies, and applies
       `Live3D.pieces[i]` `{ on, away, charging, alert }` (`live-build.ts`) in place: charging lights the greenhouse, alert
@@ -4519,14 +4519,14 @@ Lane 3D:
       `src/card/three/view3d.ts`, `src/card/three/overlay.ts`, `src/card/three/palette.ts`, the two new tests.
 
 Lane card and Studio:
-- [ ] S35.6 Tap, hold and kiosk for the car (Sonnet). After S35.3. Spec C8. In `bindDeviceActions`, a car piece: tap is
+- [x] S35.6 Tap, hold and kiosk for the car (Sonnet). After S35.3. Spec C8. In `bindDeviceActions`, a car piece: tap is
       more-info of the main entity, hold the chooser titled with the name and `carText`, rows main first then
       `attached`; kiosk taps on every linked piece do nothing. The chooser's title shows `carText`. Test, failing first,
       new `tests/card/card-car.spec.ts`: criteria 12 to 15 with real clicks and a real 600 ms hold, `hass-more-info`
       events recorded; criterion 13 fails on 0.32.0 (say so in the report); a `hass` update with the chooser open.
       Card size before and after.
       Files: `src/card/actions.ts`, `src/card/floorplan-studio-card.ts` (chooser title only), the new spec.
-- [ ] S35.7 The Studio's car panel (Sonnet, **judgement**: the order of the attached suggestions). After S35.1 and
+- [x] S35.7 The Studio's car panel (Sonnet, **judgement**: the order of the attached suggestions). After S35.1 and
       S35.2. Spec C9. The furniture panel's Car block: Model select with the `carTop` swatch, Colour (palette, input,
       Theme colour), main entity (trackers first), Attached with device-first suggestions and Add all from this car,
       Convert to car piece on a device or unlinked `car`. Tests, failing first: new `tests/editor/car-panel.test.ts`
@@ -4537,7 +4537,7 @@ Lane card and Studio:
       Files: `src/editor/panels.ts`, `src/editor/state.ts`, the two new tests.
 
 Wave 3, on `task/s35-car`:
-- [ ] S35.8 Exit, docs, shots, size (Sonnet; the docs part may go to Haiku). Every exit-test file green,
+- [x] S35.8 Exit, docs, shots, size (Sonnet; the docs part may go to Haiku). Every exit-test file green,
       `--repeat-each=10` on each new Playwright file. `size-budget.spec.ts`: `CARD_GROWTH_LIMIT` to the cap Diego gave
       (Q1), and the measured card and chunk sizes in DECISIONS. Docs: `docs/card.md` (What a device looks like: the car;
       Tap, hold and hover: the car piece row; Kiosk: linked pieces), `docs/editor.md` (the Car block, Convert),

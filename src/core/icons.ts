@@ -102,5 +102,5 @@ export const FURNITURE: Record<FurnitureSymbol, { w: number; h: number; svg: str
   tree: { w: 200, h: 200, svg: TREE_CROWN + '<circle class="tree-trunk" cx="50" cy="50" r="3"/>' },
   "patio-wood": { w: 300, h: 300, svg: r(2, 2, 96, 96, 0) + [20, 40, 60, 80].map((y) => `<path d="M2 ${y} H98" ${S} stroke-opacity=".5"/>`).join("") },
   "patio-concrete": { w: 300, h: 300, svg: r(2, 2, 96, 96, 0) + `<path d="M34 2 V98 M66 2 V98 M2 34 H98 M2 66 H98" ${S} stroke-opacity=".5"/>` },
-  car: { w: 450, h: 180, svg: r(2, 12, 96, 76, 18) + r(58, 20, 24, 60, 6) + r(18, 20, 24, 60, 6) },
+  car: { w: 470, h: 182, svg: r(2, 12, 96, 76, 18) + r(58, 20, 24, 60, 6) + r(18, 20, 24, 60, 6) },
 };

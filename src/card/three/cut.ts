@@ -74,7 +74,7 @@ export function lowerWalls(bodies: readonly WallBody[], cam: readonly [number, n
  * `null`: do not draw it. A point has no range and gives `null`.
  */
 export function wallZ(s: Solid, lowered: ReadonlySet<string>, low: number): [number, number] | null {
-  if (s.shape.type !== "prism") return null;
+  if (s.shape.type === "point") return null; // a loft (a car's greenhouse) is never a wall: it is drawn over its own z range
   const { z0, z1 } = s.shape;
   const key = s.kind === "wall" && s.ref.poly !== undefined ? `${s.ref.poly}:${s.ref.index}` : s.kind === "opening" ? s.ref.wall : undefined;
   if (key === undefined || !lowered.has(key)) return [z0, z1];

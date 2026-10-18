@@ -28,7 +28,7 @@ function pushEntityList(v: unknown, out: Set<string>): void {
 
 /**
  * S10.5: every entity attached to something else on the plan — a door's `sensors`/`vibration`/`locks`/`cover`, a
- * heater's `trvs`/`tempSensors`, an ac's `linked` climates, and an unlinked item's `attached` list. Each of these
+ * heater's `trvs`/`tempSensors`, an ac's `linked` climates, an unlinked item's `attached` list and a car's. Each of these
  * loses its own device icon the moment it is attached (`EditorState.attachEntity` pulls it off every floor), so an
  * attached entity must never be offered to place again while it stays attached: it is "in use", not "unplaced".
  *
@@ -73,6 +73,12 @@ export function attachedEntities(l: Layout): Set<string> {
       for (const u of (f as Floor).unlinked) {
         if (!u || typeof u !== "object") continue;
         pushEntityList((u as any).attached, out);
+      }
+    }
+    if (Array.isArray((f as Partial<Floor>).furniture)) {
+      for (const m of (f as Floor).furniture) {
+        if (!m || typeof m !== "object") continue;
+        pushEntityList((m as any).attached, out); // S35.1: a car's other entities
       }
     }
   }

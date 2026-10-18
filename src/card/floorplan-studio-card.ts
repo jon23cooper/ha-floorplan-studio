@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from "lit";
 import { planPatch } from "./plan-patch"; // S25.6: the plan is patched, not replaced, on a state update
-import { ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
+import { carStatus, carText, ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
 import type { HeatKind, LayerId, OffRow, SearchEntry } from "../core";
 import type { ActiveDevice, Attention, AttentionItem, AttentionKind, CategoryId, DeviceType, ThingRef, PowerCandidate, RoomDeviceRow, RoomSensorRow, RoomSummary, Theme, WallsMode } from "../core";
 import type { Device, Door, Floor, Layout, SavedView } from "../core";
@@ -564,7 +564,7 @@ export class FloorplanStudioCard extends LitElement {
    *  the object (a device or a non-cover door) names more than one entity — `entitiesOfDevice`/`entitiesOfDoor`,
    *  read by `bindDeviceActions`, decide that, not this file. Same "one dialog at a time, once-per-open/close
    *  focus move" rules as `_coverDialog`/`_vacuumDialog`. */
-  private _chooserDialog: { title: string; entities: string[] } | null = null;
+  private _chooserDialog: { title: string; entities: string[]; line?: () => string } | null = null;
   private _chooserDialogWasOpen = false;
   /** S24.8 (C2): "Turn off on this floor…": the floor, its title, the rows that were on when it opened (a snapshot: a row
    *  does not vanish under the finger while a light goes off elsewhere), and which rows are ticked. Same one-dialog rules. */
@@ -1724,7 +1724,7 @@ export class FloorplanStudioCard extends LitElement {
         ? bindDeviceActions(svg, this, (i) => this._floor()?.devices[i], (i) => this._floor()?.doors[i], {
             longPress: !this._kiosk(),
             openVacuumDialog: (d) => this._openVacuumDialog(d),
-            openChooser: (title, entities) => this._openChooserDialog(title, entities),
+            openChooser: (title, entities, line) => this._openChooserDialog(title, entities, line),
             openPopup: (t, at, from) => this._openPopup(t, at, from),
             getUnlinked: (i) => this._floor()?.unlinked[i],
             getPiece: (i) => this._floor()?.furniture?.[i],
@@ -1757,7 +1757,7 @@ export class FloorplanStudioCard extends LitElement {
         ? bindDeviceActions(panel, this, (i) => this._floor()?.devices[i], undefined, {
             longPress: !this._kiosk(),
             openVacuumDialog: (d) => this._openVacuumDialog(d),
-            openChooser: (title, entities) => this._openChooserDialog(title, entities),
+            openChooser: (title, entities, line) => this._openChooserDialog(title, entities, line),
             openPopup: (t, at, from) => this._openPopup(t, at, from),
           })
         : null;
@@ -1916,7 +1916,7 @@ export class FloorplanStudioCard extends LitElement {
     const unbindGestures = bindDeviceActions(host, this, (i) => this._floor()?.devices[i], (i) => this._floor()?.doors[i], {
       longPress: !this._kiosk(),
       openVacuumDialog: (d) => this._openVacuumDialog(d),
-      openChooser: (title, entities) => this._openChooserDialog(title, entities),
+      openChooser: (title, entities, line) => this._openChooserDialog(title, entities, line),
       openPopup: (t, at, from) => this._openPopup(t, at, from),
       getUnlinked: (i) => this._floor()?.unlinked[i],
       getPiece: (i) => this._floor()?.furniture?.[i],
@@ -2061,9 +2061,9 @@ export class FloorplanStudioCard extends LitElement {
    * this checks anyway rather than trusting that, so a future caller mistake shows an empty, if odd, dialog rather
    * than a crash.
    */
-  private _openChooserDialog(title: string, entities: string[]): void {
+  private _openChooserDialog(title: string, entities: string[], line?: () => string): void {
     if (this._dialogOpen()) return;
-    this._chooserDialog = { title, entities };
+    this._chooserDialog = { title, entities, ...(line ? { line } : {}) };
     this.requestUpdate();
   }
 
@@ -2124,8 +2124,10 @@ export class FloorplanStudioCard extends LitElement {
     // S22.1: a lamp lit only by its relay reads as the plan draws it, and names what keeps it on.
     const via = s.lamp ? relayText(s.lamp, states) : null;
     if (via) return via;
+    // A car speaks for all its entities (tracker, charging, battery), not the main one alone: the same line as its chooser title.
+    if (s.type === "car" && s.entity) { const line = carText(carStatus({ entity: s.entity, attached: s.entities }, states)); if (line) return line; }
     const w = s.powerEntity ? wattsOf(states?.[s.powerEntity]) : null;
-    return stateText(s.type, states?.[e], w === null ? undefined : `${Math.round(w * 10) / 10} W`);
+    return stateText(s.type, states?.[e], w === null ? undefined : `${Math.round(w * 10) / 10} W`, e);
   }
 
   /** S24.7 (F2): a tap on an Overview row goes to its thing; the popup opens beside the row. */
@@ -3147,7 +3149,7 @@ export class FloorplanStudioCard extends LitElement {
   private _activeRow(it: ActiveDevice): OverviewRow {
     const f = this._layout?.floors[it.floor];
     const d = it.at.what === "device" ? f?.devices[it.at.index] : it.at.what === "piece" ? (f?.furniture?.[it.at.index] && pieceDevice(f.furniture[it.at.index]!)) || undefined : undefined;
-    const state = d ? this._subjectText(this._deviceSubject(d)) : stateText(it.type, this._hass?.states?.[it.entity]);
+    const state = d ? this._subjectText(this._deviceSubject(d)) : stateText(it.type, this._hass?.states?.[it.entity], undefined, it.entity);
     return { entity: it.entity, name: it.name, floor: it.floor, at: it.at, ...(it.room ? { room: it.room } : {}), state, type: it.type, colorVar: it.colorVar, attn: false };
   }
 
@@ -4147,7 +4149,7 @@ export class FloorplanStudioCard extends LitElement {
     return html`
       <div class="fp-dialog-backdrop" @keydown=${this._onDialogKeydown} @click=${(e: Event) => { if (e.target === e.currentTarget) this._closeChooserDialog(); }}>
         <div class="fp-dialog fp-chooser-dialog" role="dialog" aria-modal="true" aria-labelledby="fp-chooser-dialog-title">
-          <p id="fp-chooser-dialog-title">${c.title}</p>
+          <p id="fp-chooser-dialog-title">${[c.title, c.line?.()].filter(Boolean).join(" · ")}</p>
           <div class="fp-chooser-list">
             ${c.entities.map((id) => html`<button type="button" @click=${() => this._pickChooserEntity(id)}><span class="name">${this._chooserEntityName(id)}</span><span class="state">${this._chooserEntityState(id)}</span></button>`)}
           </div>

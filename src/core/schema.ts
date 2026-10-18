@@ -112,10 +112,18 @@ export interface Extra { id: string; name: string; a: Pt; b: Pt }
  * `locked` (S26.1): the device does not move when dragged, alone or in a group; it can still be edited and deleted. Absent is false.
  */
 export type Device = { id: string; type: DeviceType; entity: string; name?: string; bound?: string; trvs?: string[]; tempSensors?: string[]; linked?: string[]; room?: string; targets?: { x: string; y: string }[]; rot?: number; motion?: string; power?: string; z?: number; fx?: number; locked?: boolean } & ({ x: number; y: number } | { a: Pt; b: Pt });
+/**
+ * S35.1: the car models, in the order the Studio lists them. `model`, `color` (`#rrggbb`) and `attached` (at most
+ * `MAX_CAR_ATTACHED` entity ids) exist on a furniture piece with symbol `car` only; `entity` is then the car's main
+ * entity (a tap opens it). An older card ignores the three keys.
+ */
+export type CarModel = "sedan" | "wagon" | "suv" | "offroad" | "truck" | "van" | "utility" | "citycar" | "electric";
+export const CAR_MODELS: readonly CarModel[] = ["sedan", "wagon", "suv", "offroad", "truck", "van", "utility", "citycar", "electric"];
+export const MAX_CAR_ATTACHED = 24;
 /** `name` is a plan name; `entity` is an HA entity whose state the piece shows. Both optional. `locked` (fixed):
  *  a right-click "Fix" on the plan stops it being dragged or resized until "Unfix"; panel edits still apply. `height` is the size of the piece, `z` its bottom above the floor
  *  (a wall TV, a speaker): the top is z + height. */
-export interface Furniture { id: string; symbol: FurnitureSymbol; x: number; y: number; rot: number; w: number; h: number; name?: string; entity?: string; locked?: boolean; height?: number; z?: number }
+export interface Furniture { id: string; symbol: FurnitureSymbol; x: number; y: number; rot: number; w: number; h: number; name?: string; entity?: string; locked?: boolean; height?: number; z?: number; model?: CarModel; color?: string; attached?: string[] }
 /**
  * S4.25: an appliance placed on the plan with a fixed icon (by `type`, from `UNLINKED_TYPES`), not tied to a
  * single entity's state. `attached` is zero or more HA entities linked to it for reference only — it never
@@ -169,6 +177,8 @@ export const TRACE_SRC = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]*={
 
 const isObj = (x: unknown): x is Record<string, any> => typeof x === "object" && x !== null && !Array.isArray(x);
 const isEntity = (x: unknown) => typeof x === "string" && x.includes(".");
+/** A strict Home Assistant entity id (`domain.object_id`, letters, digits and underscores). The car reads its entities with this one check in `validate`, `migrate` and `carEntities`, so none of them keeps an id the others ignore. */
+export const isEntityId = (x: unknown): x is string => typeof x === "string" && /^[a-z0-9_]+\.[a-z0-9_]+$/i.test(x);
 const isPt = (p: unknown) => Array.isArray(p) && p.length === 2 && p.every((n) => typeof n === "number" && Number.isFinite(n));
 
 /** cm. No coordinate of a plan lies further than this from the origin (100 km). Past it, a finite number such as 1.7e308 overflows the maths of the 3D camera and draws nothing (S12 review). */
@@ -317,11 +327,11 @@ export function validate(x: unknown): { ok: true; layout: Layout } | { ok: false
       else if (f.owk.some((k: unknown) => typeof k !== "string" || !EDGE_KINDS.includes(k as EdgeKind))) errors.push(`${at} owk entries must be one of ${EDGE_KINDS.join(", ")}`);
     }
     // `domains` (S11.1): when given, the id must also start with one of them; `max`: a count cap.
-    const entityList = (o: any, k: string, label: string, domains?: string[], max?: number) => {
+    const entityList = (o: any, k: string, label: string, domains?: string[], max?: number, strict = false) => {
       if (o[k] === undefined) return;
       if (!Array.isArray(o[k])) { errors.push(`${at} ${o.id} ${k} must be a list of entity ids`); return; }
       if (max !== undefined && o[k].length > max) { errors.push(`${at} ${o.id} ${k} holds at most ${max} entities, found ${o[k].length}; remove the extra ones`); return; }
-      o[k].forEach((v: unknown, i: number) => { if (!isEntity(v) || (domains && !domains.some((d) => (v as string).startsWith(`${d}.`)))) errors.push(`${at} ${o.id} ${k}[${i}] must be an entity id like ${label}`); });
+      o[k].forEach((v: unknown, i: number) => { if (!(strict ? isEntityId(v) : isEntity(v)) || (domains && !domains.some((d) => (v as string).startsWith(`${d}.`)))) errors.push(`${at} ${o.id} ${k}[${i}] must be an entity id like ${label}`); });
     };
     each("rooms", (r) => {
       poly(`${r.id} pts`, r.pts);
@@ -496,11 +506,19 @@ export function validate(x: unknown): { ok: true; layout: Layout } | { ok: false
       optHeight(m, "height");
       optHeight(m, "z");
       optText(m, "name");
-      if (m.entity !== undefined && !isEntity(m.entity)) errors.push(`${at} ${m.id} entity must be an entity id like sensor.name`);
+      if (m.entity !== undefined && !(m.symbol === "car" ? isEntityId(m.entity) : isEntity(m.entity))) errors.push(`${at} ${m.id} entity must be an entity id like sensor.name${m.symbol === "car" ? " (letters, digits and underscores, one dot)" : ""}`);
       for (const k of ["x", "y", "rot", "w", "h"]) if (typeof m[k] !== "number" || !Number.isFinite(m[k])) errors.push(`${at} ${m.id} ${k} must be a number`);
       // S1.51: a piece of furniture is never smaller than 5 cm or bigger than 2000 cm on a side.
       for (const k of ["w", "h"] as const) if (typeof m[k] === "number" && Number.isFinite(m[k]) && (m[k] < 5 || m[k] > 2000)) errors.push(`${at} ${m.id} ${k} must be between 5 and 2000`);
       if (m.locked !== undefined && typeof m.locked !== "boolean") errors.push(`${at} ${m.id} locked must be true or false`);
+      // S35.1: the car keys. `includes` on a list, so `__proto__` or `constructor` never match.
+      for (const k of ["model", "color", "attached"]) if (m[k] !== undefined && m.symbol !== "car") errors.push(`${at} ${m.id} ${k} is only allowed on a car`);
+      if (m.symbol === "car") {
+        if (m.model !== undefined && !CAR_MODELS.includes(m.model)) errors.push(`${at} ${m.id} model must be one of ${CAR_MODELS.join(", ")}; leave it out for a sedan`);
+        if (m.color !== undefined && !(typeof m.color === "string" && /^#[0-9a-fA-F]{6}$/.test(m.color))) errors.push(`${at} ${m.id} color must be a colour like #aabbcc`);
+        entityList(m, "attached", "sensor.name", undefined, MAX_CAR_ATTACHED, true);
+        if (Array.isArray(m.attached) && new Set(m.attached).size !== m.attached.length) errors.push(`${at} ${m.id} attached lists an entity twice; remove the repeat`);
+      }
     });
     each("unlinked", (u) => {
       oneOf(`${u.id} type`, u.type, DEVICE_TYPES);

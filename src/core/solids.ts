@@ -8,6 +8,8 @@ import { treeShadeSvg, treeShape } from "./tree";
 import { edgeKindAt, nearestEdge, stairSteps } from "./geometry";
 import { doorStateOf, type DoorState } from "./door-state";
 import type { StateOverlay } from "./render";
+import { carMain, type CarDevice, type CarLike } from "./car-status";
+import { carParts, carSpec, carTop, type CarLook, type CarPoly } from "./car";
 import type { Device, DeviceType, DoorKind, Floor, Furniture, FurnitureSymbol, Pt, StairDirection, Stairs, Unlinked } from "./schema";
 
 /** A device mount at or above this height gets a stem up from its icon (a ceiling light yes, a plug no). */
@@ -424,6 +426,11 @@ export function furnitureLinked(m: Furniture): string {
  * 2026-10-07). Null for any other piece. Built fresh each time, never stored, so the layout file is unchanged.
  */
 export function pieceDevice(m: Furniture): Device | null {
+  // S35.3: a car piece speaks for its car: the main entity (`entity`, else the first attached) and the attached ones.
+  if (m?.symbol === "car") {
+    const main = carMain(m);
+    return main ? ({ id: m.id, type: "car", entity: main, attached: (Array.isArray((m as CarLike).attached) ? ((m as CarLike).attached as unknown[]) : []).filter((e: unknown): e is string => typeof e === "string"), ...(m.name ? { name: m.name } : {}), x: m.x, y: m.y } as CarDevice) : null;
+  }
   if (typeof m?.entity !== "string" || !m.entity || (m.symbol !== "tv" && m.symbol !== "speaker" && m.symbol !== "computer")) return null;
   return { id: m.id, type: m.symbol, entity: m.entity, ...(m.name ? { name: m.name } : {}), x: m.x, y: m.y };
 }
@@ -432,7 +439,7 @@ export function pieceDevice(m: Furniture): Device | null {
  * One piece of furniture as a block (or a trunk), its symbol drawn at the top. `symbol` is the symbol's own markup, and
  * the group wraps all of it, so a tap anywhere on the piece still reaches `data-f`.
  */
-export function furnitureSolid(m: Furniture, i: number, mode: "box" | "pole", on: boolean, symbol: string, px: Proj, waves?: string | null): Solid | null {
+export function furnitureSolid(m: Furniture, i: number, mode: "box" | "pole", on: boolean, symbol: string, px: Proj, waves?: string | null, car?: CarLook | null): Solid | null {
   const z0 = furnitureBottom(m), h = furnitureTop(m), c: Pt = [m.x, m.y];
   const base = ([[-m.w / 2, -m.h / 2], [m.w / 2, -m.h / 2], [m.w / 2, m.h / 2], [-m.w / 2, m.h / 2]] as Pt[]).map((q) => turnAbout([m.x + q[0], m.y + q[1]], m.rot, c));
   // S28.4: a tree stands. Its shade patch lies at the foot, a 12 cm trunk rises to `trunkTop` and the crown (no trunk dot: the
@@ -440,15 +447,25 @@ export function furnitureSolid(m: Furniture, i: number, mode: "box" | "pole", on
   const tree = mode === "pole" && m.symbol === "tree" ? treeShape(m) : null;
   const top = px.lift(c, tree ? tree.crownMiddle : h);
   let body: string;
-  if (mode === "box") { const p = prism(base, h, px, z0); if (!p) return null; body = p; }
+  // S35.4: a car is two blocks, the body up to its belt with the top view on that lid, and the cabin (glass sides, the roof as its lid) on it.
+  let belt = h, cabin = "";
+  if (mode === "box" && car) {
+    const parts = carParts(m.model), at = (poly: CarPoly) => poly.map(([x, y]) => turnAbout([m.x + x * m.w, m.y + y * m.h], m.rot, c));
+    belt = z0 + carSpec(m.model).belt * (h - z0);
+    const lower = prism(at(parts.outline), belt, px, z0), upper = prism(at(parts.roof), h, px, belt);
+    if (!lower || !upper) return null;
+    body = lower; cabin = `<g class="car-cabin">${upper}</g>`;
+  } else if (mode === "box") { const p = prism(base, h, px, z0); if (!p) return null; body = p; }
   else {
     const end = tree ? px.lift(c, tree.trunkTop) : top;
     body = (tree ? treeShadeSvg(m) : "") + `<line class="trunk" x1="${num(c[0])}" y1="${num(c[1])}" x2="${num(end[0])}" y2="${num(end[1])}"/>`;
   }
-  const sym = `<g transform="translate(${num(top[0])} ${num(top[1])}) rotate(${num(m.rot)}) scale(${num(m.w / 100)} ${num(m.h / 100)}) translate(-50 -50)">${tree ? TREE_CROWN : symbol}</g>`;
+  const lid = car ? px.lift(c, belt) : top;
+  const sym = `<g transform="translate(${num(lid[0])} ${num(lid[1])}) rotate(${num(m.rot)}) scale(${num(m.w / 100)} ${num(m.h / 100)}) translate(-50 -50)">${tree ? TREE_CROWN : car ? carTop(m.model) : symbol}</g>`;
   // S18.9: a playing tv or speaker sends its waves from the lid, outside the scaled symbol group so they stay round.
-  const w = waves ? waves.replace("%AT%", `${num(top[0])} ${num(top[1])}`) : "";
-  return { key: nearest(px, base), svg: `<g data-f="${i}" class="furn${on ? " on" : ""}" color="var(--fp-furniture)"${furnitureLinked(m)}>${body}${sym}${w}</g>`, ...(mode === "box" && z0 < SHADE_MAX_LIFT ? { foot: base } : {}) };
+  // A car's marks sit after its group, as in 2D: inside it an away car's dot would fade with the car.
+  const w = (car ? car.marks : waves)?.replace("%AT%", `${num(top[0])} ${num(top[1])}`) ?? "";
+  return { key: nearest(px, base), svg: `<g data-f="${i}" class="furn${on ? " on" : ""}${car?.cls ?? ""}" color="var(--fp-furniture)"${furnitureLinked(m)}${car?.style ?? ""}>${body}${sym}${cabin}${car ? "" : w}</g>${car ? w : ""}`, ...(mode === "box" && z0 < SHADE_MAX_LIFT ? { foot: base } : {}) };
 }
 
 /** cm across the block under an unlinked appliance, times its own scale: a small thing, the icon says what it is. */

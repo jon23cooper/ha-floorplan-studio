@@ -1,9 +1,11 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { live } from "./live-keep";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { repeat } from "lit/directives/repeat.js";
-import { DEVICE_TYPE_LABELS, DEFAULT_FLOOR_HEIGHT, drawsEffect, FX_MAX, FX_MIN, DEFAULT_SLAB, DEVICE_Z, FURNITURE_HEIGHTS, FURNITURE_Z, UNLINKED_BASE, furnitureHeight, unlinkedHeight, MAX_HEIGHT, ROOM_OWNS, UNLINKED_HEIGHTS, wallHeight, doorCeiling, doorSpan, entitiesForType, groupKind, inside, mainEntitiesByDevice, placedEntities, roomHaBox, typeForEntity, UI_ICONS } from "../core";
+import { DEVICE_TYPE_LABELS, DEFAULT_FLOOR_HEIGHT, drawsEffect, FX_MAX, FX_MIN, DEFAULT_SLAB, DEVICE_Z, FURNITURE_HEIGHTS, FURNITURE_Z, UNLINKED_BASE, furnitureHeight, carSpec, carTop, unlinkedHeight, MAX_HEIGHT, ROOM_OWNS, UNLINKED_HEIGHTS, wallHeight, doorCeiling, doorSpan, entitiesForType, groupKind, inside, mainEntitiesByDevice, placedEntities, roomHaBox, typeForEntity, UI_ICONS } from "../core";
 import { STAIR_DIRECTIONS, STAIR_DIRECTION_LABELS, areaChoices, floorsAroundKey, resolveStairDirection } from "../core";
 import { DOOR_KINDS, FLOOR_COLOURS, TEXTURES, FURNITURE_SYMBOLS, ROOM_KINDS, STAIR_SHAPES, WALL_KINDS, EDGE_KINDS, dist, edgeRooms, deleteEdge, onEdge, insertPoint, removePoint, rotatePoly, setEdgeKind, snapped, stairSteps } from "../core";
+import { CAR_MODELS, MAX_CAR_ATTACHED } from "../core/schema";
 import type { CatalogEntry, DeviceType, Door, EdgeKind, Floor, StairDirection, HaBoxRow, HaData, Room, RoomKind, WallKind } from "../core";
 import { bindLights, lockDevices, removeDevices } from "./bulk";
 import { setRoomList, type RoomSensorField, movePointAll, openingToWall, resizeSegment, roundStairs, rotateSegment, setSecondEnd, stairsAt, wallToOpening } from "./ops";
@@ -14,6 +16,7 @@ import manifest from "../../custom_components/floorplan_studio/manifest.json";
 import "./combo";
 import type { ComboOption } from "./combo";
 import { groupSensorChoices, type GroupedChoice } from "./sensor-order";
+import { CAR_LABELS } from "./car-ops";
 
 /** Selection panels: one function per kind of selection, all pure views over the state. */
 
@@ -60,6 +63,8 @@ export interface PanelCtx {
   select(s: Sel): void;
   /** Paints a room, zone or staircase (colour, texture or default): one undo step; a new custom colour joins `layout.palette`. */
   paint(on: "rooms" | "stairs", i: number, paint: { color: string } | { texture: string } | null): void;
+  /** S35.7: after a car writer on `EditorState` (`setCarModel`, `paintCar`, `convertToCar`) returned `ok`: autosave and tell the host if it changed, else just redraw. Set by the editor host. */
+  edited?: (ok: boolean) => void;
   /** S4.22: the paint panel's texture-rotation slider. `live` previews every tick, no undo step; `commit`, once at
    * release, records the whole drag as one step (none if it ended back where it started). */
   rotateTexture(on: "rooms" | "stairs", i: number, rot: number, phase: "live" | "commit"): void;
@@ -99,7 +104,7 @@ export interface PanelCtx {
   say(msg: string): void;
   /** S10.2: attaches `entity` via `apply` and pulls its device icon off every floor, one undo step; `label` names
    *  the door/device/item it was attached to, for the status line, and `keepDeviceId` spares that device's own icon. */
-  attachEntity(entity: string, apply: (f: Floor) => void, label: string, keepDeviceId?: string): void;
+  attachEntity(entity: string | string[], apply: (f: Floor) => void, label: string, keepDeviceId?: string): void;
   /** S11.2: "Attach to room" for the device at `devIndex`: its entity joins the room's list and the icon goes, one undo step, status line told. */
   attachToRoom(devIndex: number): void;
   /** Redraw without an edit. */
@@ -259,7 +264,7 @@ const NOT_IN_HA = "Not in Home Assistant. Pick another, or leave it.";
 /** The id the layout holds but HA does not know: kept as the selected option, never cleared. */
 const missingOpt = (id: string) => html`<option value=${id} selected>${id} (not in Home Assistant)</option>`;
 /** A select of "(none)" plus every HA entity, grouped by domain; without HA data, a text field that takes an entity id or nothing. */
-function entityField(c: PanelCtx, id: string, label: string, cur: string | undefined, none: string, on: (v: string | undefined) => void) {
+function entityField(c: PanelCtx, id: string, label: string, cur: string | undefined, none: string, on: (v: string | undefined) => void, firstDomain?: string) {
   const ha = c.st.ha;
   if (!ha) {
     return text(label, id, cur ?? "", (v) => {
@@ -270,7 +275,9 @@ function entityField(c: PanelCtx, id: string, label: string, cur: string | undef
     });
   }
   const unknown = !!cur && !ha.entities.some((e) => e.id === cur);
-  const options: ComboOption[] = byName(ha.entities).map((e) => ({ value: e.id, label: e.name, group: e.domain }));
+  // `firstDomain` (a car's tracker) lists that domain's group before the rest.
+  const sorted = byName(ha.entities);
+  const options: ComboOption[] = (firstDomain ? [...sorted.filter((e) => e.domain === firstDomain), ...sorted.filter((e) => e.domain !== firstDomain)] : sorted).map((e) => ({ value: e.id, label: e.name, group: e.domain }));
   if (unknown) options.push({ value: cur!, label: `${cur} (not in Home Assistant)` });
   return html`<label for=${id}>${label}</label>${combo(id, label, cur ?? "", options, (v) => on(v || undefined), none)}
     ${unknown ? hint(NOT_IN_HA) : nothing}`;
@@ -950,6 +957,7 @@ function devicePanel(c: PanelCtx, i: number) {
     ${c.makeLight && c.st.canMakeLight(i) ? html`<p>${button("vmklight", "Create a light from this switch", () => c.makeLight!(i))}</p>${hint("Wraps this switch in a new HA light entity.")}` : nothing}
     ${c.controlsAutomation && d.type === "switch" ? controlsField(c, i) : nothing}
     ${c.scheduleAutomation && SCHEDULABLE.includes(d.type) ? scheduleField(c, i) : nothing}
+    ${d.type === "car" ? convertCarButton(c, "dev", i) : nothing}
     ${heading("Danger")}
     <p>${button("vdel", "Remove from plan", () => { c.commit((f) => { f.devices.splice(i, 1); }); c.select(null); }, "warn")}</p>`;
 }
@@ -1195,20 +1203,26 @@ function acField(c: PanelCtx, i: number) {
 
 function furniturePanel(c: PanelCtx, i: number) {
   const m = c.st.f.furniture[i];
+  const isCar = m.symbol === "car";
   // S1.51: width and depth are clamped to the same 5..2000 cm bounds the corner drag and validate() hold.
   const setSize = (k: "w" | "h") => (n: number) => c.commit((f) => { f.furniture[i][k] = Math.min(2000, Math.max(5, n)); });
+  // `model`, `color` and `attached` belong to a car only (validate says so): leaving "car" takes them along.
+  const setSymbol = (v: string) => c.commit((f) => { const p = f.furniture[i]; p.symbol = v as typeof m.symbol; if (v !== "car") { delete p.model; delete p.color; delete p.attached; } });
   return html`<strong>Furniture</strong>
     ${hint("Drag it to move it.")}
     ${heading("Identity")}
     ${text("plan name", "fun", m.name ?? "", (v) => c.commit((f) => { setOrDelete(f.furniture[i], "name", v.trim()); }))}
-    ${select("symbol", "fs", m.symbol, FURNITURE_SYMBOLS, (v) => c.commit((f) => { f.furniture[i].symbol = v as typeof m.symbol; }))}
+    ${select("symbol", "fs", m.symbol, FURNITURE_SYMBOLS, setSymbol)}
+    ${isCar ? carModelAndColour(c, i) : nothing}
     ${heading("Home Assistant")}
-    ${entityField(c, "fuent", "shows the state of", m.entity, "(none)", (v) => c.commit((f) => { setOrDelete(f.furniture[i], "entity", v); }))}
+    ${isCar ? html`${entityField(c, "fuent", "main entity (a tap opens it)", m.entity, "(none)", (v) => c.commit((f) => { setOrDelete(f.furniture[i], "entity", v); }), "device_tracker")}
+      ${carAttached(c, i)}`
+      : entityField(c, "fuent", "shows the state of", m.entity, "(none)", (v) => c.commit((f) => { setOrDelete(f.furniture[i], "entity", v); }))}
     ${heading("Appearance")}
     ${lockBox(c, "fulock", "furniture", i)}
     ${number(c, "width (cm)", "fw", m.w, setSize("w"))}
     ${number(c, "depth (cm)", "fh", m.h, setSize("h"))}
-    ${heightField(c, "height (cm)", "fuht", m.height, FURNITURE_HEIGHTS[m.symbol] ?? 100, heightSetter(c, "furniture", i, "height"))}
+    ${heightField(c, "height (cm)", "fuht", m.height, isCar ? carSpec(m.model).height : FURNITURE_HEIGHTS[m.symbol] ?? 100, heightSetter(c, "furniture", i, "height"))}
     ${heightField(c, "bottom (cm)", "fuz", m.z, FURNITURE_Z[m.symbol] ?? 0, heightSetter(c, "furniture", i, "z"))}
     <p class="hint" id="fusize">H ${Math.round(furnitureHeight(m))} × W ${Math.round(m.w)} × L ${Math.round(m.h)} cm</p>
     ${rotationSlider(c, "frot", "furniture", i, m.rot)}
@@ -1216,6 +1230,45 @@ function furniturePanel(c: PanelCtx, i: number) {
     ${heading("Danger")}
     <p>${button("fudel", "Delete", () => { c.commit((f) => { f.furniture.splice(i, 1); }); c.select(null); }, "warn")}</p>`;
 }
+
+/**
+ * S35.7 (spec C9): a car's model, with its top-view swatch (the same `carTop` the plan draws), and its body colour: the palette,
+ * a colour input, and Theme colour. Both write through `EditorState`, so each pick is one undo step and a new colour joins the palette.
+ */
+const edited = (c: PanelCtx, ok: boolean) => (c.edited ? c.edited(ok) : c.refresh());
+function carModelAndColour(c: PanelCtx, i: number) {
+  const m = c.st.f.furniture[i];
+  const model = (CAR_MODELS as readonly string[]).includes(m.model as string) ? m.model! : "sedan";
+  const cur = (m.color ?? "").toLowerCase(), custom = c.st.layout.palette ?? [];
+  const pick = (hex: string | null) => edited(c, c.st.paintCar(i, hex));
+  const swatch = (hex: string, name: string, extra = "") => html`<button class=${`sw${extra}`} type="button" title=${name} aria-label=${name} aria-pressed=${String(cur === hex)} style="background:${hex}" @click=${() => pick(hex)}></button>`;
+  const body = /^#[0-9a-f]{6}$/.test(cur) ? `--car-body:${cur}` : "";
+  return html`${heading("Car")}
+    <div class="car-model">
+      ${select("model", "fcm", model, CAR_MODELS, (v) => edited(c, c.st.setCarModel(i, v)), CAR_LABELS)}
+      <svg class="car-sw" id="fcsw" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label=${`${CAR_LABELS[model as keyof typeof CAR_LABELS]}, seen from above`} style=${`aspect-ratio:${carSpec(model).w}/${carSpec(model).h};${body}`}>${unsafeSVG(carTop(model as never))}</svg>
+    </div>
+    <label for="fccol">colour</label><input id="fccol" type="color" .value=${live(cur || "#8b8578")} @change=${(e: Event) => pick(val(e))}>
+    <div class="swatches" role="group" aria-label="Car colours">${FLOOR_COLOURS.map((k) => swatch(k.hex, k.name))}${custom.map((hex) => swatch(hex, `Custom ${hex}`, " custom"))}</div>
+    <p>${button("fccx", "Theme colour", () => pick(null))}</p>`;
+}
+
+/** S35.7: a car's attached entities (device-first suggestions, at most 24) and "Add all from this car" when its device has more. */
+function carAttached(c: PanelCtx, i: number) {
+  const m = c.st.f.furniture[i];
+  const mutate = (f: Floor, next: string[]) => { if (next.length) f.furniture[i].attached = next; else delete f.furniture[i].attached; };
+  const cur = m.attached ?? [];
+  const more = c.st.carDeviceEntities(i);
+  const full = cur.length >= MAX_CAR_ATTACHED;
+  return html`${multiAttachField(c, "fuattach", "attached", cur, c.st.carAttachChoices(i).map((g) => g.entry), (next) => c.commit((f) => mutate(f, next)),
+      { apply: mutate, targetLabel: m.name ?? "the car" }, { grouped: () => c.st.carAttachChoices(i) })}
+    ${full ? hint(`A car holds ${MAX_CAR_ATTACHED} entities.`) : nothing}
+    ${more.length ? html`<p>${button("fuall", `Add all from this car (${more.length})`, () => c.attachEntity(more, (f) => mutate(f, [...(f.furniture[i].attached ?? []), ...more]), m.name ?? "the car"))}</p>` : nothing}`;
+}
+
+/** S35.7: offered on a device or unlinked appliance of type car; one undo step makes it a car piece, selected. */
+const convertCarButton = (c: PanelCtx, on: "dev" | "unl", i: number) =>
+  html`<p>${button("fuconv", "Convert to car piece", () => edited(c, c.st.convertToCar(on, i)), "", "Replaces this icon with a car piece you can size, turn and pick a model for")}</p>`;
 
 /**
  * S4.25: an unlinked appliance — a fixed icon by type (not a swappable furniture symbol), scaled, coloured and
@@ -1244,6 +1297,7 @@ function unlinkedPanel(c: PanelCtx, i: number) {
     <p class="hint" id="uusize">H ${Math.round(unlinkedHeight(u))} × W ${Math.round(UNLINKED_BASE * u.scale)} × L ${Math.round(UNLINKED_BASE * u.scale)} cm</p>
     ${rotationSlider(c, "uurot", "unlinked", i, u.rot)}
     ${rotateButtons(c, "uurot", (n) => c.commit((f) => { f.unlinked[i].rot = ((u.rot + n) % 360 + 360) % 360; }), { reset: () => { if (u.rot) c.commit((f) => { f.unlinked[i].rot = 0; }); } })}
+    ${u.type === "car" ? convertCarButton(c, "unl", i) : nothing}
     ${heading("Danger")}
     <p>${button("uudel", "Delete", () => { c.commit((f) => { f.unlinked.splice(i, 1); }); c.select(null); }, "warn")}</p>`;
 }

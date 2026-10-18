@@ -7,7 +7,7 @@ import { popupOp } from "../../src/card/popup";
 // S19.E4 fixed `temp`; humidity, motion, contact and vibration had the same flaw: set to a switchable entity they offered "Turn off".
 const TOGGLES: Record<string, string> = {
   light: "a lamp is flipped by hand", switch: "on/off", plug: "on/off", heater: "climate or switch, on/off", climate: "on/off", ac: "on/off",
-  tv: "power", computer: "power", boiler: "on/off", car: "a charger switch", ups: "on/off", printer: "power", other: "no type to rule it out; the domain decides",
+  tv: "power", computer: "power", boiler: "on/off", ups: "on/off", printer: "power", other: "no type to rule it out; the domain decides",
   lock: "lock/unlock", cover: "open/close", fan: "a person switches a fan (S33.1)", siren: "a real turn_on/turn_off (S18.14)",
 };
 

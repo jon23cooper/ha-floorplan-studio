@@ -73,6 +73,34 @@ function prismHit(r: Ray, base: readonly number[][], z0: number, z1: number): nu
   return best < Infinity ? best : null;
 }
 
+/** The nearest `t > 0` at which the ray meets the triangle a, b, c (Moller-Trumbore, both faces), or `null`. */
+function triHit(r: Ray, a: V3, b: V3, c: V3): number | null {
+  const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]], d = r.d;
+  const p = [d[1] * e2[2] - d[2] * e2[1], d[2] * e2[0] - d[0] * e2[2], d[0] * e2[1] - d[1] * e2[0]], det = e1[0] * p[0] + e1[1] * p[1] + e1[2] * p[2];
+  if (Math.abs(det) < 1e-12) return null;
+  const s = [r.o[0] - a[0], r.o[1] - a[1], r.o[2] - a[2]], u = (s[0] * p[0] + s[1] * p[1] + s[2] * p[2]) / det;
+  if (u < 0 || u > 1) return null;
+  const q = [s[1] * e1[2] - s[2] * e1[1], s[2] * e1[0] - s[0] * e1[2], s[0] * e1[1] - s[1] * e1[0]], v = (d[0] * q[0] + d[1] * q[1] + d[2] * q[2]) / det;
+  if (v < 0 || u + v > 1) return null;
+  const t = (e2[0] * q[0] + e2[1] * q[1] + e2[2] * q[2]) / det;
+  return t > 1e-9 ? t : null;
+}
+
+/** The nearest `t > 0` at which the ray meets the loft from the ring `base` at `z0` to the ring `top` at `z1` (S35.5), or `null`: both lids by point-in-polygon, each side as two triangles. */
+function loftHit(r: Ray, base: readonly number[][], top: readonly number[][], z0: number, z1: number): number | null {
+  let best = Infinity;
+  const [ox, oy, oz] = r.o, [dx, dy, dz] = r.d;
+  if (dz !== 0) for (const [z, ring] of [[z1, top], [z0, base]] as const) {
+    const t = (z - oz) / dz;
+    if (t > 1e-9 && t < best && contains(ring, ox + dx * t, oy + dy * t)) best = t;
+  }
+  for (let i = 0; i < base.length; i++) {
+    const j = (i + 1) % base.length, a: V3 = [base[i][0], base[i][1], z0], b: V3 = [base[j][0], base[j][1], z0], c: V3 = [top[j][0], top[j][1], z1], e: V3 = [top[i][0], top[i][1], z1];
+    for (const t of [triHit(r, a, b, c), triHit(r, a, c, e)]) if (t !== null && t < best) best = t;
+  }
+  return best < Infinity ? best : null;
+}
+
 /** The nearest `t > 0` at which the ray meets the ball, or `null`. `d` is a unit vector. */
 function ballHit(r: Ray, c: V3, rad: number): number | null {
   const mx = r.o[0] - c[0], my = r.o[1] - c[1], mz = r.o[2] - c[2];
@@ -103,8 +131,9 @@ export class Picker {
         this.items.push({ s, lo: [sh.at[0] - PROXY_R, sh.at[1] - PROXY_R, sh.z - PROXY_R], hi: [sh.at[0] + PROXY_R, sh.at[1] + PROXY_R, sh.z + PROXY_R] });
         continue;
       }
-      if (sh.type !== "prism" || !Array.isArray(sh.base) || sh.base.length < 3 || !sh.base.every((p: unknown[]) => Array.isArray(p) && fin(p[0]) && fin(p[1])) || !fin(sh.z0) || !fin(sh.z1)) continue;
-      const xs = sh.base.map((p: number[]) => p[0]), ys = sh.base.map((p: number[]) => p[1]);
+      if ((sh.type !== "prism" && sh.type !== "loft") || !Array.isArray(sh.base) || sh.base.length < 3 || !sh.base.every((p: unknown[]) => Array.isArray(p) && fin(p[0]) && fin(p[1])) || !fin(sh.z0) || !fin(sh.z1)) continue;
+      if (sh.type === "loft" && (!Array.isArray(sh.top) || sh.top.length !== sh.base.length || !sh.top.every((p: unknown[]) => Array.isArray(p) && fin(p[0]) && fin(p[1])))) continue;
+      const ring = sh.type === "loft" ? [...sh.base, ...sh.top] : sh.base, xs = ring.map((p: number[]) => p[0]), ys = ring.map((p: number[]) => p[1]);
       const item: Item = { s, lo: [Math.min(...xs), Math.min(...ys), Math.min(sh.z0, sh.z1)], hi: [Math.max(...xs), Math.max(...ys), Math.max(sh.z0, sh.z1)] };
       this.items.push(item);
       if (BLOCKS(s)) this.shade.push(item);
@@ -156,6 +185,10 @@ export class Picker {
         if (!z || !(z[1] > z[0])) continue;
         const lo: V3 = [it.lo[0], it.lo[1], z[0]], hi: V3 = [it.hi[0], it.hi[1], z[1]];
         if (boxHit(r, lo, hi, bestT)) t = prismHit(r, sh.base, z[0], z[1]);
+      } else if (sh.type === "loft") {
+        const z = zOf(it.s);
+        if (!z || !(z[1] > z[0])) continue;
+        if (boxHit(r, [it.lo[0], it.lo[1], z[0]], [it.hi[0], it.hi[1], z[1]], bestT)) t = loftHit(r, sh.base, sh.top, z[0], z[1]);
       }
       if (t !== null && t < bestT) { bestT = t; bestItem = it; }
     }

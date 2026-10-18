@@ -11,8 +11,8 @@ import type { Device, Floor, Furniture, Pt } from "./schema";
 // Like scene-build.ts, this file imports nothing from core at run time: the 3D chunk holds it and the card hands it the 2D
 // plan's own helpers (`LiveDeps`, core/three-deps.ts), so there is one copy of them in the page.
 type Render = typeof import("./render");
-export type LiveDeps = Pick<Render, "acMode" | "attachedTest" | "deviceMarkup" | "lightFill" | "lightOpacity" | "MOTION_PULSE_S" | "MOTION_PULSES" | "motionRooms" | "personRoom" | "pieceOn" | "polyCentre" | "roomAt" | "roomReadout" | "ROOM_OWNS">
-  & Pick<typeof import("./solids"), "pieceDevice"> & Pick<typeof import("./door-state"), "doorStateOf"> & Pick<typeof import("./schema"), "fxScale">;
+export type LiveDeps = Pick<Render, "acMode" | "attachedTest" | "classOf" | "deviceMarkup" | "lightFill" | "lightOpacity" | "MOTION_PULSE_S" | "MOTION_PULSES" | "motionRooms" | "personRoom" | "pieceOn" | "polyCentre" | "roomAt" | "roomReadout" | "ROOM_OWNS">
+  & Pick<typeof import("./solids"), "pieceDevice"> & Pick<typeof import("./car-status"), "carStatus"> & Pick<typeof import("./door-state"), "doorStateOf"> & Pick<typeof import("./schema"), "fxScale">;
 
 export interface LiveLight { device: number; room: number; at: Pt; /** The lamp's own CSS colour, or null for the theme's light colour. */ rgb: string | null; /** 0..1 */ level: number; /** S14.3: the lamp's effect size as a fraction; absent at 100 %, so a layout that never sets it gives the same JSON as before. */ scale?: number }
 export interface LiveDevice {
@@ -33,8 +33,11 @@ export interface LiveDevice {
   /** A person's room sensor names a room: the centre of that room, else absent (the device's own point). */
   at?: Pt;
 }
-/** A linked furniture piece: `on` by the rule of the device of its type (`pieceOn`). */
-export interface LivePiece { on: boolean }
+/**
+ * A linked furniture piece: `on` by the rule of the device of its type (`pieceOn`). A car piece (S35.5) adds what its entities say
+ * (`carStatus`): away from its tracker, charging, an alert (an unlocked lock, an open door), and the level in whole percent or null.
+ */
+export interface LivePiece { on: boolean; away?: boolean; charging?: boolean; alert?: boolean; level?: number | null; /** The main entity is dead and nothing else keeps the car "on": the plan's gone mark. */ gone?: boolean }
 export interface LiveRoom { name: string; at: Pt; readout: string; motion: { radar: boolean; on: boolean; v: number; pulseAge: number | null } | null }
 export interface Live3D {
   night: boolean; labels: boolean; names: boolean;
@@ -51,7 +54,7 @@ export interface Live3D {
 
 /** `liveOf`, bound to the 2D plan's helpers. The 3D chunk builds one per view; `core/live.ts` binds the real ones for the tests. */
 export function makeLiveOf(d: LiveDeps): (floor: Floor, o: RenderOpts, now: number) => Live3D {
-  const { acMode, attachedTest, deviceMarkup, lightFill, lightOpacity, MOTION_PULSE_S, MOTION_PULSES, motionRooms, personRoom, pieceDevice, pieceOn, polyCentre, roomAt, roomReadout, ROOM_OWNS, doorStateOf, fxScale } = d;
+  const { acMode, attachedTest, classOf, deviceMarkup, lightFill, lightOpacity, MOTION_PULSE_S, MOTION_PULSES, motionRooms, personRoom, pieceDevice, pieceOn, polyCentre, roomAt, roomReadout, ROOM_OWNS, doorStateOf, fxScale, carStatus } = d;
   const isPt = (p: unknown): p is Pt => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]);
   const ringOf = (r: { pts?: unknown } | null | undefined): Pt[] | null => (r && Array.isArray(r.pts) && r.pts.length >= 3 && r.pts.every(isPt) ? (r.pts as Pt[]) : null);
   const list = <T>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
@@ -90,7 +93,14 @@ export function makeLiveOf(d: LiveDeps): (floor: Floor, o: RenderOpts, now: numb
     // Same plug rule as the 2D plan (`renderFloor`): a plug's switch keeps the plug's own reading.
     const plugs = new Map(devices.filter((d) => typeof d === "object" && d !== null && d.type === "plug" && d.entity).map((d) => [d.entity, d]));
     const pieces = list<Furniture>(f.furniture).map((m, i): LivePiece | null => {
-      try { return typeof m === "object" && m !== null && pieceDevice(m) ? { on: pieceOn(o, m, plugs) } : null; } catch (e) { debugOnce(`3D live state: furniture ${i} could not be read`, e); return null; }
+      try {
+        const pd = typeof m === "object" && m !== null ? pieceDevice(m) : null;
+        if (!pd) return null;
+        const on = pieceOn(o, m, plugs);
+        if (m.symbol !== "car") return { on };
+        const c = carStatus(m, o.state as never);
+        return { on, away: c.place === "away", charging: c.charging, alert: c.alert, level: c.level, ...(classOf(pd, o) === "unavailable" ? { gone: true } : {}) };
+      } catch (e) { debugOnce(`3D live state: furniture ${i} could not be read`, e); return null; }
     });
     const doors = list<Floor["doors"][number]>(f.doors).map((d) => { try { return typeof d === "object" && d !== null ? doorStateOf(d, o.state) : null; } catch (e) { debugOnce("3D live state: a door could not be read", e); return null; } });
     let motion: ReturnType<typeof motionRooms> = { triggered: new Map(), pulsing: new Map() };

@@ -20,10 +20,14 @@ type Schema = typeof import("./schema");
 export type SceneDeps = Pick<Heights, "deviceZ" | "doorSpan" | "edgeHeight" | "floorHeight" | "floorSlab" | "furnitureBottom" | "furnitureHeight" | "openingSpan" | "radiatorSpan" | "unlinkedHeight" | "wallHeight">
   & Pick<Render, "attachedTest" | "inside"> & Pick<typeof import("./stairs"), "resolveStairDirection">
   & Pick<Solids, "DEVICE_SOLID" | "FURNITURE_SOLID" | "FRAME_PROUD" | "FRAME_WIDTH" | "KERB_HIGH" | "KERB_OUT" | "OPENING_FILL" | "OPENING_FRAMED" | "RADIATOR_DEEP" | "SPEAKER_HEIGHT" | "SPEAKER_SIDE" | "TV_HEIGHT" | "TV_THICK" | "TV_WIDTH" | "UNLINKED_BASE" | "WELL_DEPTH" | "pieceDevice" | "stairBlocks" | "turnAbout" | "tvPlacement" | "within">
-  & Pick<Schema, "DEVICE_TYPES" | "ROOM_KINDS" | "WALL_KINDS"> & Pick<typeof import("./tree"), "treeShape">;
+  & Pick<Schema, "DEVICE_TYPES" | "ROOM_KINDS" | "WALL_KINDS"> & Pick<typeof import("./tree"), "treeShape"> & Pick<typeof import("./car"), "carParts" | "carSpec">;
 
-/** A vertical extrusion of a polygon from `z0` to `z1` (every box is one), or a single point (a device with no body of its own). */
-export type Shape = { type: "prism"; base: Pt[]; z0: number; z1: number; /** Convex polygons the prism does not fill: a stairwell, which may lie inside `base`, touch its edge or cross it. Optional. */ holes?: Pt[][] } | { type: "point"; at: Pt; z: number };
+/**
+ * A vertical extrusion of a polygon from `z0` to `z1` (every box is one), or a single point (a device with no body of its own).
+ * S35.5: a `loft` joins a convex ring `base` at `z0` to a convex ring `top` at `z1` with the same number of points, straight
+ * between them: a car's greenhouse, whose windscreen and rear glass slope.
+ */
+export type Shape = { type: "prism"; base: Pt[]; z0: number; z1: number; /** Convex polygons the prism does not fill: a stairwell, which may lie inside `base`, touch its edge or cross it. Optional. */ holes?: Pt[][] } | { type: "loft"; base: Pt[]; top: Pt[]; z0: number; z1: number } | { type: "point"; at: Pt; z: number };
 export type SolidKind = "floor" | "room" | "wall" | "opening" | "furniture" | "unlinked" | "stair" | "device";
 /**
  * What the viewer needs to find the thing again. `poly` is "o" (the outline), "r<n>" (room n) or "w" (a free wall) and
@@ -63,6 +67,8 @@ export const PANE_THICKNESS = 2, LEAF_THICKNESS = 4, TRUNK_SIDE = 12, ROOM_THICK
 export const CUT_WALL_HEIGHT = 110;
 /** cm. A device's icon and point stay this far under the top of the floor's walls, so a ceiling light or camera does not float over the house (S14.5: 10 -> 25, with the lower presets). */
 export const ICON_MARGIN = 25;
+/** cm. A car (S35.5): the body clears the ground by 18; the tyres are 64 high; the roof slab is 4; a wheel's outer face is 0.3 inside the body side; the grille plate is 1 proud of the nose and 0.7 deep. */
+export const CAR_CLEARANCE = 18, CAR_TYRE = 64, CAR_ROOF = 4, CAR_WHEEL_INSET = 1.2, CAR_GRILLE_PROUD = 1, CAR_GRILLE_DEPTH = 0.7;
 /** Most rooms for which nesting is worked out (it is quadratic); more than this and every fill sits at the same height. */
 const NEST_LIMIT = 300;
 /** The most point tests nesting may cost: the square of the total points of all rooms bounds it (S12 review). Over it, no nesting, as past NEST_LIMIT. */
@@ -72,7 +78,7 @@ const JOINT_TOLERANCE = 1;
 
 /** The scene builder, bound to the helpers of core it needs. The 3D chunk builds one per view; `core/scene.ts` binds the real ones for the tests. */
 export function makeBuildScene(d: SceneDeps): (floor: Floor, opts?: SceneOpts) => Scene {
-  const { deviceZ, doorSpan, edgeHeight, floorHeight, floorSlab, furnitureBottom, furnitureHeight, openingSpan, radiatorSpan, unlinkedHeight, wallHeight, attachedTest, inside, resolveStairDirection, DEVICE_SOLID, FURNITURE_SOLID, KERB_HIGH, FRAME_PROUD, FRAME_WIDTH, KERB_OUT, OPENING_FILL, OPENING_FRAMED, RADIATOR_DEEP, SPEAKER_HEIGHT, SPEAKER_SIDE, TV_HEIGHT, TV_THICK, TV_WIDTH, UNLINKED_BASE, WELL_DEPTH, pieceDevice, stairBlocks, turnAbout, tvPlacement, within, DEVICE_TYPES, ROOM_KINDS, WALL_KINDS, treeShape } = d;
+  const { deviceZ, doorSpan, edgeHeight, floorHeight, floorSlab, furnitureBottom, furnitureHeight, openingSpan, radiatorSpan, unlinkedHeight, wallHeight, attachedTest, inside, resolveStairDirection, DEVICE_SOLID, FURNITURE_SOLID, KERB_HIGH, FRAME_PROUD, FRAME_WIDTH, KERB_OUT, OPENING_FILL, OPENING_FRAMED, RADIATOR_DEEP, SPEAKER_HEIGHT, SPEAKER_SIDE, TV_HEIGHT, TV_THICK, TV_WIDTH, UNLINKED_BASE, WELL_DEPTH, pieceDevice, stairBlocks, turnAbout, tvPlacement, within, DEVICE_TYPES, ROOM_KINDS, WALL_KINDS, treeShape, carParts, carSpec } = d;
   const fin = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
   const isPt = (p: unknown): p is Pt => Array.isArray(p) && fin(p[0]) && fin(p[1]);
   const ring = (p: unknown): Pt[] | null => (Array.isArray(p) && p.length >= 3 && p.every(isPt) ? (p as Pt[]) : null);
@@ -149,6 +155,34 @@ export function makeBuildScene(d: SceneDeps): (floor: Floor, opts?: SceneOpts) =
     return out;
   }
 
+  /**
+   * S35.5: a car piece as its parts (spec C4), all of the piece's index and entity, so a tap on any of them is a tap on the car.
+   * The unit-frame polygons of `carParts` are scaled by the piece's `w` and `h` and turned by `rot` about its centre, as the 2D
+   * symbol is, so the views cannot disagree. Heights are fractions of the car's height, with a ground clearance under the body.
+   */
+  function carSolids(m: Record<string, any>, i: number, z0: number, entity: string | undefined, add: (kind: SolidKind, id: string, tag: string, shape: Shape, ref: SolidRef, paint: Paint) => void) {
+    const parts = carParts(m.model), spec = carSpec(m.model), H = furnitureHeight(m as never), c: Pt = [m.x, m.y];
+    const belt = z0 + spec.belt * H, top = z0 + H, clear = Math.min(CAR_CLEARANCE, 0.5 * (belt - z0));
+    const at = (p: number[], grow = 0): Pt => turnAbout([c[0] + p[0] * m.w + grow * Math.sign(p[0]), c[1] + p[1] * m.h], m.rot, c);
+    const ring = (poly: number[][]): Pt[] => poly.map((p) => at(p));
+    const ref: SolidRef = { index: i, id: text(m.id), size: [m.w, m.h], ...(entity ? { entity } : {}) };
+    const paint = (role: string, withColour = false): Paint => (withColour && typeof m.color === "string" && /^#[0-9a-f]{6}$/i.test(m.color) ? { role, color: m.color } : { role });
+    const part = (tag: string, n: number, shape: Shape, p: Paint) => add("furniture", `furniture:${i}:${tag}:${n}`, tag, shape, ref, p);
+    part("car-body", 0, { type: "prism", base: ring(parts.outline), z0: z0 + clear, z1: belt }, paint("car-body", true));
+    // The glass footprint at the belt is the rear glass' foot to the windscreen's; the top ring is the roof's own rectangle.
+    const g = parts.rearGlass, w = parts.windscreen, r = parts.roof;
+    part("car-glass", 0, { type: "loft", base: ring([g[0], w[1], w[2], g[3]]), top: ring(r), z0: belt, z1: top - CAR_ROOF }, paint("car-glass"));
+    part("car-roof", 0, { type: "prism", base: ring(r), z0: top - CAR_ROOF, z1: top }, paint("car-body", true));
+    // A wheel stands on the ground; its outer face is a hair inside the body side, or the two fight for the same pixels.
+    const tyreTop = Math.min(CAR_TYRE, belt - z0);
+    parts.wheels.forEach((q, n) => part("car-tyre", n, { type: "prism", base: ring(q.map(([u, v]) => [u, v - Math.sign(v) * (CAR_WHEEL_INSET / m.h)])), z0, z1: z0 + tyreTop }, paint("car-tyre")));
+    // The grille is a thin plate a centimetre proud of the nose.
+    if (parts.grille) {
+      const y = parts.grille.map((p) => p[1]), lo = Math.min(...y), hi = Math.max(...y), x0 = 0.5 - CAR_GRILLE_DEPTH / m.w, x1 = 0.5 + CAR_GRILLE_PROUD / m.w;
+      part("car-grille", 0, { type: "prism", base: ring([[x0, lo], [x1, lo], [x1, hi], [x0, hi]]), z0: z0 + clear + 6, z1: Math.max(z0 + clear + 7, belt - 8) }, paint("car-trim"));
+    }
+  }
+
   /** The scene of one floor. Never throws; the order is fixed (slab, rooms, walls with their openings, stairs, furniture, unlinked, devices), each in array order. */
   function buildScene(floor: Floor, opts: SceneOpts = {}): Scene {
     const solids: Solid[] = [];
@@ -168,6 +202,9 @@ export function makeBuildScene(d: SceneDeps): (floor: Floor, opts?: SceneOpts) =
         if (turn !== 0 && at.faces) at = { ...at, faces: at.faces.map(aim) };
         const holes = shape.holes?.filter((h) => h.length >= 3 && h.every(isPt)).map((h) => h.map(put));
         solids.push({ id, kind, tag, shape: { type: "prism", base: shape.base.map(put), z0: shape.z0 + lift, z1: shape.z1 + lift, ...(holes?.length ? { holes } : {}) }, ref: at, paint });
+      } else if (shape.type === "loft") {
+        if (shape.base.length < 3 || shape.top.length !== shape.base.length || !shape.base.every(isPt) || !shape.top.every(isPt) || !fin(shape.z0) || !fin(shape.z1) || !(shape.z1 > shape.z0)) return;
+        solids.push({ id, kind, tag, shape: { type: "loft", base: shape.base.map(put), top: shape.top.map(put), z0: shape.z0 + lift, z1: shape.z1 + lift }, ref, paint });
       } else if (isPt(shape.at) && fin(shape.z)) solids.push({ id, kind, tag, shape: { type: "point", at: put(shape.at), z: shape.z + lift }, ref, paint });
     };
     /** Runs one piece's builder; whatever it throws, the piece is lost and the scene is not. */
@@ -346,6 +383,7 @@ export function makeBuildScene(d: SceneDeps): (floor: Floor, opts?: SceneOpts) =
       const base = ([[-half[0], -half[1]], [half[0], -half[1]], [half[0], half[1]], [-half[0], half[1]]] as Pt[]).map((q) => turnAbout([c[0] + q[0], c[1] + q[1]], pole ? 0 : m.rot, c));
       // A linked tv, speaker or computer (`pieceDevice`) carries its entity and its own colour: the viewer recolours it by state and hands a tap on it to the gesture code.
       const linked = pieceDevice(m as never);
+      if (m.symbol === "car") { carSolids(m, i, z0, linked?.entity, add); return; }
       add("furniture", `furniture:${i}`, m.symbol, { type: "prism", base, z0, z1: h }, { index: i, id: text(m.id), size: [m.w, m.h], ...(tree ? { crown: { z0: z0 + tree.crownBottom, z1: z0 + tree.crownTop, rot: m.rot } } : {}), ...(linked ? { entity: linked.entity } : {}) }, { role: linked ? "furniture-linked" : `furniture-${m.symbol}` });
     }));
 
@@ -393,6 +431,7 @@ export function makeBuildScene(d: SceneDeps): (floor: Floor, opts?: SceneOpts) =
     const grow = (x: number, y: number, z: number) => { lo[0] = Math.min(lo[0], x); lo[1] = Math.min(lo[1], y); lo[2] = Math.min(lo[2], z); hi[0] = Math.max(hi[0], x); hi[1] = Math.max(hi[1], y); hi[2] = Math.max(hi[2], z); };
     for (const s of solids) {
       if (s.shape.type === "prism") for (const p of s.shape.base) { grow(p[0], p[1], s.shape.z0); grow(p[0], p[1], s.shape.z1); if (s.ref.crown) grow(p[0], p[1], s.ref.crown.z1); } // a tree's crown stands above its trunk: the frame holds it
+      else if (s.shape.type === "loft") for (const p of [...s.shape.base, ...s.shape.top]) { grow(p[0], p[1], s.shape.z0); grow(p[0], p[1], s.shape.z1); }
       else grow(s.shape.at[0], s.shape.at[1], s.shape.z);
     }
     return solids.length ? { solids, bounds: { min: lo, max: hi } } : { solids, bounds: { min: [0, 0, 0], max: [0, 0, 0] } };

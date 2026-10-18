@@ -91,6 +91,16 @@ Panels for entity-backed things (rooms with an area, devices) also show
 Home Assistant context — the room's helpers and automations, a device's
 more-info — where a writer is configured.
 
+A **car piece** has a **Car** block. **Model** lists the nine models, each with a top-view swatch; picking one sets the
+footprint to that model's (a size you typed is replaced; Undo brings it back) and drops a typed height, in one undo step.
+**Colour** is the layout's palette, a colour input, or Theme colour; a colour that is not a built-in swatch joins the
+palette in the same step. **Main entity** is the entity a tap opens (trackers are listed first). **Attached** lists the
+other entities: the main entity's device first, then entities named like the car, then trackers, sensors, locks, climate
+and covers, diagnostics last, up to 24. **Add all from this car** attaches the device's entities in one step. Each change
+is one undo step, and none when the value does not change. **Convert to car piece** is on an unlinked car appliance (it keeps its turn, colour and attached) and on a car device icon
+(its entity becomes the main one); it selects the new piece.
+Changing the symbol of a car piece drops its three car keys, so the layout still saves.
+
 A plug's panel has a Power sensor picker: the `sensor.*` of device class
 `power` that measures it. A plug is active only while that sensor reads 2 W or
 more. Placing a plug (Add, a room's area, the catalog) fills the picker when its
@@ -286,7 +296,7 @@ floor. Untick what should stay and press Apply: one undo step.
 
 One word everywhere. **Lock plan** (the toggle at the top, "Plan locked" or "Plan
 editable") holds the geometry: corners, walls, doors, windows, kinds, stairs and
-furniture. Names, colours, textures, areas, devices and links stay editable. The
+furniture. Names, colours, textures, areas, devices and links stay editable, a car's colour and attached entities too (its model sets its size, so that stays locked). The
 **Lock** box on a device, a piece of furniture or an unlinked appliance stops it
 being dragged; on a wall, door or opening it reads "Lock (keeps its length)".
 A refused edit says "The plan is locked." with an **Unlock** button in the banner.

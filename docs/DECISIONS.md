@@ -2,6 +2,133 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-18: S35 review fixes (Sonnet, Opus findings 2 to 13)
+
+Supersedes parts of the S35.3, S35.4, S35.6 and S35.8 entries below where they differ.
+
+- Kiosk never opens more-info (Diego: block all). `bindDeviceActions` with `longPress: false` arms nothing for an unlinked appliance with a player or for a `media_player` icon, and turns `tap_action: more-info` into the popup (it has no More info link in kiosk). The check sits in `actions.ts`, not `_tapOpts`, so the 3D host and the Active panel get it too. A hold in kiosk was already nothing.
+- Charging is green in every theme (Diego). Role-built themes took the accent for `--fp-dev-car`; `rolesToTokens` now uses `#35d47a` (dark) or `#2e9e4f` (light) unless `devices.car` says otherwise.
+- `classOf` reads a car's charging before it returns `unavailable` for a dead main entity, and `isActive` lets a car through the dead check, so a charging car with a dead tracker is on, strokes green, lights in 3D and is listed. The gone mark follows `classOf`, so it is off while the car charges. 3D shows the gone mark in the badge (`LivePiece.gone`, sent only when true).
+- 2.5D puts a car's marks after its group, as 2D does. The bolt moves to `-w/2 + min(38, 0.3 w)` along the car's axis (the tail), counter-rotated so it stays upright.
+- The plan lock no longer counts a car's `attached` and `color` as plan (like `entity`); `model` stays plan since it sets the footprint.
+- `isEntityId` (`schema.ts`) is the one check for a car's entity ids in `validate` (attached and a car's main entity), `migrate` and `carEntities`. Other pieces keep the loose dot check.
+- `CAR_WHEEL_INSET` 0.3 to 1.2 cm.
+- Hover text and the Active row call `carText(carStatus(...))` over the subject's entities; `stateText`'s car branch stays for callers that hold one entity only.
+
+## 2026-10-18: S35.8 exit, docs, sizes (Sonnet)
+
+Docs, one test, sizes. Card and Studio: docs only for the Studio panel; the new test is card only.
+
+- Sizes, `gzip -9`, built at the sprint base (d77ae39, 0.32.1) and at this branch: card 117,117 to 120,347 (+3,230), 3D chunk 156,003 to 158,439 (+2,436), panel 173,871 to 179,090 (+5,219). Cap: card 121,000 (Diego, 2026-10-17; `CARD_GROWTH_LIMIT` already 30,220 in `size-budget.spec.ts`, not touched here; the plan text said 119,000 and is superseded by his later yes). Headroom 653 gz. Chunk cap 233,000, headroom 74,561.
+- The demo car is on the Test floor, not the ground floor (entry of 2026-10-18 below). Criterion 8 said ground; the shots `card-test-car{Charging,Away,Door}-*` (light, blueprint, midnight, 2D and 2.5D) and the docs say Test. The nine-model grid stays on the ground floor, on a test-only layout (`card-ground-cars-*`).
+- Held defaults (spec "Answers"): tap is more-info, hold the chooser, kiosk nothing; glass and tyres near-black in every theme; the body colour is the piece's own; the cap. The custom car card stays "Later, not planned" (PLAN.md, and a note in `docs/card.md`).
+- Criterion 12 asked for a hold in 3D; S35.6 said it was not driven by a real press. Added `card-3d-car.spec.ts` "a real hold": it fails with `longPress: false` on the 3D host and passes with the code as it is.
+- Seen in the shots, not fixed (outside this task): in 2D the charging bolt sits at the car's centre, where the demo's Test room puts its name, so the label covers the bolt; and the demo's Pavement label overlaps the blue car in the nine-model grid. A real house with the car in a named room will do the same. Candidate: move the badge off the centre.
+
+## 2026-10-18: S35.6 tap, hold and kiosk for the car (Sonnet)
+
+Spec C8; Diego's answers 3 and 4 (tap is more-info, hold is the chooser, kiosk does nothing).
+
+- `bindDeviceActions`: a linked piece in kiosk (`longPress: false`) arms nothing. A car piece: tap is `hass-more-info` of `carMain`; hold is the chooser with `carEntities` (one entity: more-info at once, as a tv). `getPiece` already gave the piece, so no new option for it.
+- The chooser's title is `name`, then a `line` function the caller passes (`carText(carStatus(piece, hass.states))`). It is read at every render, so a `hass` update with the dialog open changes the title as it changes the rows. The card knows nothing of cars: it joins the name and the line. A name or zone is a Lit text node, escaped.
+- `stateText` callers in the card now pass the entity id (the popup and tooltip line, the favourites row), so a car icon reads its car text there.
+- Found on the way, outside the task's files: `.dev-person.away` is the only away rule, so a car icon at `not_home` kept full opacity and no mark colour (S35.4 had the class and the mark, not the rule). `render.ts` CSS now names `.dev-car` beside `.dev-person`. `card-car.spec.ts` holds the computed-style check.
+- The 3D hold goes through the same function with a ray; the spec holds the 2D and 2.5D hold, and `card-3d-car.spec.ts` the 3D tap. The 3D hold is not driven by a real press.
+
+## 2026-10-18: The demo car moves to the Test floor (supersedes the entry below)
+
+The ground floor has no free place for a 360 x 165 cm car inside the demo's bounds: at x 817.5 it covered the kitchen's east side, and six specs that click the kitchen failed (the Send to back and Bring to front menus, the S8.10 group tests, two spawn-in-room tests). So the car sits on the Test floor ("demos and manual checks", 400 x 400 cm), at 200, 200, turned 0, id `furniture-test-1`, still the last piece of its floor.
+
+- The ground floor is as on main: scale 1.04, box 1040, spawn 1050, every furniture index and count. That reverts the count edits S35.4 made (`furniture[3]`, `furniture-ground-4`, the Studio layer counts, the scene count) as well as the geometry ones.
+- Kept: the search order (the car is a linked piece, so it is a search entry, now `furniture-test-1`), `solids-objects`, the S18.12 linked-symbol list, and the snapshot line for the every-symbol floor.
+- `scripts/shots.mjs`: the three crops of the demo car (charging, away, open door) now read the Test floor, and are named `card-test-*`. The nine-model grid still stands on the ground floor.
+- The cost: the car shows when the Test floor is selected, not on the ground floor beside the house.
+
+## 2026-10-18: The demo car stays inside the demo's bounds (fixes S35.4)
+
+S35.4 put the demo car at x 992.5, east of the house. Its corners widened the auto scale (1.04 to 1.215), the view box (1040 to 1215) and the editor spawn point (1050 to 1230), and nine Playwright specs failed on a quiet machine.
+
+- The car is now at x 817.5, y 195, turned 90, still the last furniture piece. Its corners reach x 900 and y 15 to 375, inside the garden's edge, so scale, box and spawn are as on main. The cost: it overlaps the kitchen's east wall by 65 cm. Moving it clear of the house needs a wider demo.
+- Reverted the spec edits that only followed the moved geometry: `card.test.ts` (1.215), `render.test.ts` view boxes, `ops.test.ts` and `editor.spec.ts` spawn. Kept those about a third piece (counts, `furniture[3]`, search order, `newId`) and about the new drawing (solids-objects, scene counts).
+- The `render.test.ts` snapshot moved only the car's `translate`.
+
+## 2026-10-17: S35.7 the Studio's car panel (Sonnet)
+
+Spec C9. Studio only (the card has no panel). Convert to car piece is built: the cap is 119,000 gz, so the drop order did not reach it.
+
+- Writers on `EditorState`: `setCarModel` (model, `w`, `h` follow; a typed `height` goes; a sedan is the absent model, so its key is deleted), `paintCar` (lower-cased `#rrggbb`; a colour that is not a built-in swatch joins `layout.palette` in the same step; `null` is Theme colour), `convertToCar`. Each is one undo step and none when nothing changes. `attachEntity` takes a list, so Add all from this car is one step too.
+- Attached suggestions, the judgement call, in this order: the main entity's device; entities whose name or id holds the car's name; the car domains (tracker, sensor, binary sensor, lock, climate, cover, switch, in that order, then by name); everything else; diagnostic and config entities last whatever they are. Inside a group, by name. The main entity and what is attached are left out. A full car (24) is offered nothing and says so. Without Home Assistant the catalog stands in. Pure code in `src/editor/car-ops.ts`.
+- The main entity is the first attached one when `entity` is empty (C2); Add all and the suggestions read the same rule.
+- Add all attaches ordinary entities before diagnostic ones, by name, and stops at 24 in all.
+- Convert keeps point, turn, name; a device's `entity` becomes the main one; an appliance's `color` and `attached` carry over, filtered to what `validate` accepts. It selects the new piece. A device drawn as a line (a hand-written file) converts at its middle.
+- Found on the way (finding 12): the `symbol` select wrote only `symbol`, so a car turned into a sofa kept `model`, `color` and `attached` and Save would refuse it. It now drops the three keys. The Playwright test fails without that line.
+- The panel's swatch is `carTop` in its own SVG, sized by the model's length to width, filled by `--car-body` (the piece's colour) and rules scoped to `.car-sw` in the editor stylesheet. The plan's car rules are S35.4's and are not touched.
+- `PanelCtx.edited` (optional) is how the panel tells the host a direct `EditorState` write happened (autosave, notify). Optional so existing panel tests keep their context type.
+- Files outside the task's list: `src/editor/car-ops.ts` (new), `src/editor/editor-app.ts` (the `edited` hook, the swatch CSS, the status line for a list attach).
+- Card file: untouched (editor code only, `src/core` not changed).
+
+## 2026-10-17: S35.5 the car in 3D (Sonnet)
+
+Spec C4, C6, C7. Diego's answers apply: glass and tyres near-black in every theme; body colour is the piece's `color`, default the theme's furniture colour.
+
+- New `Shape` member `loft` (`base`, `top`, `z0`, `z1`): two rings of equal length, the greenhouse. `loftTriangles` (mesh.ts) gives two lids and two triangles a side, outward whatever the winding; `Picker` hits it (Moller-Trumbore on the sides, point-in-polygon on the lids). Not a wall for the cut.
+- Parts per `carSolids` in scene-build: body 18 cm off the ground to the belt, loft from the belt to 4 cm under the top, 4 cm roof, four tyre boxes, grille (none on electric). Tyre outer face is 0.3 cm inside the body side (S35.2 asked for an inset: flush z-fights); the grille stands 1 cm proud. Every part carries the piece's index and entity, so any part taps as the car.
+- Away: each car part gets a depth-only twin (colorWrite off, depthWrite on, renderOrder 1, hidden at home). The part turns transparent at 0.35, depthWrite off, renderOrder 2. Without the twin the far wheels show through the body. All by property, no rebuild. A Playwright pixel test fails with the twin never shown.
+- `LivePiece` carries `away`, `charging`, `alert`, `level` for a car (others still `{ on }`). Charging lights the glass (`car-charge` plus emissive 0.55); alert paints the roof the open-door colour.
+- Palette roles `car-body`, `car-glass`, `car-tyre`, `car-trim`, `car-charge`. `car-charge` reads `--fp-dev-car` with a fallback to `--fp-active` until S35.4 adds the token.
+- The overlay draws the badge with its own CSS from `--fp-*` variables; text through textContent.
+- Not done: the gone mark (dead main entity) in 3D. A car with no entity renders and is not live.
+- Moved tests: `scene.test.ts` "decides every FurnitureSymbol" now treats `car` as several solids of one piece; `scene-shift.test.ts` narrowing for the new union member (types only).
+- Sizes (gzip -9): card 118,521 to 118,961 (+440; `carParts`, `carSpec`, `carStatus` now reached from `three-deps`), 3D chunk 156,003 to 158,439 (limit 200 KB). Cap 119,000.
+
+## 2026-10-17: S35.4 the car in 2D and 2.5D (Sonnet)
+
+Spec C4, C5, C7. One draw path: `renderFloor` and `furnitureSolid`, so the card and Studio match.
+
+- `carLook` (in `src/core/car.ts`) gives the group's classes (`furn-car`, `away`, `charging`, `alert`), its `--fp-car-body` style (only a `#rrggbb` that passed `HEX`) and the marks group (away mark, gone mark, bolt, level). The CSS is in `FLOORPLAN_CSS`, class rules only (finding 18), each with a computed-style pair in `tests/card/car-css.spec.ts`, reverted once each.
+- Charging beats alert on the stroke. Away is opacity .35 on the group. `--fp-dev-car` is green in light, midnight and solarized, `devFor` in the rest.
+- 2.5D: two prisms, the body to the belt and the cabin on it with a roof lid; the cabin sides are glass.
+- `structuralPoints` counts a car by its four turned corners (rounded to 1e-6), not its centre, so a car at the plan's edge is inside the frame. Other furniture is unchanged.
+- The demo car is a citycar at 992.5/180, rot 90, east of the house wall and clear of the garden. The demo's ground view box grows 1040 to 1215 cm wide, so tests that pinned it moved: auto scale 1.04 to 1.215, three `viewBoxFor` widths, the editor spawn point 1050 to 1230, and the furniture indices (the car is piece 2, the bed 3).
+- Moved test premise: `solids-objects` (a car has two lids and a cabin, not one box).
+- Open, call developer: the card file is 120,035 gz against the 119,000 cap (+1,514 against the 400 asked). The CSS block and the marks are most of it. Proposed: raise the cap to 120,500 in S35.8, or drop the level value and the alert outline first (the plan's drop order).
+- Open, call developer: the demo car widens the demo's ground view box (east of the house; south of it the box grows taller and 10 editor specs move instead, so east is the smaller change). Specs that pin the demo's pixels fail and are not moved here: `card-3d-popup.spec.ts` (hold opens more-info; the taller popup covers the icon), `card-plan-keys.spec.ts` (two), `card-popup.spec.ts` (second tap), `card-s14-review.spec.ts` (vacuum row), `ctx-menus.spec.ts` (right-click on unl). S35.5 owns the 3D one.
+- Open: `tests/card/card-3d-popup.spec.ts` "a hold opens more-info ..." fails with the demo car. The 3D camera frames the car, the icon moves, and the taller popup covers it, so the second tap hits Turn off. S35.5 owns 3D; it needs its premise moved there.
+- Shots: three car states at 4x (light, blueprint, midnight, 2D and 2.5D) and a test-only 3 x 3 floor of the nine models.
+
+
+## 2026-10-17: S35.3 car status and the per-type decisions (coder)
+
+Spec C5. Card and Studio: core only, so both. Pure code in `src/core/car-status.ts`, not in `car.ts`, so it does not wait for S35.2.
+
+- `carStatus(m, states)` takes anything with `entity` and `attached` (a piece, a device) and a state map. Place is `home`, `away`, `unknown` or `none`: `none` is no tracker at all (drawn as home, no mark, no word in the text), `unknown` a tracker that is dead or unread. A zone is the tracker's state text; `not_home` is plain Away.
+- Charging by value, one list (`CHARGING_WORDS`): `charging`, `charge_in_progress`, plus a `battery_charging` binary sensor that is on. `stopped`, `complete`, `disconnected`, `no_power` are not charging.
+- Level: a `sensor` of class `battery` in %, else a `sensor` in % whose id holds `fuel`; a whole number from 0 to 100, else null (a 140 % reading is junk, not a level). Battery wins whatever the order.
+- Alert: a `lock` that is `unlocked` or `open`; a `binary_sensor` of class door, window, opening or garage_door that is on.
+- `pieceDevice` reports a car piece as `{ type: "car", entity: main, attached }` where main is `entity`, else the first attached entity id (C8, criterion 12). A piece with neither is not linked.
+- `classOf` of a car is `on` only while charging (`off` otherwise, `unavailable` when the main entity is dead). `personClass` gives a car `home` or `away` from its tracker; the away mark draws for it. `ACTIVE_LIST_RULE.car` is `on`; `NO_TOGGLE` has `car`.
+- `stateText` takes an optional fourth argument, the reading's entity id, because a reading alone cannot say whether it is a tracker. Callers in the card pass it from S35.6.
+- Moved tests, each on the new premise: `no-toggle-types` (car is NO_TOGGLE), `popup-rules` (car has no button), `active` (car is listed while charging, fixture `sensor.car_state`), `cover-idle` (a car on a plain entity is not on), `render` (a car piece with an entity is linked).
+- Not done here, on purpose: the CSS for `.dev-car.away` (35 % opacity), the `--fp-dev-car` token and the Active row colour belong to S35.4; the `src/core/index.ts` export of `carStatus` to the lane that merges `car.ts`. Card file 117,117 to 117,761 gz (+644).
+
+## 2026-10-17: S35.2 car models and shape (Sonnet)
+
+- `src/core/car.ts`: `CAR_SPEC` (footprint, height, profile, axles, grille, bed), `carSpec` (junk is the sedan; `includes`, so `__proto__` never matches), `carParts` (unit-frame polygons, +x the nose), `carTop` (polygons in the 100 x 100 frame, classes `car-body`, `car-bed`, `car-tyre`, `car-glass`, `car-roof`, `car-mirror`, `car-grille`, numbers only, no colour attribute). `FURNITURE.car` is 470 x 182; `FURNITURE_HEIGHTS.car` 145 (the sedan's); `furnitureHeight` of a car with no `height` is its model's. `FURNITURE.car.svg` is still the old rounded box: S35.4 swaps it for `carTop`.
+- Profile numbers are the spec's table as written, one change: the nose chamfer is 1.4 times the tail's in the cross-car direction (capped at 0.3 of the width), so the front tapers. Looked at top-down and in an oblique three.js preview of the same polygons (body prism, glass loft, roof, box wheels, grille, bed) from the front and the rear. Each model reads as itself: the truck by its open bed, the van by its tall box, the electric by long raked glass at both ends, the citycar by its length, the utility (Golf) by a short hood and a cabin to the tail. Sedan, wagon and SUV differ by the rear glass and the roof line, which is small in the top view.
+- Open for S35.5: a wheel is flush with the body side by spec, so its outer face and the body's side z-fight in the preview. Inset the wheel by a millimetre or two there.
+- Moved tests: `tests/core/icons.test.ts` (the car footprint 450 x 180 to 470 x 182). `heights.test.ts` and `solids-objects.test.ts` read `FURNITURE_HEIGHTS` and moved with it.
+- Card file: 117,417 gz before (S35.1), 117,870 after (`gzip -9`; the table and `carSpec` are reached through `furnitureHeight`). Cap 118,000 until S35.8.
+- Parity: core only, nothing drawn differently yet.
+
+## 2026-10-17: S35.1 car keys in the schema (Sonnet)
+
+- Spec C2 as written. `CarModel`, `CAR_MODELS`, `MAX_CAR_ATTACHED` and the three `Furniture` keys are in `src/core/schema.ts`; `docs/schema.md` regenerated. `validate` reports a bad `model`, `color`, `attached` (not a list, a non-entity, a repeat, more than 24) and any of the three on a piece that is not a car, naming the piece. `migrate` (`dropBadCar`) deletes a bad model or colour, keeps the first 24 distinct entity-id strings of `attached` in order (deleted when none), and strips the three keys from a non-car.
+- "Entity id" is the schema's own test, a string holding a dot, as for every other list. The repeat check is new, in the car branch only.
+- `attachedEntities` counts a car's `attached`; its main `entity` stays in `placedEntities`.
+- The hostile-input test uses JSON shapes (null, nesting, wrong types). A getter that throws cannot come from `JSON.parse`, and no other field of `validate` defends against one.
+- Card file: 117,117 gz before (main), 117,417 after (`gzip -9`).
+- Parity: schema only, no visible change in either view.
+
 ## 2026-10-17: pixel reads leave page.screenshot (Sonnet)
 
 - On the GitHub runner `Page.captureScreenshot` fails at random ("Unable to capture screenshot"): frame-25d three times (fixed in 0.30.1), shade-25d on the 0.32.0 push. Root cause on the runner is unconfirmed.
@@ -9,6 +136,7 @@ Newest first. A change supersedes; nothing is edited.
 - WebGL: the canvas has no `preserveDrawingBuffer`, so `readCanvasRect` calls the test hook `__fp3d.calls()` (one frame, drawn now) and `drawImage`s the canvas in the same synchronous run, over the first opaque background behind it. No change in `src`, no wait. It reads the canvas only, not the DOM over it (icons, labels, the Active list); no probe point sat under an overlay, and the suites pass unchanged. Mutation proof: card-3d-shade fails with the contact shadows hidden in `view3d.ts`; card-3d-live "lights" fails 4 of 5 with the lamp pools capped at 0.
 - Deliberate artifact screenshots (`path:` in card-room-scenes, `shots`) stay on `page.screenshot`; they read no pixel. No spec reads a pixel from a screenshot now. `tests/core/util/png.ts` (the PNG decoder) and its unit test stay, unused by the specs.
 - Mutation proof, shade-25d: with `.shade{display:none}` added in `render.ts`, 8 of 9 tests fail (foot and mid read the same colour); restored. camera-cone-clip: with the cone's `clip-path` dropped, "past the wall the floor is bare" fails (179 against 214). light-glow: with the aura's clip dropped, "just outside the room's wall: no glow" fails in both themes. Each restored.
+
 
 ## 2026-10-17: Sprint 35 planned: the car (developer)
 

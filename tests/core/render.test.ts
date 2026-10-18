@@ -1542,9 +1542,9 @@ describe("S2.9: a room or a piece of furniture with an entity carries the on cla
 
   // S18.12: a tv, speaker or computer piece with an entity is tracking it: its group carries `data-linked`, idle or on. Per symbol, so a new symbol must be decided (finding 17).
   const linkedTag = (html: string) => /<g data-f="0"[^>]* data-linked[ >]/.test(html);
-  it("S18.12 every furniture symbol is decided: only a tv, speaker or computer with an entity is linked", () => {
+  it("S18.12 every furniture symbol is decided: only a tv, speaker, computer or car with an entity is linked", () => {
     for (const symbol of FURNITURE_SYMBOLS) {
-      expect(linkedTag(draw([], [furn({ symbol, entity: "media_player.x" })], { "media_player.x": st("idle") })), `${symbol} with an entity`).toBe(["tv", "speaker", "computer"].includes(symbol));
+      expect(linkedTag(draw([], [furn({ symbol, entity: "media_player.x" })], { "media_player.x": st("idle") })), `${symbol} with an entity`).toBe(["tv", "speaker", "computer", "car"].includes(symbol)); // S35.3: a car piece with an entity is linked too
       expect(linkedTag(draw([], [furn({ symbol })], {})), `${symbol} without one`).toBe(false);
     }
   });

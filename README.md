@@ -53,7 +53,10 @@ A real house, on the card in 2.5D, three themes (room and device names blurred):
   window turns red and dashed; a TV turns blue; a playing speaker sends out
   waves; a siren or an armed alarm turns red. A TV, speaker or computer drawn as
   furniture and linked to an entity acts like the device of that type: blue at
-  rest, the on colour when on, tap for more-info. The plan darkens after sunset. Icons grow with a large house, and
+  rest, the on colour when on, tap for more-info. A car is a furniture piece in one of nine models and any colour,
+  with a main entity and up to 24 attached ones: away (faded, in 3D truly see-through), charging (green outline and bolt),
+  battery or fuel level, an unlocked door as an alert. A tap opens its more-info, a hold lists its entities. The plan
+  darkens after sunset. Icons grow with a large house, and
   `icon_size` scales them further.
 - The card keeps its chrome beside the plan, not over it: a header with the floor
   tabs, **Search** and a **⋯** menu for everything about the look (view, theme,

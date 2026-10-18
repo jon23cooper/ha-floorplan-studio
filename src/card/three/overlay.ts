@@ -11,7 +11,7 @@ import { declutter, type Box } from "./declutter";
 
 type P3 = readonly [number, number, number];
 /** `roomInfo` (optional) says what each room is and how large, for the label priority (S28.11): a room over a garden, a garden over water. */
-export interface Anchors { devices: Map<number, P3>; rooms: Map<number, P3>; roomInfo?: Map<number, { kind: string; area: number }> }
+export interface Anchors { devices: Map<number, P3>; rooms: Map<number, P3>; roomInfo?: Map<number, { kind: string; area: number }>; /** S35.5: where a linked car's badge floats, by furniture index. */ cars?: Map<number, P3> }
 /** Where a point is on the screen (px from the layer's top left), and whether it is in front of the camera at all. */
 export type Projector = (p: P3) => { x: number; y: number; front: boolean };
 
@@ -36,6 +36,12 @@ const CSS = `.fp3-ov{position:absolute;inset:0;overflow:hidden;pointer-events:no
 .fp3-dv{top:${ICON_PX / 2 + 1}px}
 .fp3-dn{top:${ICON_PX / 2 + 13}px;opacity:.85}
 .fp3-dv,.fp3-dn,.fp3-name,.fp3-val{color:var(--fp-text);text-shadow:0 0 2px var(--fp-outline),0 0 2px var(--fp-outline),0 0 3px var(--fp-outline),0 0 5px var(--fp-outline)}
+.fp3-car{width:0;height:0}
+.fp3-cb{position:absolute;left:0;bottom:2px;transform:translateX(-50%);display:flex;align-items:center;gap:3px;white-space:nowrap;font:11px/1.2 var(--fp-font,system-ui,sans-serif);color:var(--fp-text);text-shadow:0 0 2px var(--fp-outline),0 0 2px var(--fp-outline),0 0 3px var(--fp-outline)}
+.fp3-cb svg{width:16px;height:16px;overflow:visible}
+.fp3-bolt{fill:var(--fp-dev-car,var(--fp-active));stroke:var(--fp-outline);stroke-width:1.2;paint-order:stroke}
+.fp3-away{fill:var(--fp-idle);stroke:var(--fp-outline);stroke-width:1.5}
+.fp3-gone circle{fill:var(--fp-bg);stroke:var(--fp-warn);stroke-width:2} .fp3-gone line{stroke:var(--fp-warn);stroke-width:2}
 .fp3-rm{text-align:center;white-space:nowrap;font:500 12px/1.25 var(--fp-font,system-ui,sans-serif)}
 .fp3-name,.fp3-val{display:block}
 .fp3-val{font-weight:400;font-size:11px}
@@ -53,6 +59,8 @@ export function createOverlay(container: HTMLElement) {
   style.textContent = CSS;
   root.appendChild(style);
   container.appendChild(root);
+  /** S35.5: a linked car's badge: the charging bolt, the away mark and the level (the plan's own marks, drawn here from the same paths). */
+  const cars = new Map<number, Item & { bolt: SVGSVGElement; away: SVGSVGElement; gone: SVGSVGElement; level: HTMLElement }>();
   const icons = new Map<number, Item & { svg: SVGSVGElement; g: SVGGElement; dv: HTMLElement | null; dn: HTMLElement | null }>(), rooms = new Map<number, Item & { name: HTMLElement; val: HTMLElement; kind: string; area: number }>();
   /** Measured size of an element (px), kept until its text changes: reading it is a layout, so it is done once, not per frame. */
   const sizes = new Map<Element, [number, number]>();
@@ -109,6 +117,53 @@ export function createOverlay(container: HTMLElement) {
       if (it.dn) it.dn.style.top = `${ICON_PX / 2 + (val ? 13 : 1)}px`;
     });
     for (const [i, it] of icons) if (!seenD.has(i)) { it.el.remove(); icons.delete(i); dirty = true; }
+    const seenC = new Set<number>();
+    anchors.cars?.forEach((a, i) => {
+      const lp = live.pieces[i];
+      if (!lp || lp.away === undefined) return;
+      seenC.add(i);
+      let it = cars.get(i);
+      if (!it) {
+        const el = document.createElement("div"), badge = document.createElement("div"), bolt = document.createElementNS(NS, "svg"), away = document.createElementNS(NS, "svg"), gone = document.createElementNS(NS, "svg"), level = text("fp3-cv", "");
+        el.className = "fp3-dev fp3-car";
+        el.style.visibility = "hidden";
+        el.setAttribute("data-c", String(i));
+        badge.className = "fp3-cb";
+        bolt.setAttribute("viewBox", "0 0 24 24");
+        const path = document.createElementNS(NS, "path");
+        path.setAttribute("class", "fp3-bolt");
+        path.setAttribute("d", "M11 15H6L13 1V9H18L11 23V15Z"); // the plan's bolt (mdi lightning-bolt)
+        bolt.appendChild(path);
+        away.setAttribute("viewBox", "0 0 24 24");
+        const dot = document.createElementNS(NS, "circle");
+        dot.setAttribute("class", "fp3-away"); dot.setAttribute("cx", "12"); dot.setAttribute("cy", "12"); dot.setAttribute("r", "6");
+        away.appendChild(dot);
+        // The plan's gone mark (a ring and a slash), shown while the car's main entity is dead.
+        gone.setAttribute("viewBox", "0 0 24 24"); gone.setAttribute("class", "fp3-gone");
+        const ring = document.createElementNS(NS, "circle"), slash = document.createElementNS(NS, "line");
+        ring.setAttribute("cx", "12"); ring.setAttribute("cy", "12"); ring.setAttribute("r", "8");
+        slash.setAttribute("x1", "7"); slash.setAttribute("y1", "17"); slash.setAttribute("x2", "17"); slash.setAttribute("y2", "7");
+        gone.append(ring, slash);
+        badge.append(bolt, away, gone, level);
+        el.appendChild(badge);
+        root.appendChild(el);
+        cars.set(i, (it = { el, at: a, sig: "", shown: false, x: NaN, y: NaN, bolt, away, gone, level }));
+        dirty = true;
+      }
+      if (it.at[0] !== a[0] || it.at[1] !== a[1] || it.at[2] !== a[2]) dirty = true;
+      it.at = a;
+      const value = live.labels && typeof lp.level === "number" ? `${lp.level} %` : "", sig = `${lp.charging ? 1 : 0}${lp.away ? 1 : 0}${lp.gone ? 1 : 0}${value}`;
+      if (sig !== it.sig) {
+        it.sig = sig;
+        it.bolt.style.display = lp.charging ? "" : "none";
+        it.away.style.display = lp.away ? "" : "none";
+        it.gone.style.display = lp.gone ? "" : "none";
+        it.level.textContent = value;
+        it.level.style.display = value ? "" : "none";
+        it.el.setAttribute("data-badge", sig);
+      }
+    });
+    for (const [i, it] of cars) if (!seenC.has(i)) { it.el.remove(); cars.delete(i); dirty = true; }
     if (live.labels) {
       anchors.rooms.forEach((a, r) => {
         const lr = live.rooms[r];
@@ -149,6 +204,7 @@ export function createOverlay(container: HTMLElement) {
       }
     };
     for (const it of icons.values()) put(it, false);
+    for (const it of cars.values()) put(it, false);
     for (const it of rooms.values()) put(it, true);
     if (moved) { lastMove = performance.now(); dirty = true; }
     // The first answer is at once (nothing is on show before it); later ones wait for the camera to be still, so no label flips mid-drag.
@@ -206,7 +262,7 @@ export function createOverlay(container: HTMLElement) {
       return { css: getComputedStyle(src).fill, opacity: op(it.g) * op(src) };
     },
     /** Test and debug: which devices and rooms have an element, and whether it is on show. */
-    state: () => ({ icons: [...icons].map(([i, it]) => ({ i, shown: it.shown, kept: !it.svg.classList.contains(LOSE) })), rooms: [...rooms].map(([r, it]) => ({ r, shown: it.shown, kept: !it.name.classList.contains(LOSE) })) }),
-    dispose() { gone = true; if (timer) clearTimeout(timer); timer = null; container.removeEventListener("pointerdown", onDown, true); window.removeEventListener("pointerup", onUp, true); window.removeEventListener("pointercancel", onUp, true); container.removeEventListener("lostpointercapture", onLost, true); document.removeEventListener("visibilitychange", onHide); document.fonts?.removeEventListener?.("loadingdone", onFonts); root.remove(); icons.clear(); rooms.clear(); sizes.clear(); },
+    state: () => ({ cars: [...cars].map(([i, it]) => ({ i, shown: it.shown, bolt: it.bolt.style.display !== "none", away: it.away.style.display !== "none", level: it.level.textContent ?? "" })), icons: [...icons].map(([i, it]) => ({ i, shown: it.shown, kept: !it.svg.classList.contains(LOSE) })), rooms: [...rooms].map(([r, it]) => ({ r, shown: it.shown, kept: !it.name.classList.contains(LOSE) })) }),
+    dispose() { gone = true; if (timer) clearTimeout(timer); timer = null; container.removeEventListener("pointerdown", onDown, true); window.removeEventListener("pointerup", onUp, true); window.removeEventListener("pointercancel", onUp, true); container.removeEventListener("lostpointercapture", onLost, true); document.removeEventListener("visibilitychange", onHide); document.fonts?.removeEventListener?.("loadingdone", onFonts); root.remove(); icons.clear(); cars.clear(); rooms.clear(); sizes.clear(); },
   };
 }

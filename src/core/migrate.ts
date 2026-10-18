@@ -1,5 +1,5 @@
 import { stairSteps } from "./geometry";
-import { COORD_LIMIT, FX_MIN, FX_MAX, MAX_VIEWS, viewProblems, type CatalogEntry, type Device, type DeviceType, type Layout, type Pt } from "./schema";
+import { isEntityId, CAR_MODELS, COORD_LIMIT, FX_MIN, FX_MAX, MAX_CAR_ATTACHED, MAX_VIEWS, viewProblems, type CatalogEntry, type Device, type DeviceType, type Layout, type Pt } from "./schema";
 
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const KINDS: [string, string][] = [["rooms", "room"], ["walls", "wall"], ["stairs", "stairs"], ["doors", "door"], ["openings", "opening"], ["extras", "extra"], ["furniture", "furniture"], ["unlinked", "unlinked"]];
@@ -49,6 +49,20 @@ function dropBadOffset(f: any) {
 function dropBadRotation(f: any) {
   const r = f.rotation;
   if ("rotation" in f && !(typeof r === "number" && Number.isFinite(r) && r >= -180 && r <= 180)) delete f.rotation;
+}
+
+/** S35.1: the car keys `validate` would accept stay; the rest go, so a model from a newer file loads as a sedan. */
+function dropBadCar(f: any) {
+  for (const m of f.furniture) {
+    if (m.symbol !== "car") { delete m.model; delete m.color; delete m.attached; continue; }
+    if ("entity" in m && !isEntityId(m.entity)) delete m.entity; // 0.32.1 took any string with a dot
+    if ("model" in m && !CAR_MODELS.includes(m.model)) delete m.model;
+    if ("color" in m && !(typeof m.color === "string" && /^#[0-9a-fA-F]{6}$/.test(m.color))) delete m.color;
+    if ("attached" in m) {
+      const kept: string[] = Array.isArray(m.attached) ? [...new Set<string>(m.attached.filter((e: unknown): e is string => isEntityId(e)))].slice(0, MAX_CAR_ATTACHED) : [];
+      if (kept.length) m.attached = kept; else delete m.attached;
+    }
+  }
 }
 
 /** S14.3: an effect size outside 25-300 (or not a number) is dropped, so the device draws at 100 and the file opens. */
@@ -111,7 +125,7 @@ export function migrate(x: unknown): Layout {
       d.id = d.id ?? `${d.type}-${fname}-${i + 1}`;
       return d;
     });
-    dropBadHeights(f); dropBadFx(f); dropBadOffset(f); dropBadRotation(f);
+    dropBadHeights(f); dropBadFx(f); dropBadOffset(f); dropBadRotation(f); dropBadCar(f);
     Object.defineProperty(floors, fname, { value: f, enumerable: true, writable: true, configurable: true });
   }
   const out: any = { version: 2, unit: "cm", north: src.north ?? 0, rotate: src.rotate ?? 0, floors, catalog: src.catalog };
