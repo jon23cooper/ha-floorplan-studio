@@ -89,3 +89,18 @@ test("Opus-style CSS pair: the Remove button is round, red and square, in every 
   expect(b.R).toBeGreaterThan(b.G * 2); expect(b.R).toBeGreaterThan(b.B * 2);
   expect(b.w).toBe(b.h);
 });
+
+test("the round X sits before the name in its row, and no attach row has a text Remove button", async ({ page }) => {
+  await page.locator("#rtemp input").click();
+  await page.locator("#rtemp li[role='option'][data-value='sensor.t_kitchen']").click();
+  const geo = await page.locator("#rtemp-rm0").evaluate((el) => {
+    const row = el.closest("p.attach-row") as HTMLElement;
+    const x = el.getBoundingClientRect();
+    const range = document.createRange(); range.selectNodeContents(row.querySelector("small.eid")!);
+    const eid = range.getBoundingClientRect();
+    return { xRight: x.right, eidLeft: eid.left, first: row.firstElementChild === el };
+  });
+  expect(geo.first).toBe(true);
+  expect(geo.xRight).toBeLessThanOrEqual(geo.eidLeft);
+  expect(await page.locator("p.attach-row button").evaluateAll((bs) => bs.filter((b) => !b.classList.contains("rm-x")).length)).toBe(0);
+});

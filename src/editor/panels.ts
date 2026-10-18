@@ -574,8 +574,8 @@ const removeX = (id: string, name: string, on: () => void) =>
 function multiAttachField(
   c: PanelCtx, id: string, label: string, cur: string[], choices: CatalogEntry[], set: (next: string[]) => void,
   attach?: { apply: (f: Floor, next: string[]) => void; targetLabel: string; keepDeviceId?: string },
-  /** `grouped` orders the offered entries and names each one's heading; `roundRemove` shows Remove as a round red X; `boxed` draws a frame round the picker and its list. */
-  look?: { grouped?: (avail: CatalogEntry[]) => GroupedChoice[]; roundRemove?: boolean; boxed?: boolean },
+  /** `grouped` orders the offered entries and names each one's heading; `boxed` draws a frame round the picker and its list. */
+  look?: { grouped?: (avail: CatalogEntry[]) => GroupedChoice[]; boxed?: boolean },
 ) {
   const placed = placedEntities(c.st.layout);
   // S24.6 (U16): a friendly name first: the catalog's, else Home Assistant's, and only then the raw id.
@@ -599,7 +599,7 @@ function multiAttachField(
   };
   const inner = html`<label for=${id}>${label}</label>
     ${combo(id, label, "", options, add, "add...")}
-    ${cur.map((en, k) => html`<p class="attach-row">${row(en)} ${look?.roundRemove ? removeX(`${id}-rm${k}`, nameOf(en), () => set(cur.filter((x) => x !== en))) : button(`${id}-rm${k}`, "Remove", () => set(cur.filter((x) => x !== en)), "warn")}</p>`)}`;
+    ${cur.map((en, k) => html`<p class="attach-row">${removeX(`${id}-rm${k}`, nameOf(en), () => set(cur.filter((x) => x !== en)))} ${row(en)}</p>`)}`;
   return look?.boxed ? html`<div class="sens-box">${inner}</div>` : inner;
 }
 
@@ -709,7 +709,7 @@ function roomSensors(c: PanelCtx, i: number) {
   return section(c, "room:sensors", "Sensors", html`
     ${ROOM_SENSORS.map(([field, id, label]) => {
       const write = (f: Floor, next: string[]) => setRoomList(f.rooms[i], field, next);
-      return multiAttachField(c, id, label, r[field] ?? [], c.st.roomSensorChoices(i, field), (next) => c.commit((f) => write(f, next)), { apply: write, targetLabel: r.name || "the room" }, { grouped: (avail) => groupSensorChoices(c.st.layout, avail, c.st.floor, r.name), roundRemove: true, boxed: true });
+      return multiAttachField(c, id, label, r[field] ?? [], c.st.roomSensorChoices(i, field), (next) => c.commit((f) => write(f, next)), { apply: write, targetLabel: r.name || "the room" }, { grouped: (avail) => groupSensorChoices(c.st.layout, avail, c.st.floor, r.name), boxed: true });
     })}`);
 }
 
@@ -733,7 +733,7 @@ function roomScenesPanel(c: PanelCtx, i: number) {
   return section(c, "room:scenes", "Scenes", html`
     ${hint("Shown as buttons on the card.")}
     ${ha ? html`${inArea.map((e) => html`<div class="scene-item" data-ha-scene=${e.id}><span>${e.name}</span><small class="tag">Home Assistant · this area</small></div>`)}
-      ${extra.map((e, k) => html`<div class="scene-item" data-ha-scene=${e}><span>${nameOf(e)}</span><small class="tag">Home Assistant · offered</small><button class="btn keep" id=${`rsc-ha-rm-${k}`} type="button" aria-label=${`Stop offering ${nameOf(e)}`} @click=${() => w((room) => { setRoomHaScenes(room, extra.filter((x) => x !== e)); })}>Remove</button></div>`)}
+      ${extra.map((e, k) => html`<div class="scene-item" data-ha-scene=${e}>${removeX(`rsc-ha-rm-${k}`, nameOf(e), () => w((room) => { setRoomHaScenes(room, extra.filter((x) => x !== e)); }))}<span>${nameOf(e)}</span><small class="tag">Home Assistant · offered</small></div>`)}
       ${more.length ? html`${hint("Add a Home Assistant scene from another area to this room's card.")}<label for="rsc-ha-add">Offer another scene</label><select id="rsc-ha-add" .value=${live("")} @change=${(e: Event) => { const v = val(e); if (v) w((room) => { setRoomHaScenes(room, [...extra, v]); }); c.refresh(); }}><option value="">(a Home Assistant scene)</option>${more.map((e) => html`<option value=${e.id}>${e.name}</option>`)}</select>` : nothing}` : nothing}
     ${custom.map((sc, k) => html`<div class="scene-item" data-scene=${sc.id}>
       <span>${sc.name}</span><small class="tag">${sc.items.length} device${sc.items.length === 1 ? "" : "s"}</small>
@@ -1185,9 +1185,9 @@ function targetsField(c: PanelCtx, i: number) {
   const add = () => c.commit((f) => { f.devices[i].targets = [...(f.devices[i].targets ?? []), { x: "", y: "" }]; });
   return html`<label>Targets</label>
     ${cur.map((t, k) => html`<p class="attach-row target-row">
+      ${removeX(`vtgrm${k}`, `target #${k + 1}`, () => remove(k))}
       ${entityField(c, `vtgx${k}`, `#${k + 1} x (right, mm)`, t.x || undefined, "(none)", setPair(k, "x"))}
       ${entityField(c, `vtgy${k}`, `#${k + 1} y (ahead, mm)`, t.y || undefined, "(none)", setPair(k, "y"))}
-      ${button(`vtgrm${k}`, "Remove", () => remove(k), "warn")}
     </p>`)}
     <p>${button("vtgadd", "Add target", add, "", "From an mmWave radar such as an ESPHome LD2450. rot above sets which way is ahead.")}</p>
     ${hint("x = right, y = ahead, in millimetres.")}`;

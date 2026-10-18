@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Studio: every Remove in a list is now the small round red X, placed before the name (door, Controls, TRV, sensors, the car's attached entities, scenes offered, radar targets). It keeps its name in the tooltip and for screen readers.
+
 ## 0.33.0 - 2026-10-18
 
 - Review fixes (S35, Opus): a car's hover text and Active row read all its entities (`Home · Charging · 78 %`), not the main one. In 2.5D the away dot, bolt and level sit beside the faded car, as in 2D. Kiosk never opens more-info on any path: an unlinked appliance with a player, a media player icon and `tap_action: more-info` (which opens the popup instead). A charging car with an unavailable tracker is on (2D, 3D, Active). 3D draws the gone mark. Charging is green in every theme, blueprint included. The 2D bolt sits toward the car's tail. Under Lock plan a car's attached entities and colour are not geometry, its model is. Tyres inset 1.2 cm (no seam lines). A car's entity ids must be real ids (`domain.object_id`) in `validate`, `migrate` and the card. The attach list copes with entities that have no name. Docs: hold is 500 ms; Convert to car piece is on an unlinked car appliance and a car device.
