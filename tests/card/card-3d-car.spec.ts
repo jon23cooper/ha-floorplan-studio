@@ -172,6 +172,16 @@ test.describe("3D view: state on the car", () => {
     await setStates(page, STATES({ "sensor.car_battery": st("unavailable") }));
     await expect(badge.locator("css=.fp3-cv")).toBeHidden();
   });
+
+  test("review finding 6: a dead main entity wears the gone mark in the badge, as the plan does; alive again takes it off", async ({ page }) => {
+    await boot(page, layoutOf("sedan"), STATES());
+    const gone = card(page).locator("css=.fp3-car svg.fp3-gone");
+    await expect(gone).toBeHidden();
+    await setStates(page, STATES({ "device_tracker.car": st("unavailable") }));
+    await expect(gone).toBeVisible();
+    await setStates(page, STATES());
+    await expect(gone).toBeHidden();
+  });
 });
 
 test.describe("3D view: away is real transparency without broken depth", () => {

@@ -41,6 +41,7 @@ const CSS = `.fp3-ov{position:absolute;inset:0;overflow:hidden;pointer-events:no
 .fp3-cb svg{width:16px;height:16px;overflow:visible}
 .fp3-bolt{fill:var(--fp-dev-car,var(--fp-active));stroke:var(--fp-outline);stroke-width:1.2;paint-order:stroke}
 .fp3-away{fill:var(--fp-idle);stroke:var(--fp-outline);stroke-width:1.5}
+.fp3-gone circle{fill:var(--fp-bg);stroke:var(--fp-warn);stroke-width:2} .fp3-gone line{stroke:var(--fp-warn);stroke-width:2}
 .fp3-rm{text-align:center;white-space:nowrap;font:500 12px/1.25 var(--fp-font,system-ui,sans-serif)}
 .fp3-name,.fp3-val{display:block}
 .fp3-val{font-weight:400;font-size:11px}
@@ -59,7 +60,7 @@ export function createOverlay(container: HTMLElement) {
   root.appendChild(style);
   container.appendChild(root);
   /** S35.5: a linked car's badge: the charging bolt, the away mark and the level (the plan's own marks, drawn here from the same paths). */
-  const cars = new Map<number, Item & { bolt: SVGSVGElement; away: SVGSVGElement; level: HTMLElement }>();
+  const cars = new Map<number, Item & { bolt: SVGSVGElement; away: SVGSVGElement; gone: SVGSVGElement; level: HTMLElement }>();
   const icons = new Map<number, Item & { svg: SVGSVGElement; g: SVGGElement; dv: HTMLElement | null; dn: HTMLElement | null }>(), rooms = new Map<number, Item & { name: HTMLElement; val: HTMLElement; kind: string; area: number }>();
   /** Measured size of an element (px), kept until its text changes: reading it is a layout, so it is done once, not per frame. */
   const sizes = new Map<Element, [number, number]>();
@@ -123,7 +124,7 @@ export function createOverlay(container: HTMLElement) {
       seenC.add(i);
       let it = cars.get(i);
       if (!it) {
-        const el = document.createElement("div"), badge = document.createElement("div"), bolt = document.createElementNS(NS, "svg"), away = document.createElementNS(NS, "svg"), level = text("fp3-cv", "");
+        const el = document.createElement("div"), badge = document.createElement("div"), bolt = document.createElementNS(NS, "svg"), away = document.createElementNS(NS, "svg"), gone = document.createElementNS(NS, "svg"), level = text("fp3-cv", "");
         el.className = "fp3-dev fp3-car";
         el.style.visibility = "hidden";
         el.setAttribute("data-c", String(i));
@@ -137,19 +138,26 @@ export function createOverlay(container: HTMLElement) {
         const dot = document.createElementNS(NS, "circle");
         dot.setAttribute("class", "fp3-away"); dot.setAttribute("cx", "12"); dot.setAttribute("cy", "12"); dot.setAttribute("r", "6");
         away.appendChild(dot);
-        badge.append(bolt, away, level);
+        // The plan's gone mark (a ring and a slash), shown while the car's main entity is dead.
+        gone.setAttribute("viewBox", "0 0 24 24"); gone.setAttribute("class", "fp3-gone");
+        const ring = document.createElementNS(NS, "circle"), slash = document.createElementNS(NS, "line");
+        ring.setAttribute("cx", "12"); ring.setAttribute("cy", "12"); ring.setAttribute("r", "8");
+        slash.setAttribute("x1", "7"); slash.setAttribute("y1", "17"); slash.setAttribute("x2", "17"); slash.setAttribute("y2", "7");
+        gone.append(ring, slash);
+        badge.append(bolt, away, gone, level);
         el.appendChild(badge);
         root.appendChild(el);
-        cars.set(i, (it = { el, at: a, sig: "", shown: false, x: NaN, y: NaN, bolt, away, level }));
+        cars.set(i, (it = { el, at: a, sig: "", shown: false, x: NaN, y: NaN, bolt, away, gone, level }));
         dirty = true;
       }
       if (it.at[0] !== a[0] || it.at[1] !== a[1] || it.at[2] !== a[2]) dirty = true;
       it.at = a;
-      const value = live.labels && typeof lp.level === "number" ? `${lp.level} %` : "", sig = `${lp.charging ? 1 : 0}${lp.away ? 1 : 0}${value}`;
+      const value = live.labels && typeof lp.level === "number" ? `${lp.level} %` : "", sig = `${lp.charging ? 1 : 0}${lp.away ? 1 : 0}${lp.gone ? 1 : 0}${value}`;
       if (sig !== it.sig) {
         it.sig = sig;
         it.bolt.style.display = lp.charging ? "" : "none";
         it.away.style.display = lp.away ? "" : "none";
+        it.gone.style.display = lp.gone ? "" : "none";
         it.level.textContent = value;
         it.level.style.display = value ? "" : "none";
         it.el.setAttribute("data-badge", sig);

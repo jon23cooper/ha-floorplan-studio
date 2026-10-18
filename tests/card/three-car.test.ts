@@ -61,6 +61,12 @@ describe("live: a car piece", () => {
     expect(c).toMatchObject({ on: true, charging: true, away: false, alert: false });
     expect(live(f, STATES({ "lock.car": st("unlocked") })).pieces[0]).toMatchObject({ alert: true, charging: false });
   });
+  it("review finding 6: a dead main entity is gone, as on the plan; a live one, and a dead tracker that charges, are not", () => {
+    expect(live(f, STATES({ "device_tracker.car": st("unavailable") })).pieces[0]).toMatchObject({ gone: true });
+    expect(live(f, STATES({ "device_tracker.car": st("unknown") })).pieces[0]).toMatchObject({ gone: true });
+    expect(live(f, STATES()).pieces[0]).not.toHaveProperty("gone");
+    expect(live(f, STATES({ "device_tracker.car": st("unavailable"), "sensor.car_charging": st("charging") })).pieces[0]).not.toHaveProperty("gone");
+  });
   it("a car with no tracker is never away; a table, or a car with nothing linked, has no state of its own", () => {
     const g = floor([car({ entity: "sensor.car_charging" })]);
     expect(live(g, { "sensor.car_charging": st("charging") }).pieces[0]).toMatchObject({ away: false, charging: true });
