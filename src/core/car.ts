@@ -101,10 +101,11 @@ export interface CarLook {
  * disagree. The colour is a custom property on the group and a class rule reads it: a rule, not an attribute (finding 18).
  */
 export function carLook(m: Furniture, s: CarStatus, dead: boolean): CarLook {
+  // The bolt sits toward the tail, not at the centre, where the room's name is when the car is centred in its room.
   const rot = num(m.rot), away = s.place === "away";
   const badges = (away ? `<circle class="away-mark" cx="${num(m.w / 2 - 14)}" r="8"/>` : "")
     + (dead ? `<g class="gone-mark" transform="translate(${num(14 - m.w / 2)} 0) scale(1.4)"><circle r="5"/><line x1="-3" y1="3" x2="3" y2="-3"/></g>` : "")
-    + (s.charging ? `<g class="car-bolt" transform="rotate(${num(-m.rot)})"><circle r="10"/><path d="M2-6L-4 1h4l-2 5 6-7H2z"/></g>` : "");
+    + (s.charging ? `<g class="car-bolt" transform="translate(${num(-m.w / 2 + Math.min(38, m.w * 0.3))} 0) rotate(${num(-m.rot)})"><circle r="10"/><path d="M2-6L-4 1h4l-2 5 6-7H2z"/></g>` : "");
   // under the car on screen: half the turned box's height, then a line
   const a = (m.rot * Math.PI) / 180, below = (Math.abs(m.w * Math.sin(a)) + Math.abs(m.h * Math.cos(a))) / 2 + 24;
   const level = s.level === null ? "" : `<text class="val" y="${num(below)}" text-anchor="middle" font-size="24">${s.level} %</text>`;

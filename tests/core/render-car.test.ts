@@ -145,6 +145,27 @@ describe("renderFloor: the marks stay outside the faded group (review finding 3)
   });
 });
 
+describe("renderFloor: the charging bolt sits toward the tail (review finding 8)", () => {
+  const charging: StateOverlay = { ...HOME, "binary_sensor.car_charging": st("on", { device_class: "battery_charging" }) };
+  it("every model at rot 0, 90, 180, 270: the bolt is on the tail side of the centre on screen, clear of the centre and of the car's end", () => {
+    for (const model of CAR_MODELS) for (const rot of [0, 90, 180, 270]) {
+      const m = car({ model, rot, ...WIRED });
+      const t = /class="car-bolt" transform="translate\((-?[\d.]+) 0\)/.exec(draw(m, charging))?.[1];
+      expect(t, `${model} ${rot}: the bolt carries its offset`).toBeDefined();
+      const bx = Number(t), a = (rot * Math.PI) / 180;
+      // the badges group turns by rot: screen offset of the bolt, and of the nose direction
+      const screen = [bx * Math.cos(a), bx * Math.sin(a)], nose = [Math.cos(a), Math.sin(a)];
+      expect(screen[0]! * nose[0]! + screen[1]! * nose[1]!, `${model} ${rot}: behind the centre`).toBeLessThan(0);
+      expect(Math.hypot(screen[0]!, screen[1]!), `${model} ${rot}: far enough from the centre to leave the room name readable`).toBeGreaterThan(m.w * 0.25);
+      expect(Math.abs(bx), `${model} ${rot}: and inside the car`).toBeLessThan(m.w / 2);
+    }
+  });
+  it("a short car (a piece may be any size) keeps the bolt inside it", () => {
+    const m = car({ w: 60, h: 30, ...WIRED }), bx = Number(/class="car-bolt" transform="translate\((-?[\d.]+) 0\)/.exec(draw(m, charging))?.[1]);
+    expect(bx).toBeLessThan(0); expect(Math.abs(bx)).toBeLessThan(30);
+  });
+});
+
 describe("renderFloor: 2.5D builds the car from two blocks", () => {
   it("a body, and a cabin on it whose sides are glass", () => {
     const html = draw(car(), undefined, "2.5d");
