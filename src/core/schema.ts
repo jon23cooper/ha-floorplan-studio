@@ -506,7 +506,7 @@ export function validate(x: unknown): { ok: true; layout: Layout } | { ok: false
       optHeight(m, "height");
       optHeight(m, "z");
       optText(m, "name");
-      if (m.entity !== undefined && !(m.symbol === "car" ? isEntityId(m.entity) : isEntity(m.entity))) errors.push(`${at} ${m.id} entity must be an entity id like sensor.name`);
+      if (m.entity !== undefined && !(m.symbol === "car" ? isEntityId(m.entity) : isEntity(m.entity))) errors.push(`${at} ${m.id} entity must be an entity id like sensor.name${m.symbol === "car" ? " (letters, digits and underscores, one dot)" : ""}`);
       for (const k of ["x", "y", "rot", "w", "h"]) if (typeof m[k] !== "number" || !Number.isFinite(m[k])) errors.push(`${at} ${m.id} ${k} must be a number`);
       // S1.51: a piece of furniture is never smaller than 5 cm or bigger than 2000 cm on a side.
       for (const k of ["w", "h"] as const) if (typeof m[k] === "number" && Number.isFinite(m[k]) && (m[k] < 5 || m[k] > 2000)) errors.push(`${at} ${m.id} ${k} must be between 5 and 2000`);

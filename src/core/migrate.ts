@@ -55,6 +55,7 @@ function dropBadRotation(f: any) {
 function dropBadCar(f: any) {
   for (const m of f.furniture) {
     if (m.symbol !== "car") { delete m.model; delete m.color; delete m.attached; continue; }
+    if ("entity" in m && !isEntityId(m.entity)) delete m.entity; // 0.32.1 took any string with a dot
     if ("model" in m && !CAR_MODELS.includes(m.model)) delete m.model;
     if ("color" in m && !(typeof m.color === "string" && /^#[0-9a-fA-F]{6}$/.test(m.color))) delete m.color;
     if ("attached" in m) {

@@ -156,3 +156,19 @@ describe("one entity-id check for a car (review finding 12)", () => {
     }
   });
 });
+
+describe("migrate: a car's main entity that 0.32.1 accepted but the strict id check refuses (S35 re-check)", () => {
+  it.each(["sensor.my-car", "device_tracker.tesla.1", "sensor.a b"])("%s: the link goes, the car stays, the file opens", (entity) => {
+    const l = migrate(layoutOf(piece("car", { entity, model: "suv" })));
+    const m = furnitureOf(l);
+    expect(m.entity).toBeUndefined();
+    expect(m.model).toBe("suv");
+    expect(validate(l).ok).toBe(true);
+  });
+  it("a good id stays", () => {
+    expect(furnitureOf(migrate(layoutOf(piece("car", { entity: "device_tracker.Auto" })))).entity).toBe("device_tracker.Auto");
+  });
+  it("validate says why", () => {
+    expect(errorsOf(piece("car", { entity: "sensor.my-car" })).join(" ")).toMatch(/letters, digits and underscores/);
+  });
+});
