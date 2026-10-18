@@ -577,3 +577,50 @@ describe("actions: a speaker or TV object linked to a media player stands in for
     }
   });
 });
+
+// Review finding 4 (Diego: block all): kiosk never reaches Home Assistant's dialog, on any path. `longPress: false` is kiosk's flag.
+describe("actions: kiosk never opens more-info (review finding 4)", () => {
+  const PLAYER_OBJ: Unlinked = { id: "u9", type: "speaker", name: "Object", x: 10, y: 10, rot: 0, scale: 1, attached: ["media_player.living"] };
+  const TV_ICON: Device = { id: "t1", type: "tv", entity: "media_player.lounge_tv", x: 1, y: 1 };
+  const kiosk = { longPress: false };
+
+  it("an unlinked appliance with a media player: a tap and a hold do nothing in kiosk, and are the player's more-info outside it", () => {
+    const k = rig({ unlinked: PLAYER_OBJ, opts: kiosk });
+    k.tap(); k.hold(); pointer(k.el(), "pointerup");
+    expect(k.moreInfo).not.toHaveBeenCalled();
+    expect(k.openChooser).not.toHaveBeenCalled();
+    k.unbind();
+    const open = rig({ unlinked: PLAYER_OBJ });
+    open.tap();
+    expect(open.detail()).toEqual({ entityId: "media_player.living" });
+  });
+
+  it("a media_player icon: a tap does nothing in kiosk, and is the player's more-info outside it", () => {
+    for (const device of [MEDIA, TV_ICON]) {
+      const k = rig({ devices: [device], opts: kiosk });
+      k.tap();
+      expect(k.moreInfo, device.type).not.toHaveBeenCalled();
+      k.unbind();
+      const open = rig({ devices: [device] });
+      open.tap();
+      expect(open.detail(), device.type).toEqual({ entityId: device.entity });
+      open.unbind();
+    }
+  });
+
+  it("tap_action more-info from YAML opens the popup in kiosk instead, and still more-info outside it", () => {
+    const VAC: Device = { id: "v1", type: "vacuum", entity: "vacuum.hall", x: 1, y: 1 };
+    for (const device of [LIGHT, VAC]) {
+      const openVacuumDialog = vi.fn();
+      const k = rig({ devices: [device], opts: { ...kiosk, tapAction: () => "more-info", openVacuumDialog } });
+      k.tap();
+      expect(k.moreInfo, device.type).not.toHaveBeenCalled();
+      if (device === LIGHT) expect(k.openPopup, device.type).toHaveBeenCalledTimes(1); else expect(openVacuumDialog).toHaveBeenCalledTimes(1);
+      k.unbind();
+      const open = rig({ devices: [device], opts: { tapAction: () => "more-info", openVacuumDialog } });
+      open.tap();
+      expect(open.detail(), device.type).toEqual({ entityId: device.entity });
+      open.unbind();
+    }
+  });
+});

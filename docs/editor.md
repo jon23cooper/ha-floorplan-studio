@@ -97,8 +97,8 @@ footprint to that model's (a size you typed is replaced; Undo brings it back) an
 palette in the same step. **Main entity** is the entity a tap opens (trackers are listed first). **Attached** lists the
 other entities: the main entity's device first, then entities named like the car, then trackers, sensors, locks, climate
 and covers, diagnostics last, up to 24. **Add all from this car** attaches the device's entities in one step. Each change
-is one undo step, and none when the value does not change. **Convert to car piece** is on a car piece (an unlinked car
-keeps its turn, colour and attached) and on a car device icon (its entity becomes the main one); it selects the new piece.
+is one undo step, and none when the value does not change. **Convert to car piece** is on an unlinked car appliance (it keeps its turn, colour and attached) and on a car device icon
+(its entity becomes the main one); it selects the new piece.
 Changing the symbol of a car piece drops its three car keys, so the layout still saves.
 
 A plug's panel has a Power sensor picker: the `sensor.*` of device class

@@ -173,7 +173,8 @@ export function bindDeviceActions(
       if (!u) return;
       const player = playerOf(u);
       // A speaker or TV with a media player stands in for it: a tap or a hold is the player's own more-info, no popup.
-      if (player) { arm(moreInfoOf(u.name ?? u.id, [player]), moreInfoOf(u.name ?? u.id, [player])); return; }
+      // Kiosk (`longPress: false`) never reaches Home Assistant's dialog, so such an appliance does nothing there, as a linked piece.
+      if (player) { if (longPress) arm(moreInfoOf(u.name ?? u.id, [player]), moreInfoOf(u.name ?? u.id, [player])); return; }
       const ents = entitiesOfDevice(u);
       if (ents.length === 0) return; // nothing attached: nothing to say
       arm(popup({ unlinked: u, index: i }), moreInfoOf(u.name ?? u.id, ents));
@@ -185,7 +186,8 @@ export function bindDeviceActions(
     if (!d) return;
     // S25.5: a tap on a stack of devices fans it out first, whatever the device would do on its own.
     const solo = (act: () => void) => () => { if (!opts?.stack?.(i)) act(); };
-    const tapA = opts?.tapAction?.() ?? "popup", holdA = opts?.holdAction?.() ?? "more-info";
+    // Kiosk: `tap_action: more-info` from YAML falls back to the popup, which has no More info link there.
+    const asked = opts?.tapAction?.() ?? "popup", tapA = !longPress && asked === "more-info" ? "popup" : asked, holdA = opts?.holdAction?.() ?? "more-info";
     const own = d.entity;
     const info = own ? () => fireEvent(host, "hass-more-info", { entityId: own }) : undefined;
     // `none` still arms a hold, doing nothing: the release of a long press must not turn into a tap.
@@ -198,7 +200,7 @@ export function bindDeviceActions(
       return;
     }
     // A media player has its own, better panel: a tap is its more-info, as for a speaker or TV placed as an appliance (Diego, 2026-10-07).
-    if (own?.startsWith("media_player.")) { arm(solo(tapA === "none" ? () => undefined : info!), onHold); return; }
+    if (own?.startsWith("media_player.")) { if (longPress) arm(solo(tapA === "none" ? () => undefined : info!), onHold); return; }
     // The stack comes first for every tap action (`solo`): overlapped icons stay reachable, and a tap that fans a stack out toggles nothing.
     const act = tapA === "none" ? () => undefined : tapA === "more-info" && info ? info : tapA === "toggle" && opts?.toggle ? () => opts.toggle!(t, at, popupFrom(target)) : asPopup;
     arm(solo(act), onHold);

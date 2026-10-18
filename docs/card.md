@@ -311,7 +311,9 @@ those back, with a ⋯ menu that holds only Rotate and Reset view), and a long p
 opens the device's popup, whose button operates it, as without kiosk mode, but the popup has no
 **More info** link: nothing in kiosk mode reaches Home Assistant's dialog. A **linked piece** (a car, a tv, a speaker or a
 computer drawn as furniture with an entity) does nothing at all on a tap or a hold in kiosk, since its tap is more-info.
-Before 0.33.0 a tap on one opened more-info in kiosk; that was a leak and is fixed.
+Before 0.33.0 a tap on one opened more-info in kiosk; that was a leak and is fixed. The same holds on every other path: an
+unlinked speaker or TV with a media player, and a media player icon, do nothing on a tap in kiosk, and `tap_action: more-info`
+opens the popup instead (it has no More info link there).
 
 Kiosk is the plan alone: the card is as tall as the screen allows (see Size), the plan is one Tab stop and its keys work
 (see Keys on the plan), and a tap on a device opens the popup on every width.
@@ -876,7 +878,7 @@ directly, as before.
   colour mode (hs, xy, rgb) gets a hue slider. Moving a slider changes only the number shown; releasing it makes the
   one `light.turn_on` call. A light that only switches on and off gets no slider.
 - **A car piece** (furniture, symbol `car`) is not a popup. A tap opens Home Assistant's more-info of its main entity at once,
-  whatever `tap_action` says, in 2D, 2.5D and 3D, and switches nothing. A hold (600 ms) opens the chooser: the title is the
+  whatever `tap_action` says, in 2D, 2.5D and 3D, and switches nothing. A hold (500 ms) opens the chooser: the title is the
   car's name and its state line (`Family car · Away · Work · Charging · 78 %`), then one row per entity, the main one first,
   then the attached ones in order, each with its state; tap a row for that entity's more-info. The title and the rows follow
   Home Assistant while the chooser is open. A car with one entity opens its more-info on a hold too. In kiosk both do

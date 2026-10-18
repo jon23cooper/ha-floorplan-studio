@@ -163,6 +163,25 @@ test.describe("kiosk", () => {
     await expect(card(page).locator("css=.fp-pop")).toHaveCount(0);
   });
 
+  test("review finding 4: tap_action more-info from YAML, and a media_player icon, never reach more-info in kiosk", async ({ page }) => {
+    const layout = layoutOf(carPiece(), [{ id: "tv-icon", type: "tv", entity: "media_player.demo_tv", name: "TV icon", x: 200, y: 330 }]);
+    const iconAt = async (sel: string) => {
+      const p = await card(page).evaluate((el, sel) => {
+        const g = el.shadowRoot!.querySelector<SVGGElement>(sel)!, r = g.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
+        return { x, y, hit: !!el.shadowRoot!.elementFromPoint(x, y)?.closest("g[data-x]") };
+      }, sel);
+      expect(p.hit, sel).toBe(true);
+      return p;
+    };
+    await boot(page, layout, { kiosk: true, tap_action: "more-info" });
+    await press(page, await iconAt('svg g[data-x][class*="dev-tv"]'));
+    await press(page, await iconAt('svg g[data-x][class*="dev-light"]'));
+    expect(await infos(page)).toEqual([]);
+    await boot(page, layout, { tap_action: "more-info" });
+    await press(page, await iconAt('svg g[data-x][class*="dev-light"]'));
+    expect(await infos(page)).toHaveLength(1);
+  });
+
   test("outside kiosk the same tv tap is more-info (the rule is kiosk's, not the piece's)", async ({ page }) => {
     const layout = layoutOf(carPiece());
     await boot(page, layout);
