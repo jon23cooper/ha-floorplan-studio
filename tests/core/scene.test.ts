@@ -484,7 +484,7 @@ describe("scene: whole-scene properties", () => {
   it("builds the demo's both floors with a wall, room, furniture and device each", () => {
     const g = buildScene(demoFloors()[0]);
     for (const k of ["floor", "wall", "room", "furniture", "stair", "device"]) expect(g.solids.some((s) => s.kind === k), k).toBe(true);
-    expect(g.solids.filter((s) => s.kind === "furniture")).toHaveLength(3); // S35.4: the demo gained a car
+    expect(g.solids.filter((s) => s.kind === "furniture")).toHaveLength(10); // two pieces, one solid each, and the demo car (S35.4), which S35.5 builds from eight parts
     expect(g.solids.filter((s) => s.kind === "device")).toHaveLength(12); // 8, and the four icons stacked in the Hall (S27.C, for spiderfy)
     expect(g.solids.filter((s) => s.kind === "device" && s.shape.type === "prism").map((s) => s.tag)).toEqual(["heater"]);
     for (const s of g.solids.filter((x) => x.kind === "wall" && x.tag !== "glass" && x.tag !== "door-leaf")) expect(prism(s).z1).toBeLessThanOrEqual(floorHeight(demoFloors()[0]));
