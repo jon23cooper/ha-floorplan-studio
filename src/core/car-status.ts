@@ -1,6 +1,6 @@
 // S35.3: what a car's entities say about the car (docs/specs/car-s35.md, C5). Read by domain, device class and state, never by
 // integration. Every state read here is untrusted (finding 1): nothing throws, junk reads as "nothing to report".
-import type { Device } from "./schema";
+import { isEntityId, type Device } from "./schema";
 
 /** A car piece or a car device: its main `entity` and the other entities attached to it. Loose on purpose, a layout is untrusted. */
 export interface CarLike { entity?: unknown; attached?: unknown }
@@ -20,7 +20,6 @@ export interface CarStatus {
   alert: boolean;
 }
 
-const isEntityId = (v: unknown): v is string => typeof v === "string" && /^[a-z0-9_]+\.[a-z0-9_]+$/i.test(v);
 const domainOf = (e: string): string => e.slice(0, e.indexOf("."));
 const OPENINGS = new Set(["door", "window", "opening", "garage_door"]);
 /** Charge-state words by value: Tesla and Volvo send `charging`, Renault `charge_in_progress`. Add a word here, in one place. */

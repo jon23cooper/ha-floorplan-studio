@@ -37,6 +37,10 @@ describe("validate: a car with valid keys passes, junk is reported and names the
     ["attached a string", { attached: "x" }, /attached/],
     ["attached [5]", { attached: [5] }, /attached/],
     ["attached no dot", { attached: ["x"] }, /attached/],
+    ["attached with a space (review finding 12)", { attached: ["sensor.x y"] }, /attached/],
+    ["attached with a second dot", { attached: ["sensor.x.y"] }, /attached/],
+    ["attached with markup", { attached: ['sensor."><script>'] }, /attached/],
+    ["main entity with a space", { entity: "device_tracker.my car" }, /entity/],
     ["attached repeat", { attached: ["light.x", "light.x"] }, /attached.*(twice|repeat|duplicate)/i],
     ["attached 25 ids", { attached: ids(25) }, /attached/],
   ];
@@ -132,5 +136,23 @@ describe("attachedEntities and placedEntities", () => {
     expect(() => attachedEntities(lay)).not.toThrow();
     (lay.floors.Ground.furniture[0] as any).attached = [null, 5, "a.b"];
     expect([...attachedEntities(lay)]).toEqual(["a.b"]);
+  });
+});
+
+describe("one entity-id check for a car (review finding 12)", () => {
+  const BAD = ["sensor.x y", "sensor.x.y", "sensor.", ".x", "x", "Sensor.X Y", 'a.b"c', ""];
+  it("migrate drops what validate refuses and carEntities ignores: the three agree on every string", async () => {
+    const { carEntities } = await import("../../src/core/car-status");
+    for (const bad of BAD) {
+      const m = furnitureOf(migrate(layoutOf(piece("car", { attached: ["sensor.good", bad] }))));
+      expect(m.attached, JSON.stringify(bad)).toEqual(["sensor.good"]);
+      expect(carEntities({ attached: ["sensor.good", bad] }), JSON.stringify(bad)).toEqual(["sensor.good"]);
+      expect(errorsOf(piece("car", { attached: ["sensor.good", bad] })).length, JSON.stringify(bad)).toBeGreaterThan(0);
+    }
+    for (const ok of ["sensor.x_y", "device_tracker.Car_2", "lock.a1"]) {
+      expect(furnitureOf(migrate(layoutOf(piece("car", { attached: [ok] })))).attached).toEqual([ok]);
+      expect(carEntities({ attached: [ok] })).toEqual([ok]);
+      expect(errorsOf(piece("car", { attached: [ok] }))).toEqual([]);
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { stairSteps } from "./geometry";
-import { CAR_MODELS, COORD_LIMIT, FX_MIN, FX_MAX, MAX_CAR_ATTACHED, MAX_VIEWS, viewProblems, type CatalogEntry, type Device, type DeviceType, type Layout, type Pt } from "./schema";
+import { isEntityId, CAR_MODELS, COORD_LIMIT, FX_MIN, FX_MAX, MAX_CAR_ATTACHED, MAX_VIEWS, viewProblems, type CatalogEntry, type Device, type DeviceType, type Layout, type Pt } from "./schema";
 
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const KINDS: [string, string][] = [["rooms", "room"], ["walls", "wall"], ["stairs", "stairs"], ["doors", "door"], ["openings", "opening"], ["extras", "extra"], ["furniture", "furniture"], ["unlinked", "unlinked"]];
@@ -58,7 +58,7 @@ function dropBadCar(f: any) {
     if ("model" in m && !CAR_MODELS.includes(m.model)) delete m.model;
     if ("color" in m && !(typeof m.color === "string" && /^#[0-9a-fA-F]{6}$/.test(m.color))) delete m.color;
     if ("attached" in m) {
-      const kept: string[] = Array.isArray(m.attached) ? [...new Set<string>(m.attached.filter((e: unknown): e is string => typeof e === "string" && e.includes(".")))].slice(0, MAX_CAR_ATTACHED) : [];
+      const kept: string[] = Array.isArray(m.attached) ? [...new Set<string>(m.attached.filter((e: unknown): e is string => isEntityId(e)))].slice(0, MAX_CAR_ATTACHED) : [];
       if (kept.length) m.attached = kept; else delete m.attached;
     }
   }
