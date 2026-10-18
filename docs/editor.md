@@ -296,7 +296,7 @@ floor. Untick what should stay and press Apply: one undo step.
 
 One word everywhere. **Lock plan** (the toggle at the top, "Plan locked" or "Plan
 editable") holds the geometry: corners, walls, doors, windows, kinds, stairs and
-furniture. Names, colours, textures, areas, devices and links stay editable. The
+furniture. Names, colours, textures, areas, devices and links stay editable, a car's colour and attached entities too (its model sets its size, so that stays locked). The
 **Lock** box on a device, a piece of furniture or an unlinked appliance stops it
 being dragged; on a wall, door or opening it reads "Lock (keeps its length)".
 A refused edit says "The plan is locked." with an **Unlock** button in the banner.

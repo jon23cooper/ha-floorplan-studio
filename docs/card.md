@@ -798,12 +798,13 @@ differently:
     (`not_home`, a zone's name) for away. An away car is drawn at 35 % with a small grey mark at its nose; in 3D every part
     is truly transparent, and the far wheels do not show through the body. A car with no tracker is drawn as home.
   - *Charging.* A `battery_charging` binary sensor that is on, or a sensor reading `charging` or `charge_in_progress`
-    (Renault, Tesla, Volvo and the like; `stopped` is not charging). The outline turns `--fp-dev-car` (green) with a bolt
-    badge; in 3D the glass lights.
+    (Renault, Tesla, Volvo and the like; `stopped` is not charging). The outline turns `--fp-dev-car` (green in every theme)
+    with a bolt badge toward the tail; in 3D the glass lights. A car whose tracker is unavailable but whose charging sensor
+    reads charging still counts as on, and is listed under Active.
   - *Level.* A battery sensor in %, else a % sensor with `fuel` in its id, prints under the car, `78 %`.
   - *Alert.* An unlocked lock, or an open door or window sensor, outlines the car in the open-door colour (charging wins
     the colour, the text still says both). In 3D the roof turns that colour. A car never raises an Attention item.
-  - *Text.* One line for the hover, the chooser's title and the Active row: `Away · Work · Charging · 78 %`.
+  - *Text.* One line for the hover, the chooser's title and the Active row, read from all the car's entities: `Away · Work · Charging · 78 %`.
   A charging car is listed under Active, with a row that opens more-info; a parked one is not. The demo has one car, on the
   **Test** floor (400 x 400 cm, "demos and manual checks"), not on the ground floor. A **car device icon** (Add > Device,
   type `car`) on a `device_tracker.*` fades and wears the away mark like a person; it never toggles, and its popup has no
@@ -1033,7 +1034,7 @@ with its own colour keeps it. There are no textures. Shadows are baked contact s
   browser like the rest of the view.
 - **The car in 3D.** Built from its model, not one box (body, glass greenhouse, roof, tyres, grille). Any part taps and holds as the
   car. Charging, an alert, away and the level change in place, with no rebuild; a bolt, the away mark and the level are drawn
-  in the overlay. Not drawn in 3D: the gone mark of a dead main entity.
+  in the overlay, with the plan's gone mark (a ring and a slash) while the main entity is dead.
 - **Taps in 3D work as in 2D.** A tap on a device (the small ball, or its body)
   toggles it, except the types that have no on/off (camera, media, speaker and
   the like), which open more-info; a hold opens more-info. A door, a window and

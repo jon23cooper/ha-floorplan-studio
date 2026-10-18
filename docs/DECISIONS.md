@@ -2,6 +2,19 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-18: S35 review fixes (Sonnet, Opus findings 2 to 13)
+
+Supersedes parts of the S35.3, S35.4, S35.6 and S35.8 entries below where they differ.
+
+- Kiosk never opens more-info (Diego: block all). `bindDeviceActions` with `longPress: false` arms nothing for an unlinked appliance with a player or for a `media_player` icon, and turns `tap_action: more-info` into the popup (it has no More info link in kiosk). The check sits in `actions.ts`, not `_tapOpts`, so the 3D host and the Active panel get it too. A hold in kiosk was already nothing.
+- Charging is green in every theme (Diego). Role-built themes took the accent for `--fp-dev-car`; `rolesToTokens` now uses `#35d47a` (dark) or `#2e9e4f` (light) unless `devices.car` says otherwise.
+- `classOf` reads a car's charging before it returns `unavailable` for a dead main entity, and `isActive` lets a car through the dead check, so a charging car with a dead tracker is on, strokes green, lights in 3D and is listed. The gone mark follows `classOf`, so it is off while the car charges. 3D shows the gone mark in the badge (`LivePiece.gone`, sent only when true).
+- 2.5D puts a car's marks after its group, as 2D does. The bolt moves to `-w/2 + min(38, 0.3 w)` along the car's axis (the tail), counter-rotated so it stays upright.
+- The plan lock no longer counts a car's `attached` and `color` as plan (like `entity`); `model` stays plan since it sets the footprint.
+- `isEntityId` (`schema.ts`) is the one check for a car's entity ids in `validate` (attached and a car's main entity), `migrate` and `carEntities`. Other pieces keep the loose dot check.
+- `CAR_WHEEL_INSET` 0.3 to 1.2 cm.
+- Hover text and the Active row call `carText(carStatus(...))` over the subject's entities; `stateText`'s car branch stays for callers that hold one entity only.
+
 ## 2026-10-18: S35.8 exit, docs, sizes (Sonnet)
 
 Docs, one test, sizes. Card and Studio: docs only for the Studio panel; the new test is card only.
