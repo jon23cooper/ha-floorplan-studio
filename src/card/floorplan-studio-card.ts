@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from "lit";
 import { planPatch } from "./plan-patch"; // S25.6: the plan is patched, not replaced, on a state update
-import { ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
+import { carStatus, carText, ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
 import type { HeatKind, LayerId, OffRow, SearchEntry } from "../core";
 import type { ActiveDevice, Attention, AttentionItem, AttentionKind, CategoryId, DeviceType, ThingRef, PowerCandidate, RoomDeviceRow, RoomSensorRow, RoomSummary, Theme, WallsMode } from "../core";
 import type { Device, Door, Floor, Layout, SavedView } from "../core";
@@ -2124,6 +2124,8 @@ export class FloorplanStudioCard extends LitElement {
     // S22.1: a lamp lit only by its relay reads as the plan draws it, and names what keeps it on.
     const via = s.lamp ? relayText(s.lamp, states) : null;
     if (via) return via;
+    // A car speaks for all its entities (tracker, charging, battery), not the main one alone: the same line as its chooser title.
+    if (s.type === "car" && s.entity) { const line = carText(carStatus({ entity: s.entity, attached: s.entities }, states)); if (line) return line; }
     const w = s.powerEntity ? wattsOf(states?.[s.powerEntity]) : null;
     return stateText(s.type, states?.[e], w === null ? undefined : `${Math.round(w * 10) / 10} W`, e);
   }

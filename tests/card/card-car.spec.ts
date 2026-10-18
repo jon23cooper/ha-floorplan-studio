@@ -200,6 +200,25 @@ test.describe("a car device icon", () => {
   });
 });
 
+test.describe("a car's state line (review finding 2)", () => {
+  const CHARGING = STATES({ "sensor.car_charging": st("charging", { friendly_name: "Charging state" }) });
+
+  test("the hover text and the Active row read the car text: place, charging and level, not the main entity alone", async ({ page }) => {
+    const layout = layoutOf(carPiece());
+    await boot(page, layout, {}, CHARGING);
+    const p = await piecePoint(page, indexOf(layout, "car-1"));
+    await page.mouse.move(p.x - 3, p.y);
+    await page.mouse.move(p.x, p.y);
+    const tip = card(page).locator("css=.fp-tip");
+    await expect(tip).toBeVisible();
+    await expect(tip).toContainText("Family car");
+    await expect(tip).toContainText("Charging");
+    await expect(tip).toContainText("78");
+    const row = card(page).locator("css=.fp-active-body .fp-active-row", { hasText: "Family car" });
+    await expect(row.locator("css=.fp-row-state")).toHaveText("Home · Charging · 78 %");
+  });
+});
+
 test.describe("the Active list", () => {
   test("a charging car piece is listed under its name and its row opens more-info; a parked one is not listed", async ({ page }) => {
     await boot(page, layoutOf(carPiece()), {}, STATES({ "sensor.car_charging": st("charging", { friendly_name: "Charging state" }) }));
