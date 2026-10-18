@@ -983,7 +983,7 @@ test("Add, Zone places a 200 x 200 cm zone on the grid, centred on the spawn poi
   expect(Math.max(...xs) - Math.min(...xs)).toBe(200);
   expect(Math.max(...ys) - Math.min(...ys)).toBe(200);
   for (const v of [...xs, ...ys]) expect(Math.abs(v % 5)).toBe(0);
-  expect([Math.min(...xs) + 100, Math.min(...ys) + 100]).toEqual([1230, 0]); // centred on the spawn point, clear of the demo's own devices and car (reach x 1075, S35.4), not just the outline (S1.20, S4.13-adjacent)
+  expect([Math.min(...xs) + 100, Math.min(...ys) + 100]).toEqual([1050, 0]); // centred on the spawn point, clear of the demo's own devices (reach x 900), not just the outline (S1.20, S4.13-adjacent)
   // selected: the panel shows kind zone
   await expect(page.locator("#rk")).toHaveValue("zone");
   // its four edges are dotted for real: the browser resolves the dash array from the shared CSS

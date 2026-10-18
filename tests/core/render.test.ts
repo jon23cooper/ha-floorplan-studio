@@ -650,7 +650,7 @@ describe("viewBoxFor", () => {
     // 0.12.14: the box is now 1040x750, not 940x740 — the garden and its pond (a `structuralPoints` fixture,
     // read: `viewBoxFor`'s own comment) sit outside the outline, to the right and below, so they widen the plain
     // pad on those sides even with no device near them.
-    expect(viewBoxFor(ground, 60)).toEqual({ x: -80, y: -60, w: 1215, h: 750 });
+    expect(viewBoxFor(ground, 60)).toEqual({ x: -80, y: -60, w: 1040, h: 750 });
   });
   it("defaults to 60 cm of padding, widened where a light or camera reaches past it", () => {
     expect(viewBoxFor(ground).x).toBe(-80);
@@ -660,7 +660,7 @@ describe("viewBoxFor", () => {
     const f = structuredClone(ground);
     f.devices = [];
     // 0.12.14: 1020x750, not 920x720 — the garden and pond widen the box on their own, with no device involved.
-    expect(viewBoxFor(f, 60)).toEqual({ x: -60, y: -60, w: 1195, h: 750 });
+    expect(viewBoxFor(f, 60)).toEqual({ x: -60, y: -60, w: 1020, h: 750 });
   });
 
   it("S5.7: widens the padding so a lamp's aura, 20 cm inside the right wall, is never clipped", () => {
@@ -681,14 +681,14 @@ describe("viewBoxFor", () => {
     const f = structuredClone(ground);
     f.devices = [{ id: "l1", type: "light", entity: "light.x", x: 400, y: 300 }];
     // 0.12.14: 1020x750 — the garden and pond's own base box (see "S5.7: keeps the plain padding" above), untouched.
-    expect(viewBoxFor(f, 60)).toEqual({ x: -60, y: -60, w: 1195, h: 750 });
+    expect(viewBoxFor(f, 60)).toEqual({ x: -60, y: -60, w: 1020, h: 750 });
   });
 
   it("S8.13: a lamp by the left wall widens only the left side, by its whole 150 cm aura", () => {
     const f = structuredClone(ground);
     f.devices = [{ id: "l1", type: "light", entity: "light.x", x: 20, y: 300 }];
     // 0.12.14: 1090x750 — the same 70 cm the lamp always added to the left, on top of the wider 1020x750 base.
-    expect(viewBoxFor(f, 60)).toEqual({ x: -130, y: -60, w: 1265, h: 750 });
+    expect(viewBoxFor(f, 60)).toEqual({ x: -130, y: -60, w: 1090, h: 750 });
   });
 
   it("S8.13: a turned plan pads the turned lamp, not the unturned one", () => {
@@ -712,7 +712,7 @@ describe("viewBoxFor", () => {
     f.devices = [{ id: "l1", type: "light", entity: "light.x", x: 1e6, y: 300 }];
     // 0.12.14: still the plain 1020x750 base — a stray device is excluded from `structuralPoints` (its own
     // comment) exactly as it was excluded from the outline before this fix, so it cannot balloon the view either.
-    expect(viewBoxFor(f, 60)).toEqual({ x: -60, y: -60, w: 1195, h: 750 });
+    expect(viewBoxFor(f, 60)).toEqual({ x: -60, y: -60, w: 1020, h: 750 });
   });
 
   it("S5.7 break it: a light exactly on the wall, or the plan's only device, still gives a finite box with the whole circle inside", () => {

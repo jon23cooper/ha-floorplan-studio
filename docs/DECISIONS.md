@@ -2,6 +2,14 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-18: The demo car stays inside the demo's bounds (fixes S35.4)
+
+S35.4 put the demo car at x 992.5, east of the house. Its corners widened the auto scale (1.04 to 1.215), the view box (1040 to 1215) and the editor spawn point (1050 to 1230), and nine Playwright specs failed on a quiet machine.
+
+- The car is now at x 817.5, y 195, turned 90, still the last furniture piece. Its corners reach x 900 and y 15 to 375, inside the garden's edge, so scale, box and spawn are as on main. The cost: it overlaps the kitchen's east wall by 65 cm. Moving it clear of the house needs a wider demo.
+- Reverted the spec edits that only followed the moved geometry: `card.test.ts` (1.215), `render.test.ts` view boxes, `ops.test.ts` and `editor.spec.ts` spawn. Kept those about a third piece (counts, `furniture[3]`, search order, `newId`) and about the new drawing (solids-objects, scene counts).
+- The `render.test.ts` snapshot moved only the car's `translate`.
+
 ## 2026-10-17: S35.7 the Studio's car panel (Sonnet)
 
 Spec C9. Studio only (the card has no panel). Convert to car piece is built: the cap is 119,000 gz, so the drop order did not reach it.
