@@ -243,3 +243,37 @@ describe("EditorState: plan lock holds geometry only (S26.3)", () => {
     expect(st.f.rooms[0].name).toBe(n);
   });
 });
+
+// Review finding 9: a car's entity links and colour are not geometry, like a piece's `entity`; its model (the footprint) is.
+describe("EditorState: plan lock and a car piece (review finding 9)", () => {
+  beforeEach(() => localStorage.clear());
+  const withCar = () => {
+    const st = new EditorState(fresh());
+    st.edit((f) => { f.furniture.push({ id: "car9", symbol: "car", x: 100, y: 100, rot: 0, w: 470, h: 182, entity: "device_tracker.car", attached: ["sensor.a", "sensor.b"], color: "#c03030" } as never); });
+    st.planLocked = true;
+    return { st, i: st.f.furniture.length - 1 };
+  };
+  it("adding, removing and reordering attached entities, and the colour, go through the lock, one undo step each", () => {
+    const { st, i } = withCar();
+    const before = JSON.stringify(st.layout);
+    expect(st.edit((f) => { f.furniture[i].attached = ["sensor.a"]; })).toBe(true);
+    expect(st.planBlocked).toBe(false);
+    expect(st.edit((f) => { f.furniture[i].attached = ["sensor.a", "sensor.c"]; })).toBe(true);
+    expect(st.attachEntity("sensor.d", (f) => { f.furniture[i].attached = [...(f.furniture[i].attached ?? []), "sensor.d"]; }).changed).toBe(true);
+    expect(st.edit((f) => { f.furniture[i].color = "#00ff00"; })).toBe(true);
+    expect(st.paintCar(i, "#112233")).toBe(true);
+    expect(st.paintCar(i, null)).toBe(true);
+    expect(st.f.furniture[i].color).toBeUndefined();
+    for (let n = 0; n < 6; n++) st.undo();
+    expect(JSON.stringify(st.layout)).toBe(before);
+  });
+  it("the model, the size and the position stay refused, with the flag set and no undo step", () => {
+    const { st, i } = withCar(), before = JSON.stringify(st.layout);
+    expect(st.setCarModel(i, "truck")).toBe(false);
+    expect(st.planBlocked).toBe(true);
+    expect(st.edit((f) => { f.furniture[i].model = "van"; })).toBe(false);
+    expect(st.edit((f) => { f.furniture[i].x += 5; })).toBe(false);
+    expect(st.edit((f) => { f.furniture[i].symbol = "sofa"; delete f.furniture[i].attached; })).toBe(false);
+    expect(JSON.stringify(st.layout)).toBe(before);
+  });
+});

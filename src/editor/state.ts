@@ -301,7 +301,7 @@ export class EditorState {
       stairs: f.stairs.map((t) => drop(t, paint)),
       doors: f.doors.map((d) => drop(d, ["name", "sensors", "vibration", "locks", "cover"])),
       extras: f.extras.map((x) => drop(x, ["name"])),
-      furniture: f.furniture.map((m) => drop(m, ["name", "entity", "locked"])),
+      furniture: f.furniture.map((m) => drop(m, ["name", "entity", "locked", "attached", "color"])), // a car's links and paint are not geometry; its model, which sets the footprint, is
     });
   }
 
