@@ -690,3 +690,21 @@ test("M1: a layout from the websocket is read from the { layout } reply, so floo
   expect(ids).toEqual(["ground", "first", "test"]);
   await expect(editor.locator("datalist#favourites_choices option").first()).toBeAttached();
 });
+
+test("Favourites Remove is a round red X before the id, named for screen readers", async ({ page }) => {
+  await open(page);
+  await mount(page, { layout: demo, favorites: ["light.demo_living"] });
+  const btn = page.locator("#editor #favourites_list li button");
+  await expect(btn).toHaveAttribute("aria-label", "Remove light.demo_living");
+  expect((await btn.innerText()).trim()).toBe("");
+  const g = await btn.evaluate((el) => {
+    const s = getComputedStyle(el), r = el.getBoundingClientRect(), t = el.nextElementSibling!.getBoundingClientRect();
+    const [R, G, B] = (s.backgroundColor.match(/[\d.]+/g) ?? []).map(Number);
+    return { w: Math.round(r.width), h: Math.round(r.height), radius: parseFloat(s.borderTopLeftRadius), before: r.right <= t.left, R, G, B, first: el.parentElement!.firstElementChild === el };
+  });
+  expect(g.first).toBe(true);
+  expect(g.before).toBe(true);
+  expect(g.w).toBe(g.h);
+  expect(g.radius).toBeGreaterThanOrEqual(g.w / 2);
+  expect(g.R).toBeGreaterThan(g.G * 2); expect(g.R).toBeGreaterThan(g.B * 2);
+});
