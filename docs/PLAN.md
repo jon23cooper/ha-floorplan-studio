@@ -4519,7 +4519,7 @@ Lane 3D:
       `src/card/three/view3d.ts`, `src/card/three/overlay.ts`, `src/card/three/palette.ts`, the two new tests.
 
 Lane card and Studio:
-- [ ] S35.6 Tap, hold and kiosk for the car (Sonnet). After S35.3. Spec C8. In `bindDeviceActions`, a car piece: tap is
+- [x] S35.6 Tap, hold and kiosk for the car (Sonnet). After S35.3. Spec C8. In `bindDeviceActions`, a car piece: tap is
       more-info of the main entity, hold the chooser titled with the name and `carText`, rows main first then
       `attached`; kiosk taps on every linked piece do nothing. The chooser's title shows `carText`. Test, failing first,
       new `tests/card/card-car.spec.ts`: criteria 12 to 15 with real clicks and a real 600 ms hold, `hass-more-info`

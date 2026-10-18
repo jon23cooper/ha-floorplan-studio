@@ -1,5 +1,5 @@
 import type { Device, Door, Furniture, Unlinked } from "../core";
-import { entitiesOfDevice, entitiesOfDoor, pieceDevice, playerOf } from "../core";
+import { carEntities, carMain, carStatus, carText, entitiesOfDevice, entitiesOfDoor, pieceDevice, playerOf } from "../core";
 import type { Hass } from "./floorplan-studio-card";
 import type { HoldAction, TapAction } from "./tap-action";
 
@@ -60,7 +60,8 @@ export function bindDeviceActions(
   opts?: {
     longPress?: boolean;
     openVacuumDialog?: (device: Device) => void;
-    openChooser?: (title: string, entities: string[]) => void;
+    /** `line` is read at every render of the chooser, so its title follows the state (a car's `carText`). */
+    openChooser?: (title: string, entities: string[], line?: () => string) => void;
     openPopup?: (target: TapTarget, at: { x: number; y: number }, from: Element | null) => void;
     getUnlinked?: (index: number) => Unlinked | undefined;
     /** A linked furniture piece (`g[data-f][data-linked]`, `pieceDevice`) by its index in the floor's `furniture`. */
@@ -149,8 +150,18 @@ export function bindDeviceActions(
 
     // A linked tv, speaker or computer piece is its device here, and a tv or speaker has no toggle: a tap or a hold is the entity's own more-info, no popup (as an unlinked appliance with a player).
     if (target.hasAttribute("data-f")) {
+      // S35.6 (spec C8, Q4): kiosk never reaches Home Assistant's dialog, and `longPress: false` is kiosk's flag, so a linked piece does nothing there.
+      if (!longPress) return;
       const i = Number(target.getAttribute("data-f"));
       const m = Number.isFinite(i) ? opts?.getPiece?.(i) : undefined;
+      // A car: a tap is the main entity's more-info, a hold the chooser (name and `carText`, main first, then `attached`).
+      if (m?.symbol === "car") {
+        const main = carMain(m);
+        if (!main) return;
+        const ents = carEntities(m);
+        arm(moreInfoOf(main, [main]), () => (ents.length > 1 ? opts?.openChooser?.(m.name || "Car", ents, () => carText(carStatus(m, host.hass?.states))) : fireEvent(host, "hass-more-info", { entityId: main })));
+        return;
+      }
       const own = m && pieceDevice(m)?.entity;
       if (own) arm(moreInfoOf(own, [own]), moreInfoOf(own, [own]));
       return;

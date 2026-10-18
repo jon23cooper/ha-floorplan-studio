@@ -549,6 +549,7 @@ g.dev.unavailable path{fill:var(--fp-idle);fill-opacity:.7}
    this rule can animate it; the card replays the old position before the new one (a FLIP), because each render builds new
    nodes. Away is a person at 35 %, with the away mark in the group; unavailable wears the gone mark like every device. */
 .dev-person{transition:transform .6s ease} .dev-person.away{opacity:.35} .dev-person .away-mark{fill:var(--fp-idle);stroke:var(--fp-outline);stroke-width:1;vector-effect:non-scaling-stroke}
+.dev-car.away{opacity:.35} .dev-car .away-mark{fill:var(--fp-idle);stroke:var(--fp-outline);stroke-width:1;vector-effect:non-scaling-stroke}
 @media (prefers-reduced-motion:reduce){.dev-person{transition:none}}
 /* S7.9: a radar target dot, one per tracked person, in the radar's own colour, taking no clicks. */
 .target{fill:var(--fp-dev-radar);stroke:var(--fp-outline);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}

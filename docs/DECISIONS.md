@@ -2,6 +2,16 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-18: S35.6 tap, hold and kiosk for the car (Sonnet)
+
+Spec C8; Diego's answers 3 and 4 (tap is more-info, hold is the chooser, kiosk does nothing).
+
+- `bindDeviceActions`: a linked piece in kiosk (`longPress: false`) arms nothing. A car piece: tap is `hass-more-info` of `carMain`; hold is the chooser with `carEntities` (one entity: more-info at once, as a tv). `getPiece` already gave the piece, so no new option for it.
+- The chooser's title is `name`, then a `line` function the caller passes (`carText(carStatus(piece, hass.states))`). It is read at every render, so a `hass` update with the dialog open changes the title as it changes the rows. The card knows nothing of cars: it joins the name and the line. A name or zone is a Lit text node, escaped.
+- `stateText` callers in the card now pass the entity id (the popup and tooltip line, the favourites row), so a car icon reads its car text there.
+- Found on the way, outside the task's files: `.dev-person.away` is the only away rule, so a car icon at `not_home` kept full opacity and no mark colour (S35.4 had the class and the mark, not the rule). `render.ts` CSS now names `.dev-car` beside `.dev-person`. `card-car.spec.ts` holds the computed-style check.
+- The 3D hold goes through the same function with a ray; the spec holds the 2D and 2.5D hold, and `card-3d-car.spec.ts` the 3D tap. The 3D hold is not driven by a real press.
+
 ## 2026-10-18: The demo car moves to the Test floor (supersedes the entry below)
 
 The ground floor has no free place for a 360 x 165 cm car inside the demo's bounds: at x 817.5 it covered the kitchen's east side, and six specs that click the kitchen failed (the Send to back and Bring to front menus, the S8.10 group tests, two spawn-in-room tests). So the car sits on the Test floor ("demos and manual checks", 400 x 400 cm), at 200, 200, turned 0, id `furniture-test-1`, still the last piece of its floor.
