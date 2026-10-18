@@ -4537,7 +4537,7 @@ Lane card and Studio:
       Files: `src/editor/panels.ts`, `src/editor/state.ts`, the two new tests.
 
 Wave 3, on `task/s35-car`:
-- [ ] S35.8 Exit, docs, shots, size (Sonnet; the docs part may go to Haiku). Every exit-test file green,
+- [x] S35.8 Exit, docs, shots, size (Sonnet; the docs part may go to Haiku). Every exit-test file green,
       `--repeat-each=10` on each new Playwright file. `size-budget.spec.ts`: `CARD_GROWTH_LIMIT` to the cap Diego gave
       (Q1), and the measured card and chunk sizes in DECISIONS. Docs: `docs/card.md` (What a device looks like: the car;
       Tap, hold and hover: the car piece row; Kiosk: linked pieces), `docs/editor.md` (the Car block, Convert),

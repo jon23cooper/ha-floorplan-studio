@@ -309,7 +309,9 @@ dialog by holding a finger on a device. It hides the header (floor tabs,
 Search and ⋯), the Overview sheet and the zoom +/−/fit buttons and the rotate buttons (`rotate_switch: true` brings
 those back, with a ⋯ menu that holds only Rotate and Reset view), and a long press does nothing — a plain tap still
 opens the device's popup, whose button operates it, as without kiosk mode, but the popup has no
-**More info** link: nothing in kiosk mode reaches Home Assistant's dialog.
+**More info** link: nothing in kiosk mode reaches Home Assistant's dialog. A **linked piece** (a car, a tv, a speaker or a
+computer drawn as furniture with an entity) does nothing at all on a tap or a hold in kiosk, since its tap is more-info.
+Before 0.33.0 a tap on one opened more-info in kiosk; that was a leak and is fixed.
 
 Kiosk is the plan alone: the card is as tall as the screen allows (see Size), the plan is one Tab stop and its keys work
 (see Keys on the plan), and a tap on a device opens the popup on every width.
@@ -782,6 +784,30 @@ differently:
   not a pair of coordinates a plan could place. `unavailable` or `unknown`
   still opens the dialog, with Start, Pause and Return to dock disabled and
   Cancel enabled, so an unreachable vacuum can always be dismissed.
+- **Car** — a furniture piece with the symbol `car` (Studio: Add > Furniture > Car), drawn from above as one of nine
+  models: sedan, wagon, SUV, off-road, pickup truck, van, utility (a hatchback), city car and electric. It is a piece of
+  furniture, not a device icon, and it points its nose along +x at turn 0 and turns with the piece in 2D, 2.5D and 3D.
+  Its body takes the piece's **colour** (any `#rrggbb`; without one, the theme's furniture colour); the glass and tyres
+  are near-black in every theme. In 2.5D it is a body block under a glass cabin with its own roof; in 3D a body, a sloped
+  glass greenhouse, a roof, four tyres and a grille (none on the electric). Its `entity` is the **main entity**
+  (a `device_tracker.*` is best); `attached` holds up to 24 more, and with no `entity` the first attached one is the main.
+  The card reads their states:
+  - *Away.* The first `device_tracker.*` among them says `home`, or anything but `unknown`, `unavailable` and empty
+    (`not_home`, a zone's name) for away. An away car is drawn at 35 % with a small grey mark at its nose; in 3D every part
+    is truly transparent, and the far wheels do not show through the body. A car with no tracker is drawn as home.
+  - *Charging.* A `battery_charging` binary sensor that is on, or a sensor reading `charging` or `charge_in_progress`
+    (Renault, Tesla, Volvo and the like; `stopped` is not charging). The outline turns `--fp-dev-car` (green) with a bolt
+    badge; in 3D the glass lights.
+  - *Level.* A battery sensor in %, else a % sensor with `fuel` in its id, prints under the car, `78 %`.
+  - *Alert.* An unlocked lock, or an open door or window sensor, outlines the car in the open-door colour (charging wins
+    the colour, the text still says both). In 3D the roof turns that colour. A car never raises an Attention item.
+  - *Text.* One line for the hover, the chooser's title and the Active row: `Away · Work · Charging · 78 %`.
+  A charging car is listed under Active, with a row that opens more-info; a parked one is not. The demo has one car, on the
+  **Test** floor (400 x 400 cm, "demos and manual checks"), not on the ground floor. A **car device icon** (Add > Device,
+  type `car`) on a `device_tracker.*` fades and wears the away mark like a person; it never toggles, and its popup has no
+  switch button. A card older than 0.33.0 draws a car piece as the old box and ignores the three keys.
+  *Later, not planned:* a custom car card (a vendor's own Lovelace card) in a popover on the tap; the design is a
+  `car_cards` YAML key, kept out of the layout because a layout is untrusted.
 - **Unavailable or unknown** — dims to 45% opacity, in any state, with no
   strikethrough: Home Assistant's own dashboards dim rather than cross out,
   and a struck-through icon this small reads as noise, not signal.
@@ -849,7 +875,13 @@ directly, as before.
 - **A light** with brightness gets a slider (1-100 %); one with colour temperature gets a kelvin slider; one with a
   colour mode (hs, xy, rgb) gets a hue slider. Moving a slider changes only the number shown; releasing it makes the
   one `light.turn_on` call. A light that only switches on and off gets no slider.
-- **No toggle** (camera, media player, speaker, battery, inverter, server, access point, person, radar, vacuum):
+- **A car piece** (furniture, symbol `car`) is not a popup. A tap opens Home Assistant's more-info of its main entity at once,
+  whatever `tap_action` says, in 2D, 2.5D and 3D, and switches nothing. A hold (600 ms) opens the chooser: the title is the
+  car's name and its state line (`Family car · Away · Work · Charging · 78 %`), then one row per entity, the main one first,
+  then the attached ones in order, each with its state; tap a row for that entity's more-info. The title and the rows follow
+  Home Assistant while the chooser is open. A car with one entity opens its more-info on a hold too. In kiosk both do
+  nothing (see Kiosk mode). The Studio's click only selects.
+- **No toggle** (car, camera, media player, speaker, battery, inverter, server, access point, person, radar, vacuum):
   name, state and More info only. A vacuum tap still opens its own dialog.
 - **`tap_action` and `hold_action`** (card-wide, device icons only; a door, an unlinked appliance, linked furniture and the Active list keep what they do). With no key a tap opens this popup and a hold opens more-info, as above.
   `tap_action: {action: more-info}` opens Home Assistant's dialog at once; `none` does nothing; `toggle` presses the popup's primary button for you, for a light, a switch, an input_boolean or a fan only: **ON acts at once, and so does a light's OFF; any other OFF opens the popup at Confirm turn off** (the rule above stands, so a tap never turns a plug or a fan off without asking). **A lock, a cover and a siren always open the popup**, and so do climate, humidifier, water_heater, automation, remote, media_player and group entities: a stray tap never unlocks a door, moves a garage door or sounds a siren. A device with no button (a sensor, a camera, no state) opens the popup, a vacuum and a media player open what they always open. `hold_action: {action: none}` makes a long press do nothing. The keyboard is not covered: Enter (or Space) on a focused device icon always opens the popup, whatever `tap_action` says.
@@ -997,6 +1029,9 @@ with its own colour keeps it. There are no textures. Shadows are baked contact s
   `view: 2.5d` (or `2d`) there; the 3D view keeps its frames low by drawing only
   on change, but a big house still costs a GPU. The choice is remembered per
   browser like the rest of the view.
+- **The car in 3D.** Built from its model, not one box (body, glass greenhouse, roof, tyres, grille). Any part taps and holds as the
+  car. Charging, an alert, away and the level change in place, with no rebuild; a bolt, the away mark and the level are drawn
+  in the overlay. Not drawn in 3D: the gone mark of a dead main entity.
 - **Taps in 3D work as in 2D.** A tap on a device (the small ball, or its body)
   toggles it, except the types that have no on/off (camera, media, speaker and
   the like), which open more-info; a hold opens more-info. A door, a window and

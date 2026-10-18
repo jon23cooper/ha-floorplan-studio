@@ -2,6 +2,16 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-18: S35.8 exit, docs, sizes (Sonnet)
+
+Docs, one test, sizes. Card and Studio: docs only for the Studio panel; the new test is card only.
+
+- Sizes, `gzip -9`, built at the sprint base (d77ae39, 0.32.1) and at this branch: card 117,117 to 120,347 (+3,230), 3D chunk 156,003 to 158,439 (+2,436), panel 173,871 to 179,090 (+5,219). Cap: card 121,000 (Diego, 2026-10-17; `CARD_GROWTH_LIMIT` already 30,220 in `size-budget.spec.ts`, not touched here; the plan text said 119,000 and is superseded by his later yes). Headroom 653 gz. Chunk cap 233,000, headroom 74,561.
+- The demo car is on the Test floor, not the ground floor (entry of 2026-10-18 below). Criterion 8 said ground; the shots `card-test-car{Charging,Away,Door}-*` (light, blueprint, midnight, 2D and 2.5D) and the docs say Test. The nine-model grid stays on the ground floor, on a test-only layout (`card-ground-cars-*`).
+- Held defaults (spec "Answers"): tap is more-info, hold the chooser, kiosk nothing; glass and tyres near-black in every theme; the body colour is the piece's own; the cap. The custom car card stays "Later, not planned" (PLAN.md, and a note in `docs/card.md`).
+- Criterion 12 asked for a hold in 3D; S35.6 said it was not driven by a real press. Added `card-3d-car.spec.ts` "a real hold": it fails with `longPress: false` on the 3D host and passes with the code as it is.
+- Seen in the shots, not fixed (outside this task): in 2D the charging bolt sits at the car's centre, where the demo's Test room puts its name, so the label covers the bolt; and the demo's Pavement label overlaps the blue car in the nine-model grid. A real house with the car in a named room will do the same. Candidate: move the badge off the centre.
+
 ## 2026-10-18: S35.6 tap, hold and kiosk for the car (Sonnet)
 
 Spec C8; Diego's answers 3 and 4 (tap is more-info, hold is the chooser, kiosk does nothing).

@@ -304,6 +304,24 @@ it is turn 0 and `from.offset - to.offset`. Junk on either floor, and an unknown
   differ from `entity`, same rule as `bound`.
 - `furniture.symbol`: table, sofa, bed, cabinet, chair, sink, toilet, shower,
   bathtub, tv, computer, speaker, tree, patio-wood, patio-concrete, car.
+- A **car piece** (S35, 0.33.0; `docs/specs/car-s35.md`): furniture with `symbol: "car"` may carry three optional keys,
+  with no schema bump (an older card ignores them and draws the old box). `model`: one of `sedan`, `wagon`, `suv`,
+  `offroad`, `truck`, `van`, `utility`, `citycar`, `electric`; absent is `sedan`. `color`: the body colour, `#rrggbb`;
+  absent is the theme's furniture colour. `attached`: up to 24 more entity ids, in order, no repeats. `entity` is the
+  car's main entity; with none, the first attached one is. `validate` reports each junk shape and the keys on any other
+  piece, and never throws; `migrate` keeps the valid parts and drops the rest (an unknown model loads as a sedan).
+  - State, from `carStatus` (pure, never throws): **away** when the first `device_tracker.*` among the entities is
+    anything but `home`, `unknown`, `unavailable` or empty; **charging** by a `battery_charging` binary sensor that is on, or
+    a sensor reading `charging` or `charge_in_progress`; **level** the battery percent (else a % sensor with `fuel` in its
+    id); **alert** an unlocked lock or an open door or window sensor. Away is 35 % opacity and a mark at the nose (real
+    transparency in 3D); charging outlines the car in `--fp-dev-car` (green) with a bolt; an alert outlines it in
+    `--fp-open-door`; charging wins the colour; the level prints under the car. `carText` is the one line
+    (`Away · Work · Charging · 78 %`). A car is on while it charges and is listed in Active only then; it never toggles
+    (`NO_TOGGLE`), never joins All off and never raises an Attention item.
+  - Gestures (card only): a tap is the main entity's more-info, whatever `tap_action` says; a hold opens the chooser (the
+    name and `carText` as title, main entity first); in kiosk neither does anything. The Studio's click selects; its
+    panel has the model, colour, main entity, attached and Convert (see `docs/editor.md`).
+  - Not built: a custom car card in a popover (Later, not planned), GPS placement, car commands from the card.
 - A **linked** furniture piece (S18.12, S18.15, 2026-10-07): a `tv`, `speaker` or `computer`
   piece with an `entity`. It tracks that device and acts as the device of the same type in the
   card, with no new field in the file. Idle it is drawn in `--fp-dev-tv`; on, in `--fp-active`
@@ -483,6 +501,7 @@ formatter (`src/core/state-text.ts`) for the plan, the popup and the tooltip. Se
 | cover on a `window`, `slit`, `fullwindow` or glass door (`glass`) | door normal | never colours the opening — here `cover` is curtains/blinds, not a security state (2026-09-28) | — | same tap/long-press behaviour as above; only the colour is suppressed |
 | siren | grey | `--fp-danger` icon and halo while its entity is on; rings only when the entity is in the `siren` domain | `--fp-danger` (#b02a2a) | popup (Turn on/off) |
 | alarm (`alarm_control_panel.*`) | grey while `disarmed` | `--fp-danger` icon and halo in every other state but `unavailable` (armed, arming, pending, triggered) | `--fp-danger` (#b02a2a) | more-info (no toggle) |
+| car piece (furniture `car`, with `entity` or `attached`) | its model in the piece colour (or the furniture colour), glass and tyres near-black | away: 35 % and a mark; charging: `--fp-dev-car` outline and bolt; alert: `--fp-open-door` outline | `--fp-dev-car` (light #2e9e4f, midnight #4fd17a, solarized #859900) | tap: more-info of the main entity; hold: the chooser; kiosk: nothing |
 | linked tv, speaker or computer piece (furniture with `entity`) | blue (`--fp-dev-tv`) body and edge | `--fp-active` body and edge, by the device rule of its type; waves while a tv or speaker is `playing` | `--fp-dev-tv` idle, `--fp-active` on | more-info, no popup; never a toggle |
 | media (media_player) | grey | blue icon and halo while the player is playing (any other state, including paused, is idle) | `--fp-dev-media` (#2c7fb8) | more-info |
 | speaker (media_player) | grey | blue icon and halo while the player is exactly `playing` (paused, idle, off, on-but-not-playing, unavailable, unknown or no state stay idle), plus two arcs pulsing out from under the disc in the device's own colour (S9.4; held still at 1.5x, 60 % opacity under reduced motion) | `--fp-dev-speaker` (#2c7fb8, fixed in every theme) | more-info (media_player's own toggle is play/pause or power, never a clean on/off) |

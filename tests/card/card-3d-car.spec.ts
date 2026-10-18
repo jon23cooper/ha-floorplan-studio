@@ -106,6 +106,25 @@ test.describe("3D view: a real tap is a tap on the car", () => {
   });
 });
 
+test.describe("3D view: a real hold on the car", () => {
+  // Criterion 12: the hold opens the chooser in 3D as in 2D. The button stays down until the chooser shows (the hold timer is the clock).
+  test("a hold on the body opens the chooser titled with the car text, main entity first; the release is no tap; a row fires more-info", async ({ page }) => {
+    await boot(page, layoutOf("sedan"), STATES());
+    const s = carSpec("sedan"), p = await at(page, CX + s.w * 0.38, CY, s.belt * s.height);
+    const chooser = card(page).locator("css=.fp-chooser-dialog");
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.down();
+    await expect(chooser).toBeVisible();
+    await page.mouse.up();
+    await expect(card(page).locator("css=#fp-chooser-dialog-title")).toHaveText("Family car · Home · 78 %");
+    const rows = await card(page).locator("css=.fp-chooser-list button").evaluateAll((bs) => bs.map((b) => b.textContent!.replace(/\s+/g, " ").trim()));
+    expect(rows).toEqual(["device_tracker.carhome", "sensor.car_chargingstopped", "sensor.car_battery78 %", "lock.carlocked"]);
+    expect(await infos(page)).toEqual([]);
+    await card(page).locator("css=.fp-chooser-list button", { hasText: "car_battery" }).click();
+    expect(await infos(page)).toEqual(["sensor.car_battery"]);
+  });
+});
+
 test.describe("3D view: state on the car", () => {
   test("charging lights the greenhouse in the charge colour and nothing else; stopping puts it back", async ({ page }) => {
     await boot(page, layoutOf("sedan"), STATES());
