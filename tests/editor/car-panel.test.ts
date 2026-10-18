@@ -218,3 +218,15 @@ describe("convertToCar", () => {
     ok(st, "ids");
   });
 });
+
+describe("carAttachGroups on untrusted catalog and Home Assistant names (review finding 13)", () => {
+  it("an entry or an entity with no name, a null name or a number for a name never throws, and is still offered", async () => {
+    const { carAttachGroups } = await import("../../src/editor/car-ops");
+    const m = car({ name: "Family", entity: "device_tracker.car" }) as never;
+    const catalog = [{ id: "c1", floor: "", room: "", type: "temp", entity: "sensor.family_a" }, { id: "c2", floor: "", room: "", type: "temp", name: null, entity: "sensor.b" }, { id: "c3", floor: "", room: "", type: "temp", name: 5, entity: "sensor.c" }] as never;
+    const ha = { entities: [{ id: "sensor.d", domain: "sensor" }, { id: "sensor.e", name: null, domain: "sensor" }] } as never;
+    let out: { entry: { id: string } }[] = [];
+    expect(() => { out = carAttachGroups(m, ha, catalog); }).not.toThrow();
+    expect(out.map((g) => g.entry.id).sort()).toEqual(["sensor.b", "sensor.c", "sensor.d", "sensor.e", "sensor.family_a"]);
+  });
+});

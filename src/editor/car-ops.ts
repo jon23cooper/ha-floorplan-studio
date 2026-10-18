@@ -19,7 +19,9 @@ const CAR_DOMAINS = ["device_tracker", "sensor", "binary_sensor", "lock", "clima
 /** The car's main entity: the one a tap opens. Absent, the first attached one (C2). */
 export const carMain = (m: Pick<Furniture, "entity" | "attached">): string | undefined => m.entity ?? m.attached?.[0];
 
-const byName = (a: HaEntity, b: HaEntity) => a.name.localeCompare(b.name, "en") || (a.id < b.id ? -1 : 1);
+/** A name from a catalog or Home Assistant is untrusted: a missing or non-text one reads as empty (review finding 13). */
+const nameOf = (e: { name?: unknown }): string => String(e.name ?? "");
+const byName = (a: HaEntity, b: HaEntity) => nameOf(a).localeCompare(nameOf(b), "en") || (a.id < b.id ? -1 : 1);
 
 /**
  * The entities offered to attach to a car, in groups that come in this order: those of the main entity's Home Assistant
@@ -33,7 +35,7 @@ export function carAttachGroups(m: Furniture, ha: HaData | undefined, catalog: r
   for (const c of catalog) if (!pool.some((e) => e.id === c.entity)) pool.push({ id: c.entity, name: c.name, domain: c.entity.split(".")[0] });
   const dev = ha?.entities.find((e) => e.id === carMain(m))?.dev;
   const word = (m.name ?? "").trim().toLowerCase();
-  const holds = (e: HaEntity) => !!word && (e.name.toLowerCase().includes(word) || e.id.toLowerCase().includes(word.replace(/\s+/g, "_")));
+  const holds = (e: HaEntity) => !!word && (nameOf(e).toLowerCase().includes(word) || e.id.toLowerCase().includes(word.replace(/\s+/g, "_")));
   const rank = (e: HaEntity): [number, string] => {
     if (e.cat === "diagnostic" || e.cat === "config") return [4, "Diagnostic"];
     if (dev && e.dev === dev) return [0, "This car's device"];
@@ -44,7 +46,7 @@ export function carAttachGroups(m: Furniture, ha: HaData | undefined, catalog: r
   return pool.filter((e) => !known.has(e.id))
     .map((e) => ({ e, r: rank(e) }))
     .sort((a, b) => a.r[0] - b.r[0] || (a.r[0] === 2 ? CAR_DOMAINS.indexOf(a.e.domain) - CAR_DOMAINS.indexOf(b.e.domain) : 0) || byName(a.e, b.e))
-    .map(({ e, r }): GroupedChoice => ({ group: r[1], entry: { id: e.id, floor: "", room: "", type: typeForEntity(e, ha), name: e.name || e.id, entity: e.id } }));
+    .map(({ e, r }): GroupedChoice => ({ group: r[1], entry: { id: e.id, floor: "", room: "", type: typeForEntity(e, ha), name: nameOf(e) || e.id, entity: e.id } }));
 }
 
 /** What "Add all from this car" attaches: the main entity's device, not yet attached, ordinary entities before diagnostic ones, at most the room the car has left (24 in all). */
