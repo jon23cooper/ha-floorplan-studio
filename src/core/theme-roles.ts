@@ -77,6 +77,9 @@ const ON_DEVICES: DeviceType[] = ["light", "motion", "contact", "heater", "clima
  * type's own hue rather than collapsing to one. */
 const TV_BLUE = "#2c7fb8";
 
+/** Charging is green in every theme (Diego, 2026-10-18), not the accent: light themes, then dark. A device override still wins. */
+const CAR_CHARGING_GREEN = ["#2e9e4f", "#35d47a"] as const;
+
 /** Builds a full `--fp-*` token string from four roles, so a new theme is four colours and a lightness direction, not ~50
  * independent hexes to keep in step by hand. */
 export function rolesToTokens(roles: ThemeRoles): string {
@@ -99,7 +102,7 @@ export function rolesToTokens(roles: ThemeRoles): string {
     `--fp-dev-heater:${devFor("heater")}`, `--fp-dev-climate:${devFor("climate")}`, `--fp-dev-ac-cool:${acCool}`,
     `--fp-dev-ac-heat:${acHeat}`, `--fp-dev-tv:${TV_BLUE}`, `--fp-dev-media:${devFor("media")}`,
     `--fp-dev-cover:${devFor("cover")}`, `--fp-dev-plug:${devFor("plug")}`, `--fp-dev-computer:${devFor("computer")}`,
-    `--fp-dev-camera:${shades.idle}`, `--fp-dev-garden:${shades.idle}`, `--fp-dev-person:${devFor("person")}`, `--fp-dev-radar:${devFor("radar")}`, `--fp-dev-vacuum:${devFor("vacuum")}`, `--fp-dev-fan:${devFor("fan")}`, `--fp-dev-car:${devFor("car")}`,
+    `--fp-dev-camera:${shades.idle}`, `--fp-dev-garden:${shades.idle}`, `--fp-dev-person:${devFor("person")}`, `--fp-dev-radar:${devFor("radar")}`, `--fp-dev-vacuum:${devFor("vacuum")}`, `--fp-dev-fan:${devFor("fan")}`, `--fp-dev-car:${roles.devices?.car ?? CAR_CHARGING_GREEN[roles.dark ? 1 : 0]}`,
     // S9.4: speaker is a fixed blue in every theme, the same exception TV is (S9.3) — never derived from the role's own accent.
     `--fp-dev-speaker:#2c7fb8`,
     `--fp-halo:${roles.fg}`, `--fp-alpha:.25`, `--fp-disc:${roles.fg}`, `--fp-disc-alpha:${roles.fgAlpha}`,

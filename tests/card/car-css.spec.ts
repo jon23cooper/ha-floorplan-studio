@@ -103,3 +103,14 @@ test("car away 2.5D: the away dot is drawn at full strength, beside the faded ca
   expect(await effective("nest"), "control: inside the group it is faded").toBeCloseTo(0.35, 5);
   expect(await effective("sib"), "beside the group it is not").toBe(1);
 });
+
+// Review finding 7 (Diego): charging is green in every theme. Blueprint took the orange accent; the rule is the hue, read back as a colour.
+test("car charging is green in every theme, never the theme's accent", async ({ page }) => {
+  await page.setContent(plan(BODY));
+  for (const t of THEMES) {
+    const r = await read(page, t);
+    const [red, green, blue] = (r.devCar.match(/[\d.]+/g) ?? []).map(Number);
+    expect(green, `${t}: ${r.devCar} has more green than red`).toBeGreaterThan(red!);
+    expect(green, `${t}: ${r.devCar} has more green than blue`).toBeGreaterThan(blue!);
+  }
+});
