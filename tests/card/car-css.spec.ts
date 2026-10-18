@@ -91,3 +91,15 @@ test("car badges: the away mark is idle grey, the bolt disc is --fp-dev-car", as
     expect(r.bolt, t).toBe(r.devCar);
   }
 });
+
+// Review finding 3: in 2.5D the marks were inside the faded group, so an away car's dot drew at 35 % of 100 %. The effective opacity
+// is the product up the tree; the pair is the nested control, which must read 0.35 so the test can tell the two apart.
+test("car away 2.5D: the away dot is drawn at full strength, beside the faded car, not inside it", async ({ page }) => {
+  const mark = `<g class="car-marks"><circle class="away-mark" r="8"/></g>`;
+  const sibling = `<g id="sib"><g class="furn furn-car away"><polygon class="bs" points="0,0 1,0 1,1"/></g>${mark}</g>`;
+  const nested = `<g id="nest"><g class="furn furn-car away"><polygon class="bs" points="0,0 1,0 1,1"/>${mark}</g></g>`;
+  await page.setContent(`<!DOCTYPE html><html><body><style>${FLOORPLAN_CSS}</style><svg><g data-theme="light" data-mode="light">${sibling}${nested}</g></svg></body></html>`);
+  const effective = (id: string) => page.locator(`#${id} .away-mark`).evaluate((e) => { let o = 1; for (let n: Element | null = e; n && n.tagName !== "BODY"; n = n.parentElement) o *= Number(getComputedStyle(n).opacity); return o; });
+  expect(await effective("nest"), "control: inside the group it is faded").toBeCloseTo(0.35, 5);
+  expect(await effective("sib"), "beside the group it is not").toBe(1);
+});

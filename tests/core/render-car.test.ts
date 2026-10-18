@@ -114,6 +114,27 @@ describe("renderFloor: what a car's states do on the plan", () => {
   });
 });
 
+/** The markup inside the `<g data-f="0">` group, by counting `<g` against `</g>` from its opening tag. */
+function innerOfPiece(html: string): string {
+  const at = html.indexOf('<g data-f="0"'), tag = /<g\b[^>]*>|<\/g>/g;
+  tag.lastIndex = at;
+  let depth = 0, m: RegExpExecArray | null;
+  while ((m = tag.exec(html))) { depth += m[0] === "</g>" ? -1 : 1; if (depth === 0) return html.slice(at, m.index); }
+  return html.slice(at);
+}
+describe("renderFloor: the marks stay outside the faded group (review finding 3)", () => {
+  it("away dot, bolt and level are siblings of the car group, in 2D and in 2.5D: an away car's dot is not 35 % of itself", () => {
+    const state = { ...HOME, "device_tracker.car": st("not_home"), "binary_sensor.car_charging": st("on", { device_class: "battery_charging" }) };
+    for (const view of [undefined, "2.5d" as const]) {
+      const html = draw(car(WIRED), state, view);
+      expect(html, `${view} has the marks`).toContain("away-mark");
+      const inner = innerOfPiece(html);
+      expect(inner, `${view}: the group is the car`).toContain("car-body");
+      for (const mark of ["away-mark", "car-bolt", "78 %"]) expect(inner, `${view}: ${mark} is outside the group`).not.toContain(mark);
+    }
+  });
+});
+
 describe("renderFloor: 2.5D builds the car from two blocks", () => {
   it("a body, and a cabin on it whose sides are glass", () => {
     const html = draw(car(), undefined, "2.5d");
