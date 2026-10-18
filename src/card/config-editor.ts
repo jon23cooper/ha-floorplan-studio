@@ -1,5 +1,5 @@
 import { LitElement, css, html } from "lit";
-import { DEFAULT_TILT, HEAT_KINDS, heatKindOf, pieceDevice, DETAIL_LABELS, DETAIL_MODES, parseDetailMode, THEMES, WALLS_LABELS, WALLS_MODES, wallsModeOf, clampTilt, migrate, validate } from "../core";
+import { UI_ICONS, DEFAULT_TILT, HEAT_KINDS, heatKindOf, pieceDevice, DETAIL_LABELS, DETAIL_MODES, parseDetailMode, THEMES, WALLS_LABELS, WALLS_MODES, wallsModeOf, clampTilt, migrate, validate } from "../core";
 import type { DetailMode, HeatKind, Layout, Theme, WallsMode } from "../core";
 import type { FloorplanStudioCardConfig, Hass } from "./floorplan-studio-card";
 import { defineElement } from "./define";
@@ -70,6 +70,8 @@ export class FloorplanStudioCardEditor extends LitElement {
     .fav-add input { flex: 1; min-width: 0; }
     ul.fav { margin: 0; padding: 0; list-style: none; }
     ul.fav li { display: flex; gap: 8px; padding: 2px 0; }
+    ul.fav .rm-x { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: var(--error-color, #db4437); color: #fff; cursor: pointer; }
+    ul.fav .rm-x svg { width: 16px; height: 16px; fill: currentColor; pointer-events: none; }
     ul.fav span { flex: 1; overflow-wrap: anywhere; }
     p.hint { margin: 4px 0 0; color: var(--secondary-text-color, #727272); font-size: 12px; }
   `;
@@ -693,7 +695,7 @@ export class FloorplanStudioCardEditor extends LitElement {
       </div>
       <p class="hint" id="favourites_note" title="Shortcuts at the top of the Overview, in this order. Reorder in YAML.">${this._favNote}</p>
       <ul class="fav" id="favourites_list">
-        ${favouritesOf(this._config).ids.map((id) => html`<li><span>${id}</span><button type="button" @click=${() => this._onFavRemove(id)}>Remove</button></li>`)}
+        ${favouritesOf(this._config).ids.map((id) => html`<li><button type="button" class="rm-x" aria-label=${`Remove ${id}`} title=${`Remove ${id}`} @click=${() => this._onFavRemove(id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.close}/></svg></button><span>${id}</span></li>`)}
       </ul>
 
       <div class="row">
