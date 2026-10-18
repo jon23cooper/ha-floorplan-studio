@@ -223,15 +223,15 @@ test("Add, Furniture, bed places a bed that can be moved and resized in the pane
   await menu(page, "Add");
   await pickFurniture(page, "bed");
   let g = await groundOf(page);
-  expect(g.furniture).toHaveLength(4); // S35.4: the demo has a car, three pieces before the bed
-  const bed = g.furniture[3];
+  expect(g.furniture).toHaveLength(3);
+  const bed = g.furniture[2];
   expect(bed.symbol).toBe("bed");
   const n = g.furniture.length - 1;
   await drag(page, `g[data-f="${n}"]`, 60, 40);
   g = await groundOf(page);
-  expect(g.furniture[3].x).not.toBe(bed.x);
+  expect(g.furniture[2].x).not.toBe(bed.x);
   await page.locator("#fr90").click();
-  expect((await groundOf(page)).furniture[3].rot).toBe(90);
+  expect((await groundOf(page)).furniture[2].rot).toBe(90);
 });
 
 test("File, Save downloads a file that validates", async ({ page }) => {
@@ -2881,7 +2881,7 @@ const NEW_SHAPES: [string, (page: Page) => Promise<void>, string][] = [
   ["structure", (p) => addMenuItem(p, "#addStr"), 'polygon[data-r="7"]'],
   ["zone", (p) => addMenuItem(p, "#addZone"), 'polygon[data-r="7"]'],
   ["stairs", (p) => addMenuItem(p, "#addStairs"), '[data-s="1"]'],
-  ["furniture", async (p) => { await menu(p, "Add"); await pickFurniture(p, "bed"); }, 'g[data-f="3"]'],
+  ["furniture", async (p) => { await menu(p, "Add"); await pickFurniture(p, "bed"); }, 'g[data-f="2"]'],
 ];
 async function zoomIn(page: Page, ticks: number) {
   const c = await screenOf(page, 400, 300);
@@ -3564,7 +3564,7 @@ test("S1.28: the floor panel and the furniture panel each own their id", async (
   await expect(page.locator("#fdel")).toHaveCount(0);
   await expect(page.locator("#fudel")).toHaveText("Delete");
   await page.locator("#fudel").click();
-  expect((await groundOf(page)).furniture).toHaveLength(3); // the bed went, the demo's three stay (S35.4: a car joined them)
+  expect((await groundOf(page)).furniture).toHaveLength(2); // the bed went, the demo's two stay
   await expect(page.locator("#fdel")).toHaveText("Delete floor"); // nothing selected: the floor panel again
   await expect(page.locator("#fudel")).toHaveCount(0);
   await expectDanger(page, "#fdel");
@@ -6703,7 +6703,7 @@ test("S4.31 / S26.20: right-clicking a door, an opening, a furniture piece or an
   await expect(menu.locator("#cmLock")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await rightClickEl(page, 'g[data-f="3"]'); // furn-fix-1: the demo already has 3 furniture pieces (S35.4: a car)
+  await rightClickEl(page, 'g[data-f="2"]'); // furn-fix-1: the demo already has 2 furniture pieces
   await expect(menu.locator("button")).toHaveCount(2);
   await menu.locator("#cmLock").click();
   expect((await groundOf(page)).furniture.find((m) => m.id === "furn-fix-1")!.locked).toBe(true);
@@ -6721,12 +6721,12 @@ test("S4.31: fixing furniture or an unattached device blocks a drag; unfixing re
     el.layout = l;
   }, EDITOR);
   const before = (await groundOf(page)).furniture.find((m) => m.id === "furn-fix-2")!;
-  await drag(page, 'g[data-f="3"]', 50, 30); // the demo already has 3 furniture pieces (S35.4: a car)
+  await drag(page, 'g[data-f="2"]', 50, 30); // the demo already has 2 furniture pieces
   expect((await groundOf(page)).furniture.find((m) => m.id === "furn-fix-2")).toEqual(before); // locked: drag is a no-op
 
-  await rightClickEl(page, 'g[data-f="3"]');
+  await rightClickEl(page, 'g[data-f="2"]');
   await page.locator(".ctxmenu #cmLock").click();
-  await drag(page, 'g[data-f="3"]', 50, 30);
+  await drag(page, 'g[data-f="2"]', 50, 30);
   expect((await groundOf(page)).furniture.find((m) => m.id === "furn-fix-2")).not.toEqual(before); // unfixed: drag works again
 });
 

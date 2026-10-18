@@ -2,6 +2,15 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-18: The demo car moves to the Test floor (supersedes the entry below)
+
+The ground floor has no free place for a 360 x 165 cm car inside the demo's bounds: at x 817.5 it covered the kitchen's east side, and six specs that click the kitchen failed (the Send to back and Bring to front menus, the S8.10 group tests, two spawn-in-room tests). So the car sits on the Test floor ("demos and manual checks", 400 x 400 cm), at 200, 200, turned 0, id `furniture-test-1`, still the last piece of its floor.
+
+- The ground floor is as on main: scale 1.04, box 1040, spawn 1050, every furniture index and count. That reverts the count edits S35.4 made (`furniture[3]`, `furniture-ground-4`, the Studio layer counts, the scene count) as well as the geometry ones.
+- Kept: the search order (the car is a linked piece, so it is a search entry, now `furniture-test-1`), `solids-objects`, the S18.12 linked-symbol list, and the snapshot line for the every-symbol floor.
+- `scripts/shots.mjs`: the three crops of the demo car (charging, away, open door) now read the Test floor, and are named `card-test-*`. The nine-model grid still stands on the ground floor.
+- The cost: the car shows when the Test floor is selected, not on the ground floor beside the house.
+
 ## 2026-10-18: The demo car stays inside the demo's bounds (fixes S35.4)
 
 S35.4 put the demo car at x 992.5, east of the house. Its corners widened the auto scale (1.04 to 1.215), the view box (1040 to 1215) and the editor spawn point (1050 to 1230), and nine Playwright specs failed on a quiet machine.

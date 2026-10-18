@@ -440,7 +440,7 @@ try {
   // midnight, each cropped to the car at 4x; and the nine models on the test-only layout (2D and 2.5D, light and blueprint).
   for (const t of [...THEMES.filter((x) => x.id === "blueprint" || x.id === "light"), { id: "midnight", theme: "midnight", dark: true, vars: "", page: "#111111" }]) for (const view of ["2d", "2.5d"]) {
     for (const which of ["carCharging", "carAway", "carDoor"])
-      cardShots.push({ name: `card-ground-${which}-${t.id}${view === "2.5d" ? "-2-5d" : ""}`, floor: "ground", which, dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, view, dpr: 4, cfg: { active_list: false }, cropCar: true });
+      cardShots.push({ name: `card-test-${which}-${t.id}${view === "2.5d" ? "-2-5d" : ""}`, floor: "test", which, dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, view, dpr: 4, cfg: { active_list: false }, cropCar: true });
     if (t.id !== "midnight") cardShots.push({ name: `card-ground-cars-${t.id}${view === "2.5d" ? "-2-5d" : ""}`, floor: "ground", which: "off", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, view, dpr: 2, cfg: { active_list: false }, cars: true });
   }
   for (const s of cardShots) {

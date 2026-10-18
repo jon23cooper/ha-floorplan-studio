@@ -107,7 +107,7 @@ describe("EditorState", () => {
 
   it("gives ids that are free on the floor", () => {
     const l = fresh();
-    expect(newId(l.floors.ground, "ground", "furniture")).toBe("furniture-ground-4");
+    expect(newId(l.floors.ground, "ground", "furniture")).toBe("furniture-ground-3");
   });
 });
 

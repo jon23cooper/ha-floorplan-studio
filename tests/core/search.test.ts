@@ -201,7 +201,7 @@ describe("S34.3 favourites rank first", () => {
     const today: Record<string, string[]> = {
       li: ["room-ground-1", "light-living", "heater-living", "temp-living", "light-kitchen", "light-bedroom", "cover-hall-blind", "plug-living"],
       light: ["light-living", "light-kitchen", "light-bedroom"],
-      a: ["person-alex", "ap-hall", "furniture-ground-3", "room-ground-3", "room-ground-5", "room-ground-6", "room-first-2", "cover-hall-blind", "room-ground-7", "switch-hall", "motion-hall", "camera-hall", "fan-bedroom", "printer-hall", "radar-office", "computer-hall", "room-ground-4", "media-office", "heater-living", "humidity-bathroom", "temp-living", "temp-bedroom"],
+      a: ["person-alex", "ap-hall", "furniture-test-1", "room-ground-3", "room-ground-5", "room-ground-6", "room-first-2", "cover-hall-blind", "room-ground-7", "switch-hall", "motion-hall", "camera-hall", "fan-bedroom", "printer-hall", "radar-office", "computer-hall", "room-ground-4", "media-office", "heater-living", "humidity-bathroom", "temp-living", "temp-bedroom"],
     };
     for (const [query, ids] of Object.entries(today)) {
       expect(searchIndex(demoIx, query).map((e) => e.id)).toEqual(ids);
