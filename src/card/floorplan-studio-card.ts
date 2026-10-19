@@ -2164,7 +2164,7 @@ export class FloorplanStudioCard extends LitElement {
     const fam: LayerId | null = device ? layerOfType(device.type) : piece ? "furniture" : null;
     this._kept = shows && fam && this._hiddenLayers.includes(fam) ? { floor: ref.floor, t: device ? "dev" : "furn", i: ref.index, fam } : null;
     const point = at ?? (() => { const b = (from ?? this).getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.bottom }; })();
-    if (piece) { const d = pieceDevice(piece); if (d) fireEvent(this, "hass-more-info", { entityId: d.entity }); }
+    if (piece) { const d = pieceDevice(piece); if (d) { if (piece.symbol === "car") this._openSubject(this._deviceSubject(d), point, from); else fireEvent(this, "hass-more-info", { entityId: d.entity }); } }
     else if (device) this._openSubject(this._deviceSubject(device), point, from);
     else if (door) { const s = this._subjectOf({ door, index: ref.index }); if (s) this._openSubject(s, point, from); }
     if (shows && (device || door) && this._popup) this._panTarget = this._thingSel(ref.what, ref.index); // S31.8: the plan goes to it, above the sheet
@@ -2271,7 +2271,7 @@ export class FloorplanStudioCard extends LitElement {
     const s = this._subjectOf(t);
     if (!s) return;
     this._openSubject(s, at, from);
-    if (this._popup?.s === s) this._panTarget = "device" in t ? this._thingSel("device", t.index) : "door" in t ? this._thingSel("door", t.index) : `svg g[data-u="${t.index}"]`;
+    if (this._popup?.s === s) this._panTarget = "device" in t ? this._thingSel(t.piece ? "piece" : "device", t.index) : "door" in t ? this._thingSel("door", t.index) : `svg g[data-u="${t.index}"]`;
   }
 
   /** The selector of a thing on the plan, as `_placePulse` finds it. */

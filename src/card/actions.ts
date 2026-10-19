@@ -29,7 +29,7 @@ export interface DeviceActionsHost extends EventTarget {
 }
 
 /** What a tap on a plan icon, a door or an appliance lands on, for the popup (S14.2): the thing itself and its index on the shown floor. */
-export type TapTarget = { device: Device; index: number } | { door: Door; index: number } | { unlinked: Unlinked; index: number };
+export type TapTarget = { device: Device; index: number; piece?: true } | { door: Door; index: number } | { unlinked: Unlinked; index: number };
 
 /**
  * Wires tap and hold onto a rendered floor's `<svg>` (and the 3D view's host, and the Active panel's rows).
@@ -154,12 +154,12 @@ export function bindDeviceActions(
       if (!longPress) return;
       const i = Number(target.getAttribute("data-f"));
       const m = Number.isFinite(i) ? opts?.getPiece?.(i) : undefined;
-      // A car: a tap is the main entity's more-info, a hold the chooser (name and `carText`, main first, then `attached`).
+      // A car: a tap is the card's popup (name, `carText`, More info), a hold the chooser (main first, then `attached`).
       if (m?.symbol === "car") {
-        const main = carMain(m);
-        if (!main) return;
+        const main = carMain(m), d = pieceDevice(m);
+        if (!main || !d) return;
         const ents = carEntities(m);
-        arm(moreInfoOf(main, [main]), () => (ents.length > 1 ? opts?.openChooser?.(m.name || "Car", ents, () => carText(carStatus(m, host.hass?.states))) : fireEvent(host, "hass-more-info", { entityId: main })));
+        arm(popup({ device: d, index: i, piece: true }), () => (ents.length > 1 ? opts?.openChooser?.(m.name || "Car", ents, () => carText(carStatus(m, host.hass?.states))) : fireEvent(host, "hass-more-info", { entityId: main })));
         return;
       }
       const own = m && pieceDevice(m)?.entity;

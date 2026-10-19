@@ -85,7 +85,7 @@ test.describe("3D view: the car's parts", () => {
 });
 
 test.describe("3D view: a real tap is a tap on the car", () => {
-  test("the body, a wheel and the glass each fire more-info for the main entity, and call nothing", async ({ page }) => {
+  test("the body, a wheel and the glass each open the car's popup, and call nothing", async ({ page }) => {
     await boot(page, layoutOf("sedan"), STATES());
     const s = carSpec("sedan"), belt = s.belt * s.height;
     const spots: [string, number, number, number][] = [
@@ -93,16 +93,16 @@ test.describe("3D view: a real tap is a tap on the car", () => {
       ["wheel", CX - s.w / 2 + 0.18 * s.w, CY + s.h / 2 - 0.4, 8],         // the lower rim of the near rear wheel, under the body (18 cm clear)
       ["glass", CX - s.w / 2 + 0.45 * s.w, CY + (s.cabin * s.h) / 2 - 1, belt + 12], // the side window
     ];
-    let n = 0;
     for (const [what, x, y, z] of spots) {
       const p = await at(page, x, y, z);
       expect(await hook(page, (h, q) => h.pick((q as Pt).x, (q as Pt).y), p), `${what} picks the car`).toEqual({ type: "piece", index: 0 });
       await page.mouse.click(p.x, p.y);
-      await expect.poll(() => infos(page).then((l) => l.length), { message: what }).toBe(++n);
+      await expect(card(page).locator("css=.fp-pop .fp-pop-name"), what).toHaveText("Family car");
+      await page.keyboard.press("Escape");
+      await expect(card(page).locator("css=.fp-pop"), `${what} closes`).toHaveCount(0);
     }
-    expect(await infos(page)).toEqual(["device_tracker.car", "device_tracker.car", "device_tracker.car"]);
+    expect(await infos(page)).toEqual([]);
     expect(await calls(page)).toEqual([]);
-    await expect(card(page).locator("css=.fp-pop")).toHaveCount(0);
   });
 });
 
