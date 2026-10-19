@@ -91,24 +91,44 @@ const title = (page: Page) => card(page).locator("css=#fp-chooser-dialog-title")
 
 for (const view of ["2d", "2.5d"] as const) {
   test.describe(`a car piece in ${view}`, () => {
-    test("a real tap is more-info of the main entity, whatever tap_action says: no popup, no service, no room pick", async ({ page }) => {
+    test("a real tap opens the card's popup, whatever tap_action says: name, car text, More info and no switch; no service, no room pick", async ({ page }) => {
       for (const tap_action of [undefined, "toggle", "none"]) {
         const layout = layoutOf(carPiece());
         await boot(page, layout, { view, ...(tap_action ? { tap_action } : {}) });
         await press(page, await piecePoint(page, indexOf(layout, "car-1")));
-        expect(await infos(page), `tap_action ${tap_action}`).toEqual(["device_tracker.car"]);
+        const pop = card(page).locator("css=.fp-pop");
+        await expect(pop, `tap_action ${tap_action}`).toBeVisible();
+        await expect(pop.locator("css=.fp-pop-name")).toHaveText("Family car");
+        await expect(pop.locator("css=.fp-pop-state")).toHaveText("Home · 78 %");
+        await expect(pop.locator("css=.fp-pop-do")).toHaveCount(0);
+        expect(await infos(page)).toEqual([]);
         expect(await calls(page)).toEqual([]);
-        await expect(card(page).locator("css=.fp-pop")).toHaveCount(0);
         await expect(chooser(page)).toHaveCount(0);
         expect(await card(page).locator("css=svg polygon.room-picked").count()).toBe(0);
       }
+    });
+
+    test("the popup's More info opens the chooser with the car's entities, main first; a car with one entity opens its more-info", async ({ page }) => {
+      const layout = layoutOf(carPiece());
+      await boot(page, layout, { view });
+      await press(page, await piecePoint(page, indexOf(layout, "car-1")));
+      await card(page).locator("css=.fp-pop-more").click();
+      await expect(chooser(page)).toBeVisible();
+      expect(await rows(page)).toEqual(["Car trackerhome", "Charging statestopped", "Car battery78 %", "Car locklocked"]);
+      const solo = layoutOf(carPiece({ attached: undefined }));
+      await boot(page, solo, { view });
+      await press(page, await piecePoint(page, indexOf(solo, "car-1")));
+      await card(page).locator("css=.fp-pop-more").click();
+      expect(await infos(page)).toEqual(["device_tracker.car"]);
     });
 
     test("with no entity the first attached one is the main entity", async ({ page }) => {
       const layout = layoutOf(carPiece({ entity: undefined }));
       await boot(page, layout, { view });
       await press(page, await piecePoint(page, indexOf(layout, "car-1")));
-      expect(await infos(page)).toEqual(["sensor.car_charging"]);
+      await expect(card(page).locator("css=.fp-pop")).toBeVisible();
+      await card(page).locator("css=.fp-pop-more").click();
+      expect((await rows(page))[0]).toBe("Charging statestopped");
     });
 
     test("a real 600 ms hold opens the chooser: name and car text, main first then attached in order with their states; the release is no tap", async ({ page }) => {
@@ -239,12 +259,13 @@ test.describe("a car's state line (review finding 2)", () => {
 });
 
 test.describe("the Active list", () => {
-  test("a charging car piece is listed under its name and its row opens more-info; a parked one is not listed", async ({ page }) => {
+  test("a charging car piece is listed under its name and its row opens the car's popup; a parked one is not listed", async ({ page }) => {
     await boot(page, layoutOf(carPiece()), {}, STATES({ "sensor.car_charging": st("charging", { friendly_name: "Charging state" }) }));
     const row = card(page).locator("css=.fp-active-body .fp-active-row", { hasText: "Family car" });
     await expect(row).toHaveCount(1);
     await row.click();
-    expect(await infos(page)).toEqual(["device_tracker.car"]);
+    await expect(card(page).locator("css=.fp-pop .fp-pop-name")).toHaveText("Family car");
+    expect(await infos(page)).toEqual([]);
     await setStates(page, STATES());
     await expect(card(page).locator("css=.fp-active-body .fp-active-row", { hasText: "Family car" })).toHaveCount(0);
   });

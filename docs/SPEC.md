@@ -318,7 +318,7 @@ it is turn 0 and `from.offset - to.offset`. Junk on either floor, and an unknown
     `--fp-open-door`; charging wins the colour; the level prints under the car. `carText` is the one line
     (`Away · Work · Charging · 78 %`). A car is on while it charges and is listed in Active only then; it never toggles
     (`NO_TOGGLE`), never joins All off and never raises an Attention item.
-  - Gestures (card only): a tap is the main entity's more-info, whatever `tap_action` says; a hold opens the chooser (the
+  - Gestures (card only): a tap opens the card's popup (name, `carText`, More info), whatever `tap_action` says; a hold opens the chooser (the
     name and `carText` as title, main entity first); in kiosk neither does anything. The Studio's click selects; its
     panel has the model, colour, main entity, attached and Convert (see `docs/editor.md`).
   - Not built: a custom car card in a popover (Later, not planned), GPS placement, car commands from the card.

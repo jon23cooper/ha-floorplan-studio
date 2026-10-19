@@ -805,7 +805,7 @@ differently:
   - *Alert.* An unlocked lock, or an open door or window sensor, outlines the car in the open-door colour (charging wins
     the colour, the text still says both). In 3D the roof turns that colour. A car never raises an Attention item.
   - *Text.* One line for the hover, the chooser's title and the Active row, read from all the car's entities: `Away · Work · Charging · 78 %`.
-  A charging car is listed under Active, with a row that opens more-info; a parked one is not. The demo has one car, on the
+  A charging car is listed under Active, with a row that opens its popup; a parked one is not. The demo has one car, on the
   **Test** floor (400 x 400 cm, "demos and manual checks"), not on the ground floor. A **car device icon** (Add > Device,
   type `car`) on a `device_tracker.*` fades and wears the away mark like a person; it never toggles, and its popup has no
   switch button. A card older than 0.33.0 draws a car piece as the old box and ignores the three keys.
@@ -878,8 +878,9 @@ directly, as before.
 - **A light** with brightness gets a slider (1-100 %); one with colour temperature gets a kelvin slider; one with a
   colour mode (hs, xy, rgb) gets a hue slider. Moving a slider changes only the number shown; releasing it makes the
   one `light.turn_on` call. A light that only switches on and off gets no slider.
-- **A car piece** (furniture, symbol `car`) is not a popup. A tap opens Home Assistant's more-info of its main entity at once,
-  whatever `tap_action` says, in 2D, 2.5D and 3D, and switches nothing. A hold (500 ms) opens the chooser: the title is the
+- **A car piece** (furniture, symbol `car`) opens this popup on a tap, whatever `tap_action` says, in 2D, 2.5D and 3D: the
+  name, the state line (`Home · Charging · 78 %`) and More info (the chooser below, or the more-info of a car with one
+  entity). It has no switch button and switches nothing. A hold (500 ms) opens the chooser: the title is the
   car's name and its state line (`Family car · Away · Work · Charging · 78 %`), then one row per entity, the main one first,
   then the attached ones in order, each with its state; tap a row for that entity's more-info. The title and the rows follow
   Home Assistant while the chooser is open. A car with one entity opens its more-info on a hold too. In kiosk both do

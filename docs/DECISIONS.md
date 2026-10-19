@@ -2,6 +2,12 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-19: a car piece opens the card's popup on a tap (Diego)
+
+Supersedes S35 C8 (tap is more-info of the main entity). On his own dashboard the car had no detail card. A tap on a car piece, in 2D, 2.5D and 3D, and its row in Active, now opens the popup every device has: name, `carText`, More info. No switch button. More info opens the chooser (or the more-info of a car with one entity). A hold still opens the chooser; kiosk still does nothing. The popup is the existing device popup (`pieceDevice` as the subject), so the card file grows by a few bytes.
+
+Not a bug: the car read Away because `device_tracker.volvo_xc60_location` was `not_home`. Its GPS sat 17 m from the Home zone centre; the zone radius is 15 m. The card shows what Home Assistant says.
+
 ## 2026-10-18: S35 review fixes (Sonnet, Opus findings 2 to 13)
 
 Supersedes parts of the S35.3, S35.4, S35.6 and S35.8 entries below where they differ.

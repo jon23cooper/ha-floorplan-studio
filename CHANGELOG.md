@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Card: a tap on a car piece opens the card's popup (name, `Home · Charging · 78 %`, More info), in 2D, 2.5D and 3D, and from its Active row. It was Home Assistant's more-info of the tracker. A hold still opens the chooser.
+
 ## 0.33.1 - 2026-10-18
 
 - Studio: every Remove in a list is now the small round red X, placed before the name (door, Controls, TRV, sensors, the car's attached entities, scenes offered, radar targets, the card's Favourites). It keeps its name in the tooltip and for screen readers.
