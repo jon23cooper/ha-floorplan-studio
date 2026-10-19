@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.33.2 - 2026-10-19
 
 - Card: a tap on a car piece opens the card's popup (name, `Home · Charging · 78 %`, More info), in 2D, 2.5D and 3D, and from its Active row. It was Home Assistant's more-info of the tracker. A hold still opens the chooser.
 
