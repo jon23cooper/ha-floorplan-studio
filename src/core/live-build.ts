@@ -82,7 +82,7 @@ export function makeLiveOf(d: LiveDeps): (floor: Floor, o: RenderOpts, now: numb
         let value = "";
         if ((d.type === "temp" || d.type === "humidity") && s) {
           const bad = !/^-?\d+(\.\d+)?$/.test(s.state.trim()) || !Number.isFinite(Number(s.state));
-          value = bad ? "–" : s.state + (typeof s.attributes.unit_of_measurement === "string" ? `\u202F${s.attributes.unit_of_measurement}` : ""); // S23.1: as render.ts
+          value = bad ? "–" : (d.entity && o.formatState?.(d.entity)) || s.state + (typeof s.attributes.unit_of_measurement === "string" ? `\u202F${s.attributes.unit_of_measurement}` : ""); // S23.1: as render.ts
         }
         const where = d.type === "person" ? personRoom(d, rooms, o) : -1, ring = where >= 0 ? ringOf(rooms[where]) : null;
         const ct = o.camThumb, url = ct && ct.on === true && d.type === "camera" && !ct.failed?.has(d.entity) ? thumbUrl(o.state?.[d.entity], ct.bust) : null;
