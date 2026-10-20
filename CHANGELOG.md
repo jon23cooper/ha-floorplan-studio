@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Card and Studio: a small live camera picture beside each camera icon, in 2D, 2.5D and 3D. Off by default. Options `camera_thumb`, `camera_thumb_size` (small, medium, large) and `camera_thumb_pos` (above, below, left, right), also in the card's visual editor, the card's View menu and the Studio's View menu. The picture comes from the camera's own `entity_picture` through Home Assistant, refreshes every 10 s, and pauses while the tab is hidden. A tap on it opens the camera's more-info. A picture that does not load is not drawn.
+
 ## 0.33.3 - 2026-10-20
 
 - Studio, safety (HACS review): the cleanup list in Edit, Home Assistant, lists and removes only what the editor created. The `floorplan-studio` label alone no longer counts: a light, automation or area you labelled yourself is never listed, and Remove checks the item again before it deletes anything. Helpers must come from `switch_as_x` or `group`, automations must have an `fp_` id, areas must be ones this browser created.

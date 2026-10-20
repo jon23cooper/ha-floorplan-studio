@@ -53,7 +53,7 @@ Left to right:
   coordinate limit says so in the status line.
 - **View** — how the plan looks while you work: snap grid, measure grid, lengths, a Labels submenu (Device names, Names and values),
   Floor below (the floor under this one as faint lines, kept in this browser, no undo step),
-  Preview night, theme, Detail (Auto, Full or Minimal), Heat map (Off, Temperature or Humidity), Saved views, Re-center and Fit to window. The editor draws the plan
+  Preview night, theme, Detail (Auto, Full or Minimal), Heat map (Off, Temperature or Humidity), Camera thumbnail (On/Off, size, position), Saved views, Re-center and Fit to window. The editor draws the plan
   flat only; 2.5D (and soon 3D) is a way to look, so it lives in the card.
   Everything here that is about looking, not editing, is in the card too:
   see "Studio and card" in `card.md` for the list, and for what is left out on
@@ -375,6 +375,14 @@ readings), **Full** always draws everything, **Minimal** always draws only the f
 while you edit, a device you just placed must not vanish at fit. The choice is kept in this browser, is not in the
 layout and is not an undo step; when it is not Full the toolbar says "Detail: Auto" or "Detail: Minimal". The levels and
 thresholds are in the card's Detail section (`card.md`).
+
+## Camera thumbnail
+
+View, Camera thumbnail draws a small live picture beside each camera icon: On or Off (Off at start), Size (small, medium, large) and
+Position (above, below, left, right of the icon). It is the same picture and the same three choices as the card (`camera_thumb`,
+`camera_thumb_size`, `camera_thumb_pos`; see the card's Camera thumbnail section). The pick is kept in this browser with the view and is not an undo
+step. The picture takes no pointer, so clicking, selecting and dragging the camera work as before. Inside Home Assistant it is the camera's own
+`entity_picture`, refreshed every 10 seconds and paused while the tab is hidden; standalone there is no camera state, so none is drawn.
 
 ## Heat map
 
