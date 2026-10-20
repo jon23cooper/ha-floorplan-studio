@@ -1,6 +1,8 @@
 import { alignFloor, floorBelow, floorPlace, floorPose, normaliseTurn, placePoint, poseFromPlace, DETAIL_MODES, parseDetailMode, CAR_SPEC, FURNITURE, MAX_ROOM_SENSORS, DEVICE_TYPES, furnitureForEntity, FLOOR_COLOURS, inside, roomAt, MAX_PALETTE, TEXTURE_IDS, THEMES, contentPoints, findPowerSensor, haFloorIdsForPlanFloor, migrate, parseLayers, placeableDevicesInArea, placedEntities, planPivot, rotateAbout, stairSteps, switchChoicesForLight, typeForEntity, unplacedCatalog, unplacedHaEntities, validate, viewBoxFor } from "../core";
 import { CAR_MODELS, COORD_LIMIT, MAX_CAR_ATTACHED, MAX_VIEWS, MAX_VIEW_ZOOM } from "../core/schema";
 import type { SavedView } from "../core/schema";
+import { camThumbOf } from "../core/camera-thumb";
+import type { CamThumb } from "../core/camera-thumb";
 import type { DetailMode, HeatKind, CatalogEntry, DeviceType, Floor, HaData, LayerId, Layout, Pt, Stairs, SwitchChoice, Theme, Trace } from "../core";
 import type { GroupedChoice } from "./sensor-order";
 import { setRoomList, type RoomSensorField } from "./ops";
@@ -224,6 +226,8 @@ export class EditorState {
   labels = true;
   /** S34.10: the heat map (View, Heat map). View state: kept in the view memory, no undo step, never in the layout. */
   heat: HeatKind = "off";
+  /** S16.3: the camera thumbnail (View, Camera thumbnail): on or off, its size and its side of the icon. View state like `heat`. */
+  cam: CamThumb = camThumbOf({});
   setLabels(on: boolean): void { this.labels = on !== false; }
   /** id of the door drawn open in the preview */
   openDoor: string | null = null;
@@ -649,6 +653,7 @@ export class EditorState {
     if (this.viewRot) m.rotation = this.viewRot;
     if (this.hidden.length) m.hidden = [...this.hidden];
     if (this.heat !== "off") m.heat = this.heat;
+    if (JSON.stringify(this.cam) !== JSON.stringify(camThumbOf({}))) m.cam = { ...this.cam };
     const deg = (this.layout.rotate ?? 0) + this.viewRot;
     const rot = deg % 360 ? { deg, pivot: planPivot(this.layout) } : undefined;
     const zooms: [string, { zoom: number; focus: Pt }][] = [];
@@ -673,6 +678,7 @@ export class EditorState {
     if (m.rotation !== undefined) this.viewRot = normaliseRotation(m.rotation);
     this.hidden = parseLayers(m.hidden);
     this.heat = m.heat ?? "off";
+    this.cam = camThumbOf({}, m.cam);
     if (m.floor !== undefined && hasOwn(this.layout.floors, m.floor)) { this.floor = m.floor; this.sel = null; }
     this.views = {};
     for (const [key, z] of m.zooms ?? []) {
