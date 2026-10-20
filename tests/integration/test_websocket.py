@@ -13,7 +13,7 @@ async def test_load_before_any_save_returns_null_not_an_error(hass, entry, hass_
     await ws.send_json({"id": 1, "type": "floorplan_studio/load"})
     msg = await ws.receive_json()
     assert msg["success"] is True
-    assert msg["result"] == {"layout": None}
+    assert msg["result"] == {"layout": None, "rev": 0}
 
 
 async def test_version_names_the_installed_integration_for_any_user(hass, entry, hass_ws_client):
@@ -30,7 +30,7 @@ async def test_save_then_load_returns_the_same_layout(hass, entry, hass_ws_clien
     await ws.send_json({"id": 1, "type": "floorplan_studio/save", "layout": DEMO})
     msg = await ws.receive_json()
     assert msg["success"] is True
-    assert msg["result"] == {"ok": True}
+    assert msg["result"] == {"ok": True, "rev": 1}
     await ws.send_json({"id": 2, "type": "floorplan_studio/load"})
     msg = await ws.receive_json()
     assert msg["result"]["layout"] == DEMO
@@ -43,7 +43,7 @@ async def test_save_of_version_1_is_rejected_with_invalid_format_and_stores_noth
     assert msg["success"] is False
     assert msg["error"]["code"] == "invalid_format"
     await ws.send_json({"id": 2, "type": "floorplan_studio/load"})
-    assert (await ws.receive_json())["result"] == {"layout": None}
+    assert (await ws.receive_json())["result"] == {"layout": None, "rev": 0}
 
 
 async def test_save_of_a_layout_that_is_not_an_object_is_rejected(hass, entry, hass_ws_client):
@@ -80,3 +80,61 @@ async def test_config_flow_makes_one_entry_with_no_fields_and_refuses_a_second(h
     r2 = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert r2["type"] == data_entry_flow.FlowResultType.ABORT
     assert r2["reason"] == "single_instance_allowed"
+
+
+async def _send(ws, i, **msg):
+    await ws.send_json({"id": i, **msg})
+    return await ws.receive_json()
+
+
+async def test_each_save_bumps_rev_and_load_returns_it(hass, entry, hass_ws_client):
+    ws = await hass_ws_client(hass)
+    assert (await _send(ws, 1, type="floorplan_studio/save", layout=DEMO))["result"]["rev"] == 1
+    assert (await _send(ws, 2, type="floorplan_studio/save", layout=DEMO))["result"]["rev"] == 2
+    assert (await _send(ws, 3, type="floorplan_studio/load"))["result"]["rev"] == 2
+
+
+async def test_save_with_a_stale_expected_rev_is_refused_with_conflict_and_writes_nothing(hass, entry, hass_ws_client):
+    ws = await hass_ws_client(hass)
+    other = {**DEMO, "title": "Written elsewhere"}
+    await _send(ws, 1, type="floorplan_studio/save", layout=DEMO)  # rev 1
+    await _send(ws, 2, type="floorplan_studio/save", layout=other, expected_rev=1)  # rev 2
+    msg = await _send(ws, 3, type="floorplan_studio/save", layout={**DEMO, "title": "Stale"}, expected_rev=1)
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "conflict"
+    loaded = (await _send(ws, 4, type="floorplan_studio/load"))["result"]
+    assert loaded["rev"] == 2
+    assert loaded["layout"] == other
+
+
+async def test_save_with_the_current_expected_rev_succeeds(hass, entry, hass_ws_client):
+    ws = await hass_ws_client(hass)
+    await _send(ws, 1, type="floorplan_studio/save", layout=DEMO)
+    msg = await _send(ws, 2, type="floorplan_studio/save", layout=DEMO, expected_rev=1)
+    assert msg["success"] is True
+    assert msg["result"]["rev"] == 2
+
+
+async def test_save_without_expected_rev_still_overwrites_for_old_clients(hass, entry, hass_ws_client):
+    ws = await hass_ws_client(hass)
+    await _send(ws, 1, type="floorplan_studio/save", layout=DEMO)
+    msg = await _send(ws, 2, type="floorplan_studio/save", layout={**DEMO, "title": "Legacy"})
+    assert msg["success"] is True
+    assert msg["result"]["rev"] == 2
+
+
+async def test_a_layout_stored_before_rev_existed_loads_as_rev_0_and_saves_as_rev_1(hass, entry, hass_ws_client, hass_storage):
+    # Old format: the store held the layout itself, with no wrapper.
+    hass_storage["floorplan_studio.layout"] = {"version": 1, "key": "floorplan_studio.layout", "data": DEMO}
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    ws = await hass_ws_client(hass)
+    loaded = (await _send(ws, 1, type="floorplan_studio/load"))["result"]
+    assert loaded == {"layout": DEMO, "rev": 0}
+    assert (await _send(ws, 2, type="floorplan_studio/save", layout=DEMO, expected_rev=0))["result"]["rev"] == 1
+
+
+async def test_a_conflicting_save_by_a_non_admin_is_still_unauthorized(hass, entry, hass_ws_client, hass_read_only_access_token):
+    ws = await hass_ws_client(hass, hass_read_only_access_token)
+    msg = await _send(ws, 1, type="floorplan_studio/save", layout=DEMO, expected_rev=99)
+    assert msg["error"]["code"] == "unauthorized"

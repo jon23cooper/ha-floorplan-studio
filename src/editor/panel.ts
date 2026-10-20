@@ -9,6 +9,15 @@ import { panelVar } from "./theme";
 import type { HaData } from "../core";
 import type { FloorplanStudioEditor } from "./editor-app";
 import { CARD_VERSION } from "../card/version";
+import { clearDraft, loadLayout, readDraft } from "./state";
+
+/** "2026-10-21 14:03" in the browser's time zone, 24 h; "an earlier session" when the draft carries no usable time. */
+function draftTime(iso: string): string {
+  const d = new Date(iso);
+  if (!iso || Number.isNaN(d.getTime())) return "an earlier session";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 /** The part of Home Assistant's `hass` object the panel uses. */
 interface PanelHass {
@@ -48,6 +57,8 @@ export class FloorplanStudioPanel extends LitElement {
     error: { state: true },
     install: { state: true },
     stale: { state: true },
+    draftAt: { state: true },
+    conflict: { state: true },
   };
   declare hass: PanelHass | undefined;
   declare narrow: boolean;
@@ -62,6 +73,16 @@ export class FloorplanStudioPanel extends LitElement {
   declare stale: string;
   /** This page's own build version. A dev build has none to compare, so it is never stale. */
   private built: string = CARD_VERSION;
+  /** Empty when no draft is on offer; otherwise the time text the banner shows. */
+  declare draftAt: string;
+  /** The autosave found at load, unvalidated; Restore sends it through `validate` again. */
+  private draft: unknown = null;
+  /** Empty, or what to tell the person after the server refused a save because the plan changed elsewhere. */
+  declare conflict: string;
+  /** The stored revision this page last saw; null when the integration does not report one (then a save carries no `expected_rev`). */
+  private rev: number | null = null;
+  /** Counts loads. The editor is drawn again only when it changes, never when `layout` is updated after a save. */
+  private loadId = 0;
   private started = false;
   /** What HA has, fetched once after the load. Handed to the editor directly, never through a template binding: the editor is drawn once (see `render`). */
   private ha: HaData | undefined;
@@ -73,11 +94,24 @@ export class FloorplanStudioPanel extends LitElement {
     this.error = "";
     this.install = "";
     this.stale = "";
+    this.draftAt = "";
+    this.conflict = "";
   }
 
   private onVisible = () => { if (document.visibilityState !== "hidden") void this.checkVersion(); };
-  connectedCallback() { super.connectedCallback(); document.addEventListener("visibilitychange", this.onVisible); }
-  disconnectedCallback() { document.removeEventListener("visibilitychange", this.onVisible); super.disconnectedCallback(); }
+  /** Closing the tab with unsaved edits asks first. (Sidebar navigation inside HA does not unload the page; the draft banner covers that.) */
+  private onUnload = (e: BeforeUnloadEvent) => { if (this.editor()?.dirty) { e.preventDefault(); e.returnValue = ""; } };
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener("visibilitychange", this.onVisible);
+    window.addEventListener("beforeunload", this.onUnload);
+  }
+  disconnectedCallback() {
+    document.removeEventListener("visibilitychange", this.onVisible);
+    window.removeEventListener("beforeunload", this.onUnload);
+    super.disconnectedCallback();
+  }
+  private editor() { return this.renderRoot?.querySelector("floorplan-studio-editor") as FloorplanStudioEditor | null; }
   /** Asks the integration which version is installed. Any failure or odd reply says nothing: a guard must never be the thing that breaks the panel. */
   private async checkVersion() {
     if (!this.hass || this.built === "dev") return;
@@ -99,8 +133,12 @@ export class FloorplanStudioPanel extends LitElement {
   private async load() {
     this.error = "";
     try {
-      const r = await this.hass!.callWS<{ layout: Layout | null }>({ type: "floorplan_studio/load" });
+      const r = await this.hass!.callWS<{ layout: Layout | null; rev?: number }>({ type: "floorplan_studio/load" });
+      this.rev = typeof r.rev === "number" ? r.rev : null;
+      this.offerDraft(r.layout); // before the editor exists: its first autosave would overwrite the draft
       this.layout = r.layout;
+      this.loadId++;
+      this.conflict = "";
       this.ready = true;
       void this.loadHa();
     } catch (e) {
@@ -111,12 +149,39 @@ export class FloorplanStudioPanel extends LitElement {
     }
   }
 
+  /** Offers this browser's autosave when it is a usable plan that differs from the stored one. A junk draft is ignored, never thrown on. */
+  private offerDraft(stored: Layout | null) {
+    this.draft = null;
+    this.draftAt = "";
+    const d = readDraft();
+    if (!d) return;
+    const draft = loadLayout(d.raw);
+    if (!draft.ok) return;
+    const same = stored ? loadLayout(stored) : null;
+    if (same?.ok && JSON.stringify(same.layout) === JSON.stringify(draft.layout)) return;
+    this.draft = d.raw;
+    this.draftAt = draftTime(d.at);
+  }
+  private restoreDraft() {
+    const ed = this.editor();
+    if (ed) ed.adoptLayout(this.draft, "Draft restored. Undo brings back the plan as it was saved.");
+    this.draft = null;
+    this.draftAt = "";
+  }
+  private discardDraft() {
+    clearDraft();
+    this.draft = null;
+    this.draftAt = "";
+  }
+
   private async loadHa() {
     try { this.ha = await haData(this.hass as never); } catch { this.ha = undefined; } // no data: the editor keeps its text fields
     this.pushHa();
   }
   private pushHa() {
-    const ed = this.renderRoot?.querySelector("floorplan-studio-editor") as FloorplanStudioEditor | null;
+    const ed = this.editor();
+    // The theme is pushed here, not through the guarded template: a flip must not render the editor again (that is a fresh load).
+    if (ed && ed.haDark !== this.hass?.themes?.darkMode) ed.haDark = this.hass?.themes?.darkMode;
     if (ed && this.ha && ed.ha !== this.ha) ed.ha = this.ha;
     if (ed && this.hass && !ed.writer) ed.writer = makeWriter({ callWS: (m) => this.hass!.callWS(m as never), callApi: (m, p, d) => (this.hass as never as { callApi: (...a: unknown[]) => Promise<never> }).callApi(m, p, d) }); // late-bound: hass is replaced on every state change
     // Live device state, imperative like `ha`/`writer` above, not a template binding: the render `guard` below
@@ -130,11 +195,48 @@ export class FloorplanStudioPanel extends LitElement {
     const ed = e.currentTarget as FloorplanStudioEditor;
     const layout = (e as CustomEvent<Layout>).detail;
     if (this.stale) { ed.saveDone(false, `Not saved: this page is out of date (${this.built}, installed ${this.stale}). Reload, then save again.`); return; }
+    // `layout` is the editor's live object; copy it now, before the await, so an edit made while saving is not mistaken for saved.
+    const sent = structuredClone(layout);
     try {
-      await this.hass!.callWS({ type: "floorplan_studio/save", layout });
+      const r = await this.hass!.callWS<{ rev?: number } | undefined>({ type: "floorplan_studio/save", layout, ...(this.rev === null ? {} : { expected_rev: this.rev }) });
+      this.rev = typeof r?.rev === "number" ? r.rev : null;
+      this.layout = sent; // what is stored now; the editor is not drawn again for it (see `render`)
+      this.conflict = "";
       ed.saveDone(true, "Saved to Home Assistant");
     } catch (err) {
-      ed.saveDone(false, `Save failed: ${errText(err)}`);
+      if ((err as { code?: unknown } | null)?.code === "conflict") {
+        this.conflict = errText(err);
+        ed.saveDone(false, "Not saved: the plan was changed elsewhere. Reload it or overwrite it, above the plan.");
+      } else ed.saveDone(false, `Save failed: ${errText(err)}`);
+    }
+  }
+
+  /** Conflict, Reload: take the stored plan in as one undo step. Your edits stay one Undo away. */
+  private async reloadStored() {
+    const ed = this.editor();
+    if (!ed) return;
+    try {
+      const r = await this.hass!.callWS<{ layout: Layout | null; rev?: number }>({ type: "floorplan_studio/load" });
+      if (!ed.adoptLayout(r.layout, "Reloaded the plan saved elsewhere. Undo brings your version back.")) return; // the editor lists why; the conflict stays
+      ed.markSaved();
+      this.rev = typeof r.rev === "number" ? r.rev : null;
+      this.layout = structuredClone(ed.layout);
+      this.conflict = "";
+    } catch (e) {
+      this.conflict = `Could not reload the plan: ${errText(e)}`;
+    }
+  }
+  /** Conflict, Overwrite: learn the latest revision, then save the editor's plan against it. */
+  private async overwriteStored() {
+    const ed = this.editor();
+    if (!ed) return;
+    try {
+      const r = await this.hass!.callWS<{ rev?: number }>({ type: "floorplan_studio/load" });
+      this.rev = typeof r.rev === "number" ? r.rev : null;
+      this.conflict = "";
+      ed.save();
+    } catch (e) {
+      this.conflict = `Could not read the stored revision: ${errText(e)}`;
     }
   }
 
@@ -160,6 +262,27 @@ export class FloorplanStudioPanel extends LitElement {
       <a href=${u.url} target="_blank" rel="noreferrer">Release notes</a>${failed}</div>`;
   }
 
+  private draftBanner() {
+    if (!this.draftAt) return nothing;
+    return html`<div class="update draft">Restore unsaved draft from ${this.draftAt}?
+      <button class="restore" @click=${() => this.restoreDraft()}>Restore</button>
+      <button class="discard" @click=${() => this.discardDraft()}>Discard</button></div>`;
+  }
+  private conflictBanner() {
+    if (!this.conflict) return nothing;
+    return html`<div class="update conflict">Changed elsewhere: ${this.conflict}
+      <button class="reload" @click=${() => this.reloadStored()}>Reload</button>
+      <button class="overwrite" @click=${() => this.overwriteStored()}>Overwrite</button></div>`;
+  }
+  /** On a narrow screen HA hides its sidebar; every core panel puts the menu button in its own top bar, so this one does too. */
+  private bar() {
+    if (!this.narrow) return nothing;
+    const menu = customElements.get("ha-menu-button")
+      ? html`<ha-menu-button .hass=${this.hass} .narrow=${this.narrow}></ha-menu-button>`
+      : html`<button class="menu" aria-label="Menu" @click=${() => this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }))}>☰</button>`;
+    return html`<div class="bar">${menu}<span>Floorplan Studio</span></div>`;
+  }
+
   render() {
     if (this.error) {
       return html`<div class="msg"><p>${this.error}</p><button @click=${() => this.load()}>Retry</button></div>`;
@@ -167,20 +290,23 @@ export class FloorplanStudioPanel extends LitElement {
     if (!this.ready) return html`<div class="msg">Loading…</div>`;
     const demoLayout = demo as unknown as Layout;
     const dark = this.hass?.themes?.darkMode;
-    // The editor is drawn again only when the stored layout or the dark mode changes. `hass` changes on every state update in the
+    // The editor is drawn again only on a load (`loadId`). Not on the dark mode (pushed in `pushHa`) and not on a save, which updates
+    // `this.layout` to what was stored but is no reason to hand the editor a plan. `hass` changes on every state update in the
     // house, and Lit re-sets an object property on every render: without this guard each update handed the editor the stored layout
     // again, which it takes for a fresh load (zoom reset, selection gone, unsaved edits reverted, undo history wiped).
     // No stored plan: leave `layout` unset. A blank plan is not a valid layout (an outline needs 3 points), so the editor's own blank start is used.
-    const editor = guard([this.layout, dark], () => this.layout
+    const editor = guard([this.loadId], () => this.layout
       ? html`<floorplan-studio-editor .layout=${this.layout} .demo=${demoLayout} .haDark=${dark} @save-request=${this.onSave}></floorplan-studio-editor>`
       : html`<floorplan-studio-editor .demo=${demoLayout} .haDark=${dark} @save-request=${this.onSave}></floorplan-studio-editor>`);
-    return html`${this.banner()}${editor}`;
+    return html`${this.bar()}${this.banner()}${this.draftBanner()}${this.conflictBanner()}${editor}`;
   }
 
   static styles = css`
     :host { display: block; font: 14px/1.4 system-ui, sans-serif; box-sizing: border-box; min-height: 100%; padding: 8px 12px; background: ${unsafeCSS(panelVar("background"))}; color: ${unsafeCSS(panelVar("text"))}; }
     .msg { padding: 24px; }
     .update { margin: 0 0 8px; padding: 8px 12px; border-radius: 6px; background: ${unsafeCSS(panelVar("accent"))}; color: ${unsafeCSS(panelVar("accentText"))}; }
+    .bar { display: flex; align-items: center; gap: 8px; margin: -8px -12px 8px; padding: 4px 8px; font-weight: 600; }
+    .bar .menu { background: none; border: 0; font-size: 20px; color: inherit; }
     .update a { color: inherit; margin-left: 8px; }
     .update .bad { margin-left: 8px; font-weight: 600; }
     button { font: inherit; padding: 4px 12px; cursor: pointer; }
