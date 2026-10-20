@@ -20,7 +20,7 @@ type: custom:floorplan-studio-card
 With no other keys it draws your plan's floors as a switcher — one chip per
 floor, the first one shown — when your plan has more than one; with only one
 floor there is nothing to switch, so it just draws that. Either way: the
-`blueprint` theme, motion fading over 300 seconds, `room_glow` off, darker
+`blueprint` theme, motion fading over 120 seconds, `room_glow` off, darker
 after sunset.
 
 The editor itself can write this for you: File → Install code opens a panel
@@ -33,7 +33,9 @@ floors — ready to paste. See "A premade dashboard" below.
 |---|---|---|
 | `floor` | the switcher, if the layout has more than one floor; its only floor otherwise | which floor to pin to, by its id (`ground`, `first`, ...) — no switcher, just that floor; `all` shows the switcher explicitly; an id the layout doesn't have is treated the same as leaving `floor` unset |
 | `floors` | unset | an array of floor ids: shows a switcher over only these floors, in this order, defaulting to the first one. Takes precedence over `floor`. An id the layout doesn't have is dropped; if none of them match, this is the same as leaving `floors` unset |
-| `theme` | `blueprint` | `blueprint`, `light`, `midnight`, `slate`, `terminal`, `solarized`, or `ha` (see Themes, below) |
+| `theme` | `blueprint` | `blueprint`, `midnight`, `light`, `slate`, `terminal`, `solarized`, `ha`, `coffee`, `a-team`, `space`, `cyberpunk`, `carpenter-brut` or `beach-house` (see Themes, below) |
+| `layout` | unset | a whole layout object, written inline in the card's YAML. It is migrated and validated like any file; if it fails, the card shows the first problem. Checked first, so it wins over `layout_url` and the saved plan. Mostly for tests and one-off cards: a real plan is long |
+| `layout_url` | unset | a URL the card fetches once for a layout (JSON, the same shape as a saved layout file). Used when `layout` is not set; with neither, the card asks the integration for the plan saved in Home Assistant. A failed fetch reads "No layout" |
 | `fade` | `120` | seconds a motion sensor takes to fade from red to nothing after it goes off |
 | `plug_heat_from`, `plug_heat_to` | `0`, `2000` | the draw range a plug's colour runs over, in watts: blue at the low end, amber half way, red at the high end. Two numbers with from below to; anything else is `0` and `2000`. See Plugs |
 | `plug_watts` | `2` | a plug is active from this many watts of measured power, not merely while switched on — see Plugs, below. A number `0` or more; anything else is `2` |
@@ -677,7 +679,7 @@ Paste them over a dashboard's raw configuration (⋮, Edit in YAML). The card's 
 
 ## Themes
 
-Seven themes, chosen with `theme:` — never by your dashboard's own light/dark
+Thirteen themes, chosen with `theme:` — never by your dashboard's own light/dark
 mode, which the card ignores.
 
 - **`blueprint`** (default) — dark blue ground, cool white linework, a
@@ -692,6 +694,12 @@ mode, which the card ignores.
   secondary background for rooms) instead of a fixed palette. Falls back to
   `light` or `midnight` (by `hass.themes.darkMode`) for anything your
   dashboard's theme doesn't define.
+- **`coffee`** — espresso-brown ground, cream linework, caramel-orange accent.
+- **`a-team`** — near-black, cherry-red grid, gold accent.
+- **`space`** — near-black navy, cyan grid, violet accent.
+- **`cyberpunk`** — near-black violet, cyan text, magenta grid, acid-yellow accent.
+- **`carpenter-brut`** — near-black maroon, crimson grid, hot-pink accent.
+- **`beach-house`** — a light sand ground, driftwood-brown linework, sea-teal grid, palm-green accent.
 
 ## What a device looks like, on and off
 
