@@ -2,6 +2,10 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-21: docs pass: 3D and isometric are no longer non-goals
+
+Supersedes the SPEC non-goal "3D, isometric views". 2.5D (since 0.2x) and 3D ship, so the line said the opposite of the product. SPEC now lists only "rendering photos of the house". Same pass, docs follow code, no behaviour change: SPEC criterion 4 says an open door turns red (`--fp-open-door` is `--fp-dev-contact`, #d64545; orange was the old colour); SPEC Integration says the config flow has one options step (Show in the sidebar); card.md fade text says 120 s, lists all 13 themes, and documents `layout` and `layout_url`; the README validate step says `npm ci` first (the script needs `esbuild`); `prompts/SCHEMA.md` lists the `speaker` symbol and spells out the device types instead of pointing to `docs/schema.md`.
+
 ## 2026-10-21 Card size cap 123,800 gz (supersedes 121,580 and 123,000)
 
 The camera thumbnail (cap 123,000) and the card's load work (+665 gz) were built in parallel and each raised the cap alone. Together the card is 123,703 gz (`gzip -9`). The cap is now 123,800. Diego to confirm. The cheaper cuts, if he refuses: drop the stale-page check or the save-event follow in the card.
