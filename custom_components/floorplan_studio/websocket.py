@@ -26,7 +26,15 @@ def _store(hass: HomeAssistant) -> LayoutStore | None:
     return hass.data.get(DOMAIN)
 
 
-@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/load"})
+def _without_trace(layout: Any) -> Any:
+    """A copy with every floor's trace image left out. Stored data is untouched; a trace can be megabytes."""
+    floors = layout.get("floors") if isinstance(layout, dict) else None
+    if not isinstance(floors, dict):
+        return layout
+    return {**layout, "floors": {k: ({n: v for n, v in f.items() if n != "trace"} if isinstance(f, dict) else f) for k, f in floors.items()}}
+
+
+@websocket_api.websocket_command({vol.Required("type"): "floorplan_studio/load", vol.Optional("with_trace", default=False): bool})
 @websocket_api.async_response
 async def ws_load(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     store = _store(hass)
@@ -34,6 +42,9 @@ async def ws_load(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         connection.send_error(msg["id"], "not_loaded", "Floorplan Studio is not set up. Add it under Settings, Devices & services.")
         return
     layout, rev = await store.async_load_with_rev()
+    # Traces are scanned plans, often with an address on them, and the card never draws them: only the Studio (admin) asks.
+    if not (msg["with_trace"] and connection.user.is_admin):
+        layout = _without_trace(layout)
     connection.send_result(msg["id"], {"layout": layout, "rev": rev})
 
 
@@ -53,6 +64,7 @@ async def ws_save(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     except RevConflict as err:
         connection.send_error(msg["id"], "conflict", f"The plan was saved elsewhere (revision {err.current}, you have {msg['expected_rev']}). Reload it, or overwrite it with yours.")
         return
+    hass.bus.async_fire("floorplan_studio_updated")  # open cards reload
     connection.send_result(msg["id"], {"ok": True, "rev": rev})
 
 

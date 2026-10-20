@@ -29,5 +29,9 @@ jobs:
           [ "$n" -eq 1 ] || { echo "expected one www/floorplan-studio-3d-<hash>.js, found $n: the build did not produce it, or a stale one is left"; exit 1; }
           test -s custom_components/floorplan_studio/www/floorplan-studio-3d-*.js
           cd custom_components/floorplan_studio && zip -r ../../floorplan_studio.zip . -x "__pycache__/*" "*.pyc"
-      - run: gh release create "$GITHUB_REF_NAME" floorplan_studio.zip --title "$GITHUB_REF_NAME" --generate-notes
+      - name: Release, with the CHANGELOG entry as its notes
+        # No section for the version (or an empty one): fall back to generated notes rather than fail the release.
+        run: |
+          if node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"; then notes=(--notes-file "$RUNNER_TEMP/notes.md"); else notes=(--generate-notes); fi
+          gh release create "$GITHUB_REF_NAME" floorplan_studio.zip --title "$GITHUB_REF_NAME" "${notes[@]}"
         env: { GH_TOKEN: "${{ github.token }}" }

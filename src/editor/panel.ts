@@ -133,7 +133,7 @@ export class FloorplanStudioPanel extends LitElement {
   private async load() {
     this.error = "";
     try {
-      const r = await this.hass!.callWS<{ layout: Layout | null; rev?: number }>({ type: "floorplan_studio/load" });
+      const r = await this.hass!.callWS<{ layout: Layout | null; rev?: number }>({ type: "floorplan_studio/load", with_trace: true });
       this.rev = typeof r.rev === "number" ? r.rev : null;
       this.offerDraft(r.layout); // before the editor exists: its first autosave would overwrite the draft
       this.layout = r.layout;

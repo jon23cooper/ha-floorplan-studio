@@ -19,6 +19,7 @@ import "./config-editor";
 import { defineElement } from "./define";
 import { strategyElement } from "./strategy";
 import { CARD_VERSION } from "./version";
+import { INSTALL_HINT, NOTHING_SAVED, STALE_PAGE, loadErrorText, loadShared, pageIsStale, type Conn } from "./load";
 import { MAX_ZOOM, MIN_ZOOM, clamp, panBy, pinch, pinnedView, sameView, zoomAt, type Pt, type View } from "./viewport";
 import { PAN_STEP, isSearchChord, planKeyFor, type ViewKey } from "./view-keys";
 import { firstFocus, nextInDirection, type FocusDir } from "./plan-focus";
@@ -33,7 +34,7 @@ import type { Pick as Pick3D } from "./three/pick";
 import { liveDeps, sceneDeps, textureDeps } from "../core/three-deps";
 import { BELOW_LABELS, BELOW_MODES, HEAT_LABELS, belowModeOf, type BelowMode, ROTATION_STEP, easeInOut, normaliseRotation, parseStoredView, shortestDelta, viewAround, type FloorView, type StoredView } from "./view-state";
 
-const NO_LAYOUT = "No layout: install the Floorplan Studio integration or set layout_url";
+const NO_LAYOUT = INSTALL_HINT;
 
 /** What the card needs of `hass`. Home Assistant's real object has far more; this is only what the card reads. */
 export interface HassEntity { state: string; attributes: Record<string, unknown>; last_changed: string }
@@ -45,7 +46,9 @@ export interface Hass {
   devices?: Record<string, { manufacturer?: string | null; model?: string | null; sw_version?: string | null; area_id?: string | null } | undefined>;
   areas?: Record<string, { name?: string | null } | undefined>;
   themes?: { darkMode?: boolean };
-  connection?: { sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T> };
+  connection?: Conn;
+  /** Only `is_admin` is read: the Studio's sidebar entry is admin only, so a link to it is for admins. */
+  user?: { is_admin?: boolean };
   callService?(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
 }
 
@@ -547,6 +550,11 @@ export class FloorplanStudioCard extends LitElement {
   private _error: string | null = null;
   private _urlRequested = false;
   private _wsRequested = false;
+  /** Failed websocket loads since the last success or reconnect: one retry on the next `hass`, then wait for the connection's `ready`. */
+  private _wsFails = 0;
+  private _readyCb: (() => void) | null = null;
+  /** The `floorplan_studio_updated` subscription (a Studio save), so an open card follows it. */
+  private _sub: Promise<() => void> | null = null;
   private _timer: ReturnType<typeof setInterval> | null = null;
   private _actionsSvg: SVGSVGElement | null = null;
   private _unbindActions: (() => void) | null = null;
@@ -1209,6 +1217,7 @@ export class FloorplanStudioCard extends LitElement {
     this.addEventListener("pointerleave", this._onPointerLeave);
     this.addEventListener("focusin", this._onFocusIn);
     this.addEventListener("focusout", this._onFocusOut);
+    this._watchUpdates();
     this.requestUpdate(); // a turn settled while detached left the last frame on screen
   }
 
@@ -1234,17 +1243,23 @@ export class FloorplanStudioCard extends LitElement {
     this._releaseFocus();
     this._flushSave(); // under the old config's key
     this._settleTurn(false);
+    const prev = this._config;
     this._config = config ?? {};
+    // A new config with the same source keeps the loaded plan: the card editor calls setConfig on every keystroke.
+    const sameSource = !!this._layout && !this._config.layout && !prev.layout && prev.layout_url === this._config.layout_url;
     this._warnActions();
     this._readFavourites();
     this._warnHeat();
     this._closePopup();
     this._focusDev = null;
     this._hideTip();
-    this._layout = null;
-    this._error = null;
-    this._urlRequested = false;
-    this._wsRequested = false;
+    if (!sameSource) {
+      this._layout = null;
+      this._error = null;
+      this._urlRequested = false;
+      this._wsRequested = false;
+      this._wsFails = 0;
+    }
     this._shownFloor = null;
     this._pickedRoom = null;
     this._pickedFloor = null;
@@ -1345,6 +1360,11 @@ export class FloorplanStudioCard extends LitElement {
     this._cam.want(false);
     this._releaseFocus();
     this._stopTimer();
+    const sub = this._sub; // may still be on its way: unsubscribe when it lands
+    this._sub = null;
+    void sub?.then((u) => u(), () => undefined);
+    if (this._readyCb) this._hass?.connection?.removeEventListener?.("ready", this._readyCb);
+    this._readyCb = null;
     if (this._pulseTimer !== null) { globalThis.clearTimeout(this._pulseTimer); this._pulseTimer = null; this._pulse = null; }
     globalThis.removeEventListener?.("pagehide", this._flushSave);
     globalThis.document?.removeEventListener("visibilitychange", this._onVisibility);
@@ -1401,6 +1421,8 @@ export class FloorplanStudioCard extends LitElement {
     } catch (e) {
       const why = e instanceof Error ? e.message : "";
       this._error = why ? `The plan could not be used: ${why}` : NO_LAYOUT;
+      // A plan this build rejects may be one a newer Studio wrote: a cached card after an update. Say so.
+      if (why && this._hass?.connection) void pageIsStale(this._hass.connection).then((stale) => { if (stale && !this._layout) { this._error = STALE_PAGE; this.requestUpdate(); } });
     }
     this._syncTimer();
     this.requestUpdate();
@@ -1425,15 +1447,52 @@ export class FloorplanStudioCard extends LitElement {
     if (this._hass?.connection) {
       if (this._wsRequested) return;
       this._wsRequested = true;
-      // S7.16: the integration answers `{ layout }` (websocket.py); `null` when nothing has been saved yet.
-      this._hass.connection
-        .sendMessagePromise<{ layout: unknown }>({ type: "floorplan_studio/load" })
-        .then((r) => this._applyLayout(r?.layout))
-        .catch(() => { this._error = NO_LAYOUT; this.requestUpdate(); });
+      this._fetchLayout(false);
+      this._watchUpdates();
       return;
     }
     this._error = NO_LAYOUT;
   }
+
+  /** S7.16: the integration answers `{ layout }` (websocket.py); `null` when nothing has been saved yet. The reply is shared by
+   * every card on the connection, so each applies its own copy. A `reload` (after a Studio save) keeps what is on screen if it fails. */
+  private _fetchLayout(reload: boolean): void {
+    const conn = this._hass!.connection!;
+    loadShared(conn).then((r) => {
+      this._wsFails = 0;
+      if (r?.layout == null) {
+        if (!reload) { this._error = NOTHING_SAVED; this.requestUpdate(); }
+        return;
+      }
+      this._applyLayout(structuredClone(r.layout));
+    }).catch((e) => { if (!reload) this._loadFailed(conn, e); });
+  }
+
+  /** Says why, allows one retry on the next `hass`, and loads again when the connection is ready again. Bounded: no timer, no loop. */
+  private _loadFailed(conn: Conn, e: unknown): void {
+    this._error = loadErrorText(e);
+    if (this._wsFails++ < 1) this._wsRequested = false;
+    if (!this._readyCb) {
+      this._readyCb = () => { this._wsFails = 0; this._wsRequested = false; this._loadLayout(); };
+      conn.addEventListener?.("ready", this._readyCb);
+    }
+    this.requestUpdate();
+  }
+
+  /** G3: a Studio save fires `floorplan_studio_updated`; follow it. Only for a plan that comes from the websocket. HA lets only admins
+   * subscribe to a custom event, so for anyone else this quietly stays a card that loads once. */
+  private _watchUpdates(): void {
+    const conn = this._hass?.connection;
+    if (!conn?.subscribeEvents || this._sub || this._config.layout || this._config.layout_url) return;
+    this._sub = conn.subscribeEvents(() => { if (!this._config.layout && !this._config.layout_url) this._fetchLayout(true); }, "floorplan_studio_updated");
+    this._sub.catch(() => { this._sub = null; });
+  }
+
+  private _openStudio = (e: Event): void => {
+    e.preventDefault();
+    history.pushState(null, "", "/floorplan-studio"); // HA's own `navigate`: push, then tell the router
+    window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+  };
 
   /** The turn the plan is drawn at: the layout's own rotate plus the user's. Turned into the `{ deg, pivot }`
    * renderFloor and viewBoxFor take, or `undefined` for none. Shared so getCardSize sees the same box render() draws. */
@@ -3644,7 +3703,7 @@ export class FloorplanStudioCard extends LitElement {
 
   protected render() {
     const f = this._floor();
-    if (!f) return html`<p class="msg">${this._error ?? NO_LAYOUT}</p>`;
+    if (!f) return html`<p class="msg">${this._error ?? NO_LAYOUT}${this._error === NOTHING_SAVED && this._hass?.user?.is_admin !== false ? html` <a class="fp-studio-link" href="/floorplan-studio" @click=${this._openStudio}>Open Floorplan Studio</a>` : nothing}</p>`;
     this._syncFloorMemory();
     const rotate = this._rotate();
     const view = this._planView();

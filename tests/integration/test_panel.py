@@ -182,3 +182,15 @@ def _png_size(path: Path) -> tuple[int, int]:
 )
 def test_the_brand_images_ship_inside_the_integration_at_the_sizes_home_assistant_expects(name, size):
     assert _png_size(BRAND / name) == size
+
+
+async def test_removing_the_integration_survives_a_resource_store_that_fails(hass, entry, monkeypatch, caplog):
+    # G20: a Lovelace in an odd state must not turn "Delete" on the integration into a stack trace.
+    from custom_components.floorplan_studio import panel  # noqa: PLC0415
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("store broke")
+
+    monkeypatch.setattr(hass.data["lovelace"].resources, "async_get_info", boom)
+    await panel.async_remove_resource(hass)
+    assert "Could not remove the card from the dashboard resources" in caplog.text
