@@ -162,7 +162,9 @@ A device's panel shows one extra field for a few types:
 Inside Home Assistant, Edit, Home Assistant opens a small popover (drag it
 by its head, close it with the X or Escape) listing every helper,
 automation and area the editor created, labelled `floorplan-studio`, across
-the whole instance. Click a name to open the item where Home Assistant edits
+the whole instance. Only what the editor made is listed: a light, automation or
+area you labelled yourself is left alone, and Remove double-checks. (Areas are
+remembered per browser.) Click a name to open the item where Home Assistant edits
 it: a helper's dialog, the automation editor, the area page. Remove deletes
 it from Home Assistant after a confirmation; the plan is not touched either
 way. The button is disabled while there is nothing to list.
