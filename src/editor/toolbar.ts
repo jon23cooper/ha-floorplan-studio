@@ -1,6 +1,6 @@
 import { css, html, nothing } from "lit";
 import { live } from "./live-keep";
-import { DETAIL_LABELS, DETAIL_MODES, HEAT_KINDS, FURNITURE_SYMBOLS, floorBelow, UI_ICONS, UNLINKED_TYPES, WALL_KINDS, layersSummary } from "../core";
+import { CAM_POS, CAM_SIZES, DETAIL_LABELS, DETAIL_MODES, HEAT_KINDS, FURNITURE_SYMBOLS, floorBelow, UI_ICONS, UNLINKED_TYPES, WALL_KINDS, layersSummary } from "../core";
 import type { FurnitureSymbol, HaData } from "../core";
 import "../card/search-box";
 import { TYPE_LABELS, WALL_LABELS, typeMenu } from "./panels";
@@ -235,6 +235,11 @@ export function toolbarView(h: FloorplanStudioEditor, entries: SearchEntry[]) {
           </details>
           <details class="sub" id="heatSub" @toggle=${onSubToggle}><summary class="btn">Heat map: ${HEAT_LABELS[st.heat]}</summary>
             ${HEAT_KINDS.map((k) => html`<button class="btn keep" data-heat=${k} aria-pressed=${pressed(st.heat === k)} title=${k === "off" ? "Rooms in their own colours" : `Colour each room by its ${k} reading, on the same scale every day`} @click=${() => { st.heat = k; h.requestUpdate(); }}>${HEAT_LABELS[k]}</button>`)}
+          </details>
+          <details class="sub" id="camSub" @toggle=${onSubToggle}><summary class="btn">Camera thumbnail: ${st.cam.on ? "On" : "Off"}</summary>
+            ${[false, true].map((on) => html`<button class="btn keep" data-camon=${on ? "on" : "off"} aria-pressed=${pressed(st.cam.on === on)} title=${on ? "A small live picture beside each camera icon" : "No camera pictures"} @click=${() => { st.cam = { ...st.cam, on }; h.requestUpdate(); }}>${on ? "On" : "Off"}</button>`)}
+            ${CAM_SIZES.map((size) => html`<button class="btn keep" data-camsize=${size} aria-pressed=${pressed(st.cam.size === size)} title="Picture size" @click=${() => { st.cam = { ...st.cam, size }; h.requestUpdate(); }}>Size: ${size}</button>`)}
+            ${CAM_POS.map((pos) => html`<button class="btn keep" data-campos=${pos} aria-pressed=${pressed(st.cam.pos === pos)} title="Which side of the icon the picture sits" @click=${() => { st.cam = { ...st.cam, pos }; h.requestUpdate(); }}>Position: ${pos}</button>`)}
           </details>
           ${viewsSub(h)}
           <button class="btn" id="recenter" @click=${() => { st.recenter(); h.requestUpdate(); }}>Re-center</button>

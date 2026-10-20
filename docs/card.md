@@ -49,6 +49,9 @@ floors — ready to paste. See "A premade dashboard" below.
 | `ghost_floor` | `false` | `true` draws the floor under the shown one as faint lines, at its place in the house (the floors' `offset`s and `rotation`s, so a floor drawn turned a few degrees on the one below lines up). Only `true` counts; junk is off. The Floor below item of the ⋯ menu (2D and 2.5D) changes it for one viewer and the card remembers the pick; the lowest floor has none |
 | `floors_below` | `off` | 3D only: `ghost` draws every floor under the shown one translucent, `solid` in its own colours, `off` none. Junk is `off`. The Floors below radios of the ⋯ menu change it for one viewer; the pick is remembered |
 | `detail` | `auto` | how much of the plan is drawn at each zoom (Detail, below): `auto` follows the zoom, `full` always draws everything, `minimal` always draws only rooms and what needs attention. Unset or anything else is `auto`, but `full` where the viewer can neither zoom nor reach the Detail button (kiosk, or `active_list: false` with `zoom: false`). The Detail items of the ⋯ menu change it for one viewer, and a viewer's own pick wins over this key |
+| `camera_thumb` | `off` | `on` draws a small live picture beside each camera icon, in 2D, 2.5D and 3D (see Camera thumbnail, below). `off`, absent and anything else draw none and make no request. YAML turns an unquoted `on` into `true`; both work. The Camera thumbnail items of the ⋯ menu and the visual editor change it, and a viewer's own pick wins |
+| `camera_thumb_size` | `medium` | `small`, `medium` or `large` (64, 96 or 144 cm wide at the icon's scale, 16:9). Anything else is `medium` |
+| `camera_thumb_pos` | `below` | `above`, `below`, `left` or `right` of the icon. Anything else is `below`. The picture is pulled back inside the card when the camera is near an edge |
 | `heat_map` | `off` | `off`, `temperature` or `humidity`: fills each room that has a reading by a fixed scale and draws a legend (see Heat map, below). Anything else is `off`, with one console warning. The Heat map items of the ⋯ menu change it for one viewer, and a viewer's own pick wins over this key |
 | `favourites` | unset | a list of entity ids (`favorites` is read too; `favourites` wins when both are set). They get a Favourites section at the top of the Overview (see Overview, below). Up to 24; anything that is not an entity id and every repeat is dropped, with one console warning per card |
 | `walls` | `cut` | how 2.5D and 3D draw wall heights: `full` every wall at its real height, no cutaway; `cut` the doll's house look, walls facing you lowered so the rooms show; `low` every wall at the cutaway height. Anything else is `cut`. Read in 2.5D and 3D. See Walls, below |
@@ -289,6 +292,7 @@ editor and fails on a control that has no row here, so a new one gets a decision
 | `#saveView` Save current view | no | authoring: it writes a view into the layout, which a card never does |
 | `#viewsNone` No saved views on this floor | no | the empty-state note of the Studio's submenu |
 | `#copyCardView` Copy card view | no | authoring: it writes the card's `center` and `zoom_level` |
+| `#camSub` Camera thumbnail (On/Off, size, position) | yes | the Camera thumbnail, Thumbnail size and Thumbnail position items of the ⋯ menu (also in 3D); kept per viewer; config `camera_thumb`, `camera_thumb_size`, `camera_thumb_pos`. Inside Home Assistant the picture is live; standalone the Studio has no camera state, so none is drawn |
 | `#heatSub` Heat map (Off, Temperature, Humidity) | yes | the Heat map radios of the ⋯ menu, same three choices; kept per viewer; config `heat_map`. Not in 3D. Inside Home Assistant both show live readings; standalone the Studio has none, so no room is heated and its status bar says so |
 | `#detailSub` Detail (Auto, Full, Minimal) | yes | the Detail radios of the ⋯ menu, same three choices; kept per viewer; config `detail`. The Studio starts on Full, the card on Auto. Not in 3D |
 | `#tabLayers` Layers (hide a family) | yes | the Layers section of the ⋯ menu has a check per family: a pick hides it, Alt-click shows it alone; kept per viewer. Not in 3D |
@@ -481,6 +485,18 @@ The thresholds are fixed. **Detail** (a section of the ⋯ menu) picks the mode:
 default (anything else counts as no key; the Edit-card form has a Detail select). With no key the default is `auto`, unless the viewer could not change the level: with `kiosk`, or with `active_list: false` and `zoom: false` (no Detail item, no zoom buttons), it is `full`, so no idle device is out of reach. A key you write always wins, `detail: auto` in a kiosk included. A viewer's own pick is remembered in that
 browser and wins over the YAML; Reset view clears it. With storage blocked the pick lasts until the page closes. Live 3D
 draws every level.
+
+## Camera thumbnail
+
+`camera_thumb: "on"` draws a small live picture beside every camera icon, in 2D, 2.5D and 3D. Size and side come from `camera_thumb_size` and
+`camera_thumb_pos`. The picture is the camera's `entity_picture` attribute, Home Assistant's own authenticated proxy path; the card adds `fp_t=<time>`
+so the browser asks again, every 10 seconds. It asks for nothing while the tab is hidden or the card is off the page, and at once when you come back.
+Only a path on your Home Assistant (or an inline `data:image/` picture) is used; a full address to another site is ignored, so the card makes no request
+to a third party. A camera that is unavailable, or a picture that does not load, draws nothing (no broken-image icon) until the next refresh.
+
+A tap on the picture opens the camera's more-info (live stream, controls), not the popup, whether you tap or hold; in kiosk it does nothing. The picture is
+kept inside the card: a camera near an edge has its picture pulled back in. The ⋯ menu has Camera thumbnail (Off, On), Thumbnail size and Thumbnail
+position for one viewer; the visual editor has the same three rows.
 
 ## Heat map
 

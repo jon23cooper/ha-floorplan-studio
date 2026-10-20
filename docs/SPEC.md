@@ -793,6 +793,14 @@ draws it over the plan's bottom left (2D and 2.5D), the Studio in its status bar
 Layers (shown where Detail is; hidden in 3D, in kiosk and with `active_list: false`, where the key still heats), the viewer's pick in
 `StoredView.heat` (`parseStoredView` drops junk), `heat_map` in `_viewStorageKey`. Studio: View, `#heatSub`, `ViewMemory.heat`.
 
+**Camera thumbnail (S16.3).** Card keys `camera_thumb` (`on`/`off`, default off; a YAML boolean counts), `camera_thumb_size` (`small`, `medium`,
+`large`; default medium) and `camera_thumb_pos` (`above`, `below`, `left`, `right`; default below), read by `camThumbOf` (`src/core/camera-thumb.ts`). A
+camera device's picture is its state's `entity_picture`, taken by `thumbUrl` only as a path on this Home Assistant or an inline image, with `fp_t` as a
+cache buster; an unavailable camera or a failed load draws nothing. `renderFloor` draws it (`RenderOpts.camThumb`, an SVG `<image>` in `g.fp-cam-thumb`),
+3D draws an `<img class="fp3-cam">` in the overlay from `LiveDevice.thumb`. A tap opens more-info of the camera. `ThumbFeed` refreshes every 10 s and pauses
+while the tab is hidden. Card: ⋯ menu sections `cam:`, `camsize:`, `campos:` and the three rows of the visual editor; the viewer's pick in `StoredView.cam`.
+Studio: View, `#camSub`, `ViewMemory.cam`, `EditorState.cam`.
+
 **Favourites.** Card key `favourites` (alias `favorites`; `favouritesOf` in `src/card/favourites.ts`): entity ids, trimmed,
 repeats dropped, at most `MAX_FAVOURITES` (24), junk dropped with one `console.warn` per card, never a throw. `favouriteRefs`
 resolves each to the first device (then linked piece) in layout order on a floor the card shows; one not on the plan has no

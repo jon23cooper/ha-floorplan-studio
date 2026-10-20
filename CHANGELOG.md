@@ -7,6 +7,8 @@
 - Integration: the stored plan has a revision. `floorplan_studio/load` returns `rev`; `floorplan_studio/save` takes an optional `expected_rev`, answers the error `conflict` and writes nothing when it is stale, and returns the new `rev`. The Studio shows Reload and Overwrite on a conflict. A save without `expected_rev` still overwrites. Storage written by older versions reads as revision 0.
 - Studio: on a narrow screen the panel shows HA's menu button.
 
+- Card and Studio: a small live camera picture beside each camera icon, in 2D, 2.5D and 3D. Off by default. Options `camera_thumb`, `camera_thumb_size` (small, medium, large) and `camera_thumb_pos` (above, below, left, right), also in the card's visual editor, the card's View menu and the Studio's View menu. The picture comes from the camera's own `entity_picture` through Home Assistant, refreshes every 10 s, and pauses while the tab is hidden. A tap on it opens the camera's more-info. A picture that does not load is not drawn.
+
 ## 0.33.3 - 2026-10-20
 
 - Studio, safety (HACS review): the cleanup list in Edit, Home Assistant, lists and removes only what the editor created. The `floorplan-studio` label alone no longer counts: a light, automation or area you labelled yourself is never listed, and Remove checks the item again before it deletes anything. Helpers must come from `switch_as_x` or `group`, automations must have an `fp_` id, areas must be ones this browser created.

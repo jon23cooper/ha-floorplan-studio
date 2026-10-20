@@ -35,6 +35,16 @@ Nothing in `src/` changed. The one real state read is not stored in the repo.
 - **Dirty** means the layout differs from the last load or successful save (compared serialised, on demand), so undoing back to the saved plan is clean, and an edit made while a save is in flight stays dirty.
 - **Theme.** `haDark` is pushed to the editor in `updated()`, not through the guarded template, and the guard key is a load counter. After a save the panel's `layout` is a copy of what was saved.
 
+## 2026-10-21: S16.3 camera thumbnail (Sonnet)
+
+A small live picture beside each camera icon, in 2D, 2.5D and 3D. Options `camera_thumb` (`on`/`off`, default off; the YAML boolean is read too), `camera_thumb_size` (`small`/`medium`/`large`, default medium), `camera_thumb_pos` (`above`/`below`/`left`/`right`, default below). The same three choices are in the card's config editor, the card's View menu and the Studio's View menu. A viewer pick is stored with the view, not the layout, and is never an undo step.
+
+- Source is the camera's `entity_picture`, drawn only if it is a path on this Home Assistant (`/...`, not `//`, no backslash or control character) or an inline `data:image/` picture. Any other url is a request to a third party, so it draws nothing. `fp_t=<ms>` is added to a path as a cache buster.
+- One draw path: an SVG `<image>` from `renderFloor` in 2D and 2.5D; an `<img>` in the 3D overlay, fed by `liveOf`. A tap uses its own `data-cam` target and opens more-info for the camera directly (not the popup); in kiosk it does nothing. The Studio's picture takes no pointer, so selecting and dragging the camera is unchanged.
+- `ThumbFeed` (core) refreshes every 10 s, pauses while `document.hidden` or while the card is off the page, asks at once when the tab returns. A picture that fails to load (`error` event) is drawn as nothing until the next tick, which clears the failed set and tries again.
+- Card size cap raised from 121,000 to 123,000 gz bytes. The card was 185 bytes under the cap; the feature costs about 2,100 (the url gate, the box maths, the feed, three menu sections, three config rows, view memory). The code is already close to the smallest that does the job, and the 3D overlay part lives in the lazy chunk, which has room. The Studio file is not under this cap.
+- Not done: a per-camera setting, a snapshot-on-tap larger view (the tap opens more-info, which has the live stream).
+
 ## 2026-10-20: cleanup deletes only what the tool made (HACS review)
 
 Supersedes S4.10, which trusted the `floorplan-studio` label. A label is a name anyone can attach; a user who labelled their own Hue or ZHA light would have lost the whole integration behind a dialog that called it a helper. Now `listLabelled` keeps a labelled entity only if `platform` is `switch_as_x` or `group` (helper) or `automation` with an `fp_` `unique_id`; an area only if this browser recorded its id when `createArea` made it (localStorage `floorplan-studio:areas`, so an area made in another browser is not offered; it can be removed in HA). `removeLabelled` re-lists and refuses a row that is not in the result. Listing no longer calls `ensureLabel`: no label, no writes, empty list. Not done: recording ids in the layout file, which would put HA ids in a shareable file.
