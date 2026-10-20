@@ -97,6 +97,14 @@ test.describe("S22.1 a relay-lit lamp", () => {
     ]);
   });
 
+  test("S22.F2: bulb unavailable, relay off: Turn on calls switch.turn_on on the relay", async ({ page }) => {
+    await boot(page, { ...STATES(), "light.demo_living": st("unavailable"), "switch.demo_living_relay": st("off", { friendly_name: "Living relay" }) });
+    await clickOn(page, 'svg g[data-x="0"]');
+    await expect(pop(page).locator("css=.fp-pop-do")).toHaveText("Turn on");
+    await clickOn(page, ".fp-pop .fp-pop-do");
+    expect(await calls(page)).toEqual([["switch", "turn_on", { entity_id: ["switch.demo_living_relay"] }]]);
+  });
+
   test("relay off: the popup reads off and Turn on keeps calling light.turn_on on the light", async ({ page }) => {
     await boot(page, { ...STATES(), "switch.demo_living_relay": st("off", { friendly_name: "Living relay" }) });
     await clickOn(page, 'svg g[data-x="0"]');

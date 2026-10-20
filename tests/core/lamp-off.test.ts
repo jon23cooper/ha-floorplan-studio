@@ -101,3 +101,24 @@ describe("More info offers the relay", () => {
     expect(moreInfoEntities(lamp("light.pendant", 100))).toEqual(["light.pendant"]);
   });
 });
+
+// S22.F2: a bulb behind a relay that is off reads `unavailable` (no power). The popup used to offer nothing; Turn on must reach the relay.
+describe("lampOp: Turn on through the relay (S22.F2)", () => {
+  const d = lamp("light.pendant", 100, "switch.relay");
+  it("bulb unavailable, relay off: Turn on calls switch.turn_on on the relay", () => {
+    expect(lampOp(d, { "light.pendant": st("unavailable"), "switch.relay": st("off") })).toEqual({
+      label: "Turn on", domain: "switch", service: "turn_on", confirm: null,
+      calls: [{ domain: "switch", service: "turn_on", data: { entity_id: ["switch.relay"] } }],
+    });
+  });
+  it("a relay that is not a switch goes to homeassistant.turn_on", () => {
+    expect(lampOp(lamp("light.p", 100, "input_boolean.power"), { "light.p": st("unavailable"), "input_boolean.power": st("off") })?.calls).toEqual([{ domain: "homeassistant", service: "turn_on", data: { entity_id: ["input_boolean.power"] } }]);
+  });
+  it("relay unavailable too, or no relay: still no button", () => {
+    expect(lampOp(d, { "light.pendant": st("unavailable"), "switch.relay": st("unavailable") })).toBeNull();
+    expect(lampOp(lamp("light.q", 100), { "light.q": st("unavailable") })).toBeNull();
+  });
+  it("bulb off, relay off: the light's own Turn on, as before", () => {
+    expect(lampOp(d, { "light.pendant": st("off"), "switch.relay": st("off") })).toMatchObject({ label: "Turn on", domain: "light" });
+  });
+});

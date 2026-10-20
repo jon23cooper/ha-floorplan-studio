@@ -47,6 +47,11 @@ export function lampOp(d: Device, states: StateOverlay | undefined): PopupOp | n
     const first = calls[calls.length - 1]!; // the relay's call: presetCalls puts the light's first
     return { label: "Turn off", domain: first.domain, service: "turn_off", confirm: null, calls };
   }
+  // S22.F2: a bulb with no power reads unavailable; the relay is what turns it on.
+  if (relay && states?.[relay]?.state === "off" && GONE.has(states?.[d.entity]?.state ?? "")) {
+    const domain = relay.split(".")[0] === "switch" ? "switch" : "homeassistant";
+    return { label: "Turn on", domain, service: "turn_on", confirm: null, calls: [{ domain, service: "turn_on", data: { entity_id: [relay] } }] };
+  }
   return popupOp(d.type, d.entity, states?.[d.entity]?.state);
 }
 
