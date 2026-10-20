@@ -37,7 +37,7 @@ in `prompts/`, then fixed in the editor.
 
 ## Non-goals
 
-- 3D, isometric views, rendering photos of the house.
+- Rendering photos of the house. (3D and 2.5D isometric views were a non-goal until 2026-10-21; both ship, see `docs/DECISIONS.md`.)
 - Replacing HA's more-info dialogs. The card opens them.
 - Replacing HA's automation editor. The plan creates an automation and opens
   it in HA; HA is where it is finished and where it lives.
@@ -1097,7 +1097,7 @@ Cmd-K or Ctrl-K anywhere, `/` outside a text field.
 
 ## Integration
 
-- Domain `floorplan_studio`. Config flow, no options.
+- Domain `floorplan_studio`. Config flow with one options step: **Show in the sidebar** (on by default).
 - Websocket: `floorplan_studio/load` → layout; `floorplan_studio/save`
   (layout) → ok. Stored in `.storage/floorplan_studio.layout`.
 - Registers the editor panel (`/floorplan-studio`) and serves the card JS as a
@@ -1124,7 +1124,7 @@ assistant.
 3. In a fresh HA (dev container), install via HACS, open the panel, load the
    demo, move a light, save, reload: the position persists.
 4. The card shows the demo; toggling a demo light changes its icon within one
-   state update; a demo door with a contact sensor turns orange when the sensor
+   state update; a demo door with a contact sensor turns red (`--fp-open-door`) when the sensor
    is `on`.
 5. Motion fade: with `fade: 10`, a motion `on` shows red and is grey again
    after 10 s without a new trigger.

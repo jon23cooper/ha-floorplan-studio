@@ -2650,10 +2650,10 @@ Fixed on `task/s22-fix`: every Fix plan refusal raises the Untick Fix plan banne
 add stairs, texture and furniture sliders); the menu Escape tests fail with the early return removed; All off's title
 warns about a shared relay. Still open, each with its failing test first:
 - [x] S22.F1 `card-3d-floors.spec.ts:86` "20 switches" times out under full-suite parallel load (about 12 s alone, 30 s budget). It predates Sprint 22. Find the cause (finding 13); no retries, no longer timeout. Done: every switch recompiled the 3D shader programs; the view now keeps one material per program (DECISIONS 2026-10-08). 29 s alone before, 4.5 s after.
-- [ ] S22.F2 A lamp whose relay is off and whose bulb is unavailable cannot be turned on from the card. Turn on should call the relay. Test: real tap, stub `callService`, exact call.
-- [ ] S22.F3 The guide test checks control names, not menu paths. Test: each "[Menu], then [Item]" path in the guide opens with real clicks.
-- [ ] S22.F4 A room panel row for a relay-lit lamp shows the light's own state ("off") while the plan draws it on. Test: the row reads on, via the relay.
-- [ ] S22.F5 The "Plan unlocked" toast overlaps the top of the Place popup at 1024x768. Test: the two boxes do not intersect.
+- [x] S22.F2 A lamp whose relay is off and whose bulb is unavailable cannot be turned on from the card. Turn on should call the relay. Test: real tap, stub `callService`, exact call. Done 2026-10-21: 01817a9, the card turns the relay on when the bulb is unavailable.
+- [x] S22.F3 The guide test checks control names, not menu paths. Test: each "[Menu], then [Item]" path in the guide opens with real clicks. Done 2026-10-21: 6bf9ddf, every menu path in the guide is followed with real clicks.
+- [x] S22.F4 A room panel row for a relay-lit lamp shows the light's own state ("off") while the plan draws it on. Test: the row reads on, via the relay. Done 2026-10-18: 9bed911, `relayText` in `src/core/room-info.ts` reads the row as on via the relay.
+- [x] S22.F5 The "Plan unlocked" toast overlaps the top of the Place popup at 1024x768. Test: the two boxes do not intersect. Done 2026-10-21: a732e3d, the overlap already did not happen; a guard test now keeps it so.
 
 ## Sprint 23 (0.21.0): visual foundations
 
@@ -4079,8 +4079,8 @@ Review: one Opus pass on the integrated build, against `docs/WORKFLOW.md`'s chec
 screen or only read back; can a resize snap a turned camera; does a `hass` update or a second card restart a glide; is
 a focused camera ever stored. Fixes with their tests, then the re-check.
 
-- [ ] S32.9 Release 0.30.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
-      ending with the version read back from Home Assistant and 3D tried on the phone.
+- [x] S32.9 Release 0.30.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+      ending with the version read back from Home Assistant and 3D tried on the phone. Done 2026-10-14: tag v0.30.0 (c64d52d), CHANGELOG 0.30.0. The Home Assistant read-back and the phone check are not recorded in the repo.
 
 Dependencies: S32.1, S32.2, S32.3 at once; S32.4 after S32.2; S32.5 after S32.1, S32.3, S32.4; S32.6 after S32.5;
 S32.7 after S32.6; S32.8 after S32.7; S32.9 after the review.
@@ -4224,9 +4224,9 @@ leave a view on a missing floor; does `migrate` keep views through a save and a 
 non-light off without asking; does every table name `fan`, the two copied lists too; does the strategy ever throw on
 a bad layout. Fixes with their tests, then the re-check.
 
-- [ ] S33.12 Release 0.31.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+- [x] S33.12 Release 0.31.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
       ending with the version read back from Home Assistant, a fan tapped on the phone, and a dashboard made from the
-      strategy on Diego's HA, read back.
+      strategy on Diego's HA, read back. Done 2026-10-15: tag v0.31.0 (3b4bc25), CHANGELOG 0.31.0. The Home Assistant read-back and the phone check are not recorded in the repo.
 
 Dependencies: S33.1, S33.3, S33.6, S33.9 at once; S33.2 after S33.1; S33.7 after S33.6; S33.4 after S33.3; S33.5
 after S33.4; S33.8 after S33.4 and S33.6; S33.10 after S33.8 and S33.9; S33.11 after all; S33.12 after the review.
@@ -4386,9 +4386,9 @@ value print `NaN` or disagree with the room's readout; does `heat` omitted chang
 heat rule have a pair that fails without it; are the Studio and the card the same plan in a heat mode. Fixes with their
 tests, then the re-check.
 
-- [ ] S34.12 Release 0.32.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+- [x] S34.12 Release 0.32.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
       ending with the version read back from Home Assistant, a favourite switched from the phone's Overview, and the
-      heat map read on Diego's own floors.
+      heat map read on Diego's own floors. Done 2026-10-17: tag v0.32.0 (36ea843), CHANGELOG 0.32.0. The Home Assistant read-back and the phone check are not recorded in the repo.
 
 Dependencies: S34.1, S34.3, S34.6 at once; S34.2 after S34.1; S34.7 after S34.6; S34.4 after S34.2 and S34.3; S34.5
 after S34.1; S34.8 after S34.4 and S34.7; S34.9 after S34.5; S34.10 after S34.7 (its parity row after S34.8); S34.11
@@ -4554,9 +4554,9 @@ or survive `migrate` and fail `validate`; can a car's colour or name reach a sty
 does any car gesture switch anything, or reach Home Assistant's dialog in kiosk; does every per-type table name `car`
 as C5 says; is the card file within the cap. Fixes with their tests, then the re-check.
 
-- [ ] S35.9 Release 0.33.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+- [x] S35.9 Release 0.33.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
       ending with the version read back from Home Assistant, Diego's car tapped on his phone (more-info opens), held
-      (the chooser lists its entities), and seen away in 2D and 3D.
+      (the chooser lists its entities), and seen away in 2D and 3D. Done 2026-10-18: tag v0.33.0 (7f61f25), CHANGELOG 0.33.0. The Home Assistant read-back and the phone check are not recorded in the repo.
 
 Dependencies: S35.1 at once; S35.2 after S35.1's union; S35.3 at once (its file per the note); S35.4 after S35.2 and
 S35.3; S35.5 after S35.2 and S35.3; S35.6 after S35.3, and after S35.4 if both touch the card file in the same week;
