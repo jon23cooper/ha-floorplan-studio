@@ -56,12 +56,15 @@ async def _add_resource(hass: HomeAssistant, url: str) -> bool:
 
 async def async_remove_resource(hass: HomeAssistant) -> None:
     """Called when the integration is removed, not on unload: a reload must not churn the user's resource list."""
-    res = _storage_resources(hass)
-    if res is None:
-        return
-    await res.async_get_info()
-    for r in _ours(res):
-        await res.async_delete_item(r["id"])
+    try:
+        res = _storage_resources(hass)
+        if res is None:
+            return
+        await res.async_get_info()
+        for r in _ours(res):
+            await res.async_delete_item(r["id"])
+    except Exception as err:  # noqa: BLE001 - removal must finish; a stale resource entry is harmless
+        _LOGGER.warning("Could not remove the card from the dashboard resources. Delete /floorplan_studio_static/floorplan-studio-card.js under Settings, Dashboards, Resources by hand: %s", err)
 
 
 async def async_register(hass: HomeAssistant, show_in_sidebar: bool = True) -> None:

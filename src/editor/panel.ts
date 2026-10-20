@@ -99,7 +99,7 @@ export class FloorplanStudioPanel extends LitElement {
   private async load() {
     this.error = "";
     try {
-      const r = await this.hass!.callWS<{ layout: Layout | null }>({ type: "floorplan_studio/load" });
+      const r = await this.hass!.callWS<{ layout: Layout | null }>({ type: "floorplan_studio/load", with_trace: true });
       this.layout = r.layout;
       this.ready = true;
       void this.loadHa();
