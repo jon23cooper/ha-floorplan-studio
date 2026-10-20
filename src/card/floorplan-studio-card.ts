@@ -50,6 +50,8 @@ export interface Hass {
   /** Only `is_admin` is read: the Studio's sidebar entry is admin only, so a link to it is for admins. */
   user?: { is_admin?: boolean };
   callService?(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
+  /** HA's own display text for a state ("21.5 °C", "Heat/Cool"). Absent on an old frontend; the card then prints the raw state. */
+  formatEntityState?(stateObj: HassEntity): string;
 }
 
 export interface FloorplanStudioCardConfig {
@@ -1287,6 +1289,13 @@ export class FloorplanStudioCard extends LitElement {
 
   /** The states the render reads. A motion sensor's own `last_changed` is the moment it went off, so it is also the moment its
    * fade starts (2026-10-06: the card used to remember when it went on, which ended a long motion's fade before it began). */
+  /** G9: HA's display text for an entity (precision, translated state), or undefined when the frontend has no formatter or it throws. */
+  private _format = (entity: string): string | undefined => {
+    const h = this._hass, st = h?.states?.[entity];
+    if (!h?.formatEntityState || !st) return undefined;
+    try { return h.formatEntityState(st) || undefined; } catch { return undefined; }
+  };
+
   private _stateForRender(): Hass["states"] | undefined {
     return this._hass?.states;
   }
@@ -1952,7 +1961,7 @@ export class FloorplanStudioCard extends LitElement {
     this._sync3dBelow();
     // The live state, decided by the plan's own rules (core/live.ts); the view changes its parts in place, and does nothing when it is the same as the last.
     const now = Date.now();
-    this._view3d.setLive(f, { scale: 1, state: this._stateForRender(), now, fade: this._config.fade, plugWatts: plugThreshold(this._config.plug_watts), plugHeat: this._plugHeat(), powerLinks: this._powerLinks(), roomGlow: this._config.room_glow, night: this._night(), labels: this._labels(), showNames: this._names(), camThumb: this._camOpts(), around: floorsAroundKey(this._layout!, this._floorKey()!) }, now);
+    this._view3d.setLive(f, { scale: 1, state: this._stateForRender(), formatState: this._format, now, fade: this._config.fade, plugWatts: plugThreshold(this._config.plug_watts), plugHeat: this._plugHeat(), powerLinks: this._powerLinks(), roomGlow: this._config.room_glow, night: this._night(), labels: this._labels(), showNames: this._names(), camThumb: this._camOpts(), around: floorsAroundKey(this._layout!, this._floorKey()!) }, now);
     this._view3d.setRing(this._picked());
     this._apply3dFrame();
   }
@@ -2207,7 +2216,7 @@ export class FloorplanStudioCard extends LitElement {
     // A car speaks for all its entities (tracker, charging, battery), not the main one alone: the same line as its chooser title.
     if (s.type === "car" && s.entity) { const line = carText(carStatus({ entity: s.entity, attached: s.entities }, states)); if (line) return line; }
     const w = s.powerEntity ? wattsOf(states?.[s.powerEntity]) : null;
-    return stateText(s.type, states?.[e], w === null ? undefined : `${Math.round(w * 10) / 10} W`, e);
+    return stateText(s.type, states?.[e], w === null ? undefined : `${Math.round(w * 10) / 10} W`, e, this._format);
   }
 
   /** S24.7 (F2): a tap on an Overview row goes to its thing; the popup opens beside the row. */
@@ -2519,10 +2528,22 @@ export class FloorplanStudioCard extends LitElement {
     this._closePopup();
   }
 
+  /** G11: the one way the card calls a service. Home Assistant rejects a call it cannot make (no such service, entity gone, no right to);
+   *  that is caught and shown in HA's own toast (`hass-notification`) instead of an unhandled rejection nobody sees. */
+  private _call(domain: string, service: string, data?: Record<string, unknown>): void {
+    const call = this._hass?.callService;
+    if (!call) return;
+    const failed = (e: unknown) => {
+      const m = e && typeof e === "object" && typeof (e as { message?: unknown }).message === "string" ? (e as { message: string }).message : typeof e === "string" ? e : "the call failed";
+      fireEvent(this, "hass-notification", { message: `${domain}.${service}: ${m}` });
+    };
+    try { Promise.resolve(call.call(this._hass, domain, service, data)).catch(failed); } catch (e) { failed(e); }
+  }
+
   /** The one call (or the calls of a relay-lit lamp's Turn off) a popup button makes. */
   private _runOp(s: PopupSubject, op: PopupOp): void {
-    if (op.calls) for (const c of op.calls) this._hass?.callService?.(c.domain, c.service, c.data);
-    else this._hass?.callService?.(op.domain, op.service, { entity_id: s.entity });
+    if (op.calls) for (const c of op.calls) this._call(c.domain, c.service, c.data);
+    else this._call(op.domain, op.service, { entity_id: s.entity });
   }
 
   private _popupMore(): void {
@@ -2541,13 +2562,13 @@ export class FloorplanStudioCard extends LitElement {
     p.draft = { kind, value, from: this._levelOf(kind, a) };
     if (commit) {
       if (kind === "s") {
-        this._hass?.callService?.("fan", "set_percentage", { entity_id: entity, percentage: Math.max(0, Math.min(100, value)) });
+        this._call("fan", "set_percentage", { entity_id: entity, percentage: Math.max(0, Math.min(100, value)) });
         this.requestUpdate();
         return;
       }
       const hs = a?.hs_color, sat = Array.isArray(hs) && typeof hs[1] === "number" && Number.isFinite(hs[1]) ? hs[1] : 100;
       const data = kind === "b" ? { brightness_pct: value } : kind === "t" ? { color_temp_kelvin: value } : { hs_color: [value, sat] };
-      this._hass?.callService?.("light", "turn_on", { entity_id: entity, ...data });
+      this._call("light", "turn_on", { entity_id: entity, ...data });
     }
     this.requestUpdate();
   }
@@ -2702,7 +2723,7 @@ export class FloorplanStudioCard extends LitElement {
 
   private _vacuumAction(service: "start" | "pause" | "return_to_base"): void {
     const d = this._vacuumDialog;
-    if (d) this._hass?.callService?.("vacuum", service, { entity_id: d.entity });
+    if (d) this._call("vacuum", service, { entity_id: d.entity });
     this._closeVacuumDialog();
   }
 
@@ -2721,7 +2742,7 @@ export class FloorplanStudioCard extends LitElement {
 
   private _confirmCoverDialog(): void {
     const door = this._coverDialog;
-    if (door?.cover) this._hass?.callService?.("cover", this._coverService(door), { entity_id: door.cover });
+    if (door?.cover) this._call("cover", this._coverService(door), { entity_id: door.cover });
     this._closeCoverDialog();
   }
 
@@ -3174,7 +3195,7 @@ export class FloorplanStudioCard extends LitElement {
     const f = this._floor(), at = this._picked(), call = this._hass?.callService;
     if (!f || at === null || !call) return;
     const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
-    const send = (c: { domain: string; service: string; data: Record<string, unknown> }) => this._hass?.callService?.(c.domain, c.service, c.data);
+    const send = (c: { domain: string; service: string; data: Record<string, unknown> }) => this._call(c.domain, c.service, c.data);
     if (kind === "ha") {
       if (!roomScenes(f, at, this._hass).ha.some((s) => s.entity === id)) return;
       send({ domain: "scene", service: "turn_on", data: { entity_id: id } });
@@ -3195,7 +3216,7 @@ export class FloorplanStudioCard extends LitElement {
    *  `offEntities`: the lights that are on, and (S22.1) the bound relays that are on, each once. In practice one
    *  `light.turn_off` and, with a relay-lit lamp, one `switch.turn_off`. */
   private _allOff(lights: string[]): void {
-    for (const c of presetCalls("off", lights)) this._hass?.callService?.(c.domain, c.service, c.data);
+    for (const c of presetCalls("off", lights)) this._call(c.domain, c.service, c.data);
     this.requestUpdate();
   }
 
@@ -3260,7 +3281,7 @@ export class FloorplanStudioCard extends LitElement {
   private _activeRow(it: ActiveDevice): OverviewRow {
     const f = this._layout?.floors[it.floor];
     const d = it.at.what === "device" ? f?.devices[it.at.index] : it.at.what === "piece" ? (f?.furniture?.[it.at.index] && pieceDevice(f.furniture[it.at.index]!)) || undefined : undefined;
-    const state = d ? this._subjectText(this._deviceSubject(d)) : stateText(it.type, this._hass?.states?.[it.entity], undefined, it.entity);
+    const state = d ? this._subjectText(this._deviceSubject(d)) : stateText(it.type, this._hass?.states?.[it.entity], undefined, it.entity, this._format);
     return { entity: it.entity, name: it.name, floor: it.floor, at: it.at, ...(it.room ? { room: it.room } : {}), state, type: it.type, colorVar: it.colorVar, attn: false };
   }
 
@@ -3686,7 +3707,7 @@ export class FloorplanStudioCard extends LitElement {
   private _confirmOffDialog(): void {
     const d = this._offDialog;
     if (!d) return;
-    for (const c of floorOffCalls(d.rows.filter((_, i) => d.ticked[i]))) this._hass?.callService?.(c.domain, c.service, c.data);
+    for (const c of floorOffCalls(d.rows.filter((_, i) => d.ticked[i]))) this._call(c.domain, c.service, c.data);
     this._closeOffDialog();
   }
 
@@ -3741,6 +3762,7 @@ export class FloorplanStudioCard extends LitElement {
       zoom: box.w > 0 ? fit.w / box.w : undefined, // S25.4: labels keep their on-screen size at any zoom
       bounds: this._px ? { ...fit, w: Math.max(fit.w / 2, fit.w - qstrip(this._strip, fit.w)) } : undefined, // S23 review S3: names stay off the control stack
       state: this._stateForRender(),
+      formatState: this._format,
       now: Date.now(),
       fade: this._config.fade,
       plugWatts: plugThreshold(this._config.plug_watts),

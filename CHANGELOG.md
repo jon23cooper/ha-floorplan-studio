@@ -15,6 +15,12 @@
 - Card: a save in the Studio fires `floorplan_studio_updated`, and open cards reload the plan. Only admin sessions can subscribe to it.
 - Release notes on GitHub are now the CHANGELOG entry. `render_readme` (ignored by HACS) is gone from `hacs.json`. Removing the integration no longer fails when the dashboard resource store errors.
 
+- Card: sensor readings, the popup line and the tooltip use Home Assistant's own display text when the frontend offers `formatEntityState`: 21.5 °C, not 21.456789 °C; Heat/Cool, not heat_cool. Studio keeps the raw state.
+- Card form: under kiosk the Rotate buttons box shows what the card does (unticked) and ticking it writes `rotate_switch: true`. View switch and Active list show unticked and disabled under kiosk, which hides them for good.
+- Card: a service call that Home Assistant rejects now shows HA's toast (`hass-notification`, "switch.turn_on: message") instead of failing silently. One helper makes every call the card sends.
+- Card: the popup of a device on a scene, button, script or valve has its button: Activate (`scene.turn_on`), Press (`button.press`), Run (`script.turn_on`), Open or Close by state (`valve.open_valve`, `valve.close_valve`). None asks first; a tap with `tap_action: toggle` still opens the popup rather than acting.
+- Studio: Trace image, Load checks the whole plan against the 3.5 MB save limit, not only the 4 MB per image. The scan is encoded to fit what the other floors leave; if it cannot fit, Load says so with what to do and changes nothing. Before, a 3.8 MB scan loaded and Save then refused.
+
 ## 0.33.3 - 2026-10-20
 
 - Studio, safety (HACS review): the cleanup list in Edit, Home Assistant, lists and removes only what the editor created. The `floorplan-studio` label alone no longer counts: a light, automation or area you labelled yourself is never listed, and Remove checks the item again before it deletes anything. Helpers must come from `switch_as_x` or `group`, automations must have an `fp_` id, areas must be ones this browser created.

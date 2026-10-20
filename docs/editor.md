@@ -428,7 +428,11 @@ Edit, Trace image… opens a small panel at the bottom left of the plan.
    drops it. Each change is one undo step.
 
 Only the editor shows the image. The card never draws it, though Save keeps it
-with the plan (up to 4 MB). File, Export leaves it out unless you tick
+with the plan. Home Assistant takes at most 3.5 MB in one save for the whole
+plan, so Load fits the image into what the rest of the plan leaves (a single
+image is never over 4 MB), lowering its quality if it must. If even that is not
+enough, Load says so and changes nothing: crop the scan or remove another
+floor's image. File, Export leaves it out unless you tick
 **Include trace image**, so a file you hand to an assistant stays small.
 
 ## Starting from photos instead

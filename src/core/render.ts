@@ -29,6 +29,8 @@ import type { Device, DeviceType, EdgeKind, Floor, Furniture, Layout, Pt, RoomKi
 
 export interface StateOverlay { [entityId: string]: { state: string; attributes: Record<string, unknown>; last_changed: string } }
 export interface RenderOpts {
+  /** G9: the host's text for a sensor reading (display precision and unit). Omitted, or returning nothing, the plan prints the raw state and its unit. A non-number still reads "–". */
+  formatState?: (entity: string) => string | undefined;
   /** S11.3: the room the card has picked (its left panel shows it); drawn with an outline, class `picked`. The editor draws its own selection in an overlay and never passes this. */
   selectedRoom?: number;
   scale: number; selection?: PlanSel | null; showNames?: boolean;
@@ -1911,7 +1913,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
       // an integration can report an empty string, a comma decimal or a word, and printing "not-a-number °C" is worse than saying nothing.
       const bad = !/^-?\d+(\.\d+)?$/.test(s.state.trim()) || !Number.isFinite(Number(s.state));
       const unit = typeof s.attributes.unit_of_measurement === "string" ? `\u202F${s.attributes.unit_of_measurement}` : ""; // S23.1: never wraps
-      const text = bad ? "–" : s.state + unit, vs = 11 * kt, gap = 16 * k + 2 * kt; // 2kt clear of the 16k disc
+      const text = bad ? "–" : (d.entity && o.formatState?.(d.entity)) || s.state + unit, vs = 11 * kt, gap = 16 * k + 2 * kt; // 2kt clear of the 16k disc
       // S7.1: below the icon, then above, then to the right (the box centred on the icon's centre line).
       const [vx, vy] = place([screenOff(c, 0, gap + 0.75 * vs), screenOff(c, 0, -gap - 0.25 * vs), screenOff(c, gap + (text.length * 0.6 * vs) / 2, 0.25 * vs)], vs, text);
       if (showText) out.push(`<text class="val" x="${num(vx)}" y="${num(vy)}"${up(vx, vy)} text-anchor="middle" font-size="${num(vs)}">${esc(text)}</text>`);

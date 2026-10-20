@@ -1449,7 +1449,9 @@ export class FloorplanStudioEditor extends LitElement {
     this.status = "Loading the image…";
     this.requestUpdate();
     let img;
-    try { img = await traceImage(file); } catch (e) { this.status = (e as Error).message; this.requestUpdate(); return; }
+    // G19: the image may take what the save limit leaves after the rest of the plan (this floor's old trace is replaced, so it does not count), less the trace's own fields.
+    const room = MAX_LAYOUT_BYTES - (JSON.stringify(this.st.layout).length - (this.st.f.trace?.src.length ?? 0)) - 400;
+    try { img = await traceImage(file, room); } catch (e) { this.status = (e as Error).message; this.requestUpdate(); return; }
     if (this.st.floor !== floor) { this.status = "Floor changed while loading; load the image again."; this.requestUpdate(); return; }
     const o = this.st.f.outline, v = this.st.view;
     const box = o.length >= 3

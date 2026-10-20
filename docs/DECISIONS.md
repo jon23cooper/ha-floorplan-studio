@@ -2,6 +2,10 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-21 Card size cap 124,100 gz (supersedes 123,800)
+
+The card-gaps work (display precision, call errors, popup buttons) adds about 310 gz. Card is 124,015 gz (`gzip -9`). Cap is 124,100. Diego to confirm. Three parallel branches each raised the cap by hand; from here, one cap decision per merge.
+
 ## 2026-10-21: docs pass: 3D and isometric are no longer non-goals
 
 Supersedes the SPEC non-goal "3D, isometric views". 2.5D and 3D ship, so the line said the opposite of the product. SPEC now lists only "rendering photos of the house". Same pass, docs follow code, no behaviour change: SPEC criterion 4 says an open door turns red (`--fp-open-door` is `--fp-dev-contact`, #d64545; orange was the old colour); SPEC Integration says the config flow has one options step (Show in the sidebar); card.md fade text says 120 s, lists all 13 themes, and documents `layout` and `layout_url`; the README validate step says `npm ci` first (the script needs `esbuild`); `prompts/SCHEMA.md` lists the `speaker` symbol and spells out the device types instead of pointing to `docs/schema.md`.
@@ -65,6 +69,14 @@ A small live picture beside each camera icon, in 2D, 2.5D and 3D. Options `camer
 - Release notes come from the version's CHANGELOG section (`scripts/release-notes.mjs`), with `--generate-notes` as the fallback. `render_readme` is removed from `hacs.json`: HACS defines it on its manifest class and reads it nowhere, and its docs do not list it.
 - Size: the load work (shared request, error text, retry, empty state, stale page, save event) costs 665 bytes gzipped in the card file, which stood at 120,864 of 121,000. The cap in `tests/card/size-budget.spec.ts` moves from 121,000 to 121,580 (`CARD_GROWTH_LIMIT` 30220 to 30800). It is a coder's change pending Diego's yes: the alternative is to drop the stale-page check or the save-event follow.
 - Removing the integration logs a warning, not a stack trace, when the resource store fails.
+
+## 2026-10-21: card gaps G9 to G12 and G19 (Sonnet)
+
+- Card size cap raised by the minimum, 121,000 to 121,142 gz (`CARD_GROWTH_LIMIT` 30,220 to 30,362). Built at the base (4631937) the card was 120,815; with the five items it is 121,142 (+327, `gzip -9`). **Diego to confirm.** Other branches change the same line; reconcile.
+- G9: core never sees hass. `stateText` and `RenderOpts` take an optional `(entity) => string | undefined`; the card wraps `hass.formatEntityState`. Light brightness and cover position lines still win over it; a non-number temp reading still reads "–". Not done: `room-info.ts` (the room panel's device rows and the Details block) keeps the raw state and unit.
+- G10: the Rotate buttons box follows the card's rule (`kiosk` off, and zoom or View switch on, is the default) and drops the key only when the value equals that default. View switch and Active list cannot be on under kiosk, so they show unticked and disabled; their keys are left alone.
+- G12: no device type is script, scene, button or valve; the popup follows the entity's domain, as for a lock. A scene and a button report `unknown` before first use, so only `unavailable` hides their button. A tap with `tap_action: toggle` still opens the popup for them (not in `TOGGLE_AT_ONCE`), and a Favourites row asks to confirm.
+- G19: Load encodes the scan to fit the room the rest of the plan leaves under `MAX_LAYOUT_BYTES`, instead of only the 4 MB per-image cap. It refuses only when the lowest quality still does not fit. The per-image cap stays 4 MB (the validator is untouched).
 
 ## 2026-10-20: cleanup deletes only what the tool made (HACS review)
 
