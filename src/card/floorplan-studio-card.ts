@@ -546,12 +546,9 @@ export class FloorplanStudioCard extends LitElement {
   private _wsRequested = false;
   /** Failed websocket loads since the last success or reconnect: one retry on the next `hass`, then wait for the connection's `ready`. */
   private _wsFails = 0;
-  /** The integration answered and nothing is saved yet: the card says so and links to the Studio. */
-  private _empty = false;
   private _readyCb: (() => void) | null = null;
   /** The `floorplan_studio_updated` subscription (a Studio save), so an open card follows it. */
-  private _unsub: (() => void) | null = null;
-  private _subscribing = false;
+  private _sub: Promise<() => void> | null = null;
   private _timer: ReturnType<typeof setInterval> | null = null;
   private _actionsSvg: SVGSVGElement | null = null;
   private _unbindActions: (() => void) | null = null;
@@ -1247,7 +1244,6 @@ export class FloorplanStudioCard extends LitElement {
       this._urlRequested = false;
       this._wsRequested = false;
       this._wsFails = 0;
-      this._empty = false;
     }
     this._shownFloor = null;
     this._pickedRoom = null;
@@ -1348,9 +1344,11 @@ export class FloorplanStudioCard extends LitElement {
     super.disconnectedCallback();
     this._releaseFocus();
     this._stopTimer();
-    this._unsub?.();
-    this._unsub = null;
-    this._dropReady();
+    const sub = this._sub; // may still be on its way: unsubscribe when it lands
+    this._sub = null;
+    void sub?.then((u) => u(), () => undefined);
+    if (this._readyCb) this._hass?.connection?.removeEventListener?.("ready", this._readyCb);
+    this._readyCb = null;
     if (this._pulseTimer !== null) { globalThis.clearTimeout(this._pulseTimer); this._pulseTimer = null; this._pulse = null; }
     globalThis.removeEventListener?.("pagehide", this._flushSave);
     globalThis.document?.removeEventListener("visibilitychange", this._onVisibility);
@@ -1446,12 +1444,10 @@ export class FloorplanStudioCard extends LitElement {
     const conn = this._hass!.connection!;
     loadShared(conn).then((r) => {
       this._wsFails = 0;
-      this._dropReady();
       if (r?.layout == null) {
-        if (!reload) { this._empty = true; this._error = null; this.requestUpdate(); }
+        if (!reload) { this._error = NOTHING_SAVED; this.requestUpdate(); }
         return;
       }
-      this._empty = false;
       this._applyLayout(structuredClone(r.layout));
     }).catch((e) => { if (!reload) this._loadFailed(conn, e); });
   }
@@ -1459,7 +1455,6 @@ export class FloorplanStudioCard extends LitElement {
   /** Says why, allows one retry on the next `hass`, and loads again when the connection is ready again. Bounded: no timer, no loop. */
   private _loadFailed(conn: Conn, e: unknown): void {
     this._error = loadErrorText(e);
-    this._empty = false;
     if (this._wsFails++ < 1) this._wsRequested = false;
     if (!this._readyCb) {
       this._readyCb = () => { this._wsFails = 0; this._wsRequested = false; this._loadLayout(); };
@@ -1468,20 +1463,13 @@ export class FloorplanStudioCard extends LitElement {
     this.requestUpdate();
   }
 
-  private _dropReady(): void {
-    if (this._readyCb) this._hass?.connection?.removeEventListener?.("ready", this._readyCb);
-    this._readyCb = null;
-  }
-
   /** G3: a Studio save fires `floorplan_studio_updated`; follow it. Only for a plan that comes from the websocket. HA lets only admins
    * subscribe to a custom event, so for anyone else this quietly stays a card that loads once. */
   private _watchUpdates(): void {
     const conn = this._hass?.connection;
-    if (!conn?.subscribeEvents || this._unsub || this._subscribing || this._config.layout || this._config.layout_url) return;
-    this._subscribing = true;
-    conn.subscribeEvents(() => { if (!this._config.layout && !this._config.layout_url && this._hass?.connection) this._fetchLayout(true); }, "floorplan_studio_updated")
-      .then((u) => { this._subscribing = false; if (this.isConnected) this._unsub = u; else u(); })
-      .catch(() => { this._subscribing = false; });
+    if (!conn?.subscribeEvents || this._sub || this._config.layout || this._config.layout_url) return;
+    this._sub = conn.subscribeEvents(() => { if (!this._config.layout && !this._config.layout_url) this._fetchLayout(true); }, "floorplan_studio_updated");
+    this._sub.catch(() => { this._sub = null; });
   }
 
   private _openStudio = (e: Event): void => {
@@ -3663,8 +3651,7 @@ export class FloorplanStudioCard extends LitElement {
 
   protected render() {
     const f = this._floor();
-    if (!f && this._empty) return html`<p class="msg">${NOTHING_SAVED}${this._hass?.user?.is_admin === false ? nothing : html` <a class="fp-studio-link" href="/floorplan-studio" @click=${this._openStudio}>Open Floorplan Studio</a>`}</p>`;
-    if (!f) return html`<p class="msg">${this._error ?? NO_LAYOUT}</p>`;
+    if (!f) return html`<p class="msg">${this._error ?? NO_LAYOUT}${this._error === NOTHING_SAVED && this._hass?.user?.is_admin !== false ? html` <a class="fp-studio-link" href="/floorplan-studio" @click=${this._openStudio}>Open Floorplan Studio</a>` : nothing}</p>`;
     this._syncFloorMemory();
     const rotate = this._rotate();
     const view = this._planView();

@@ -12,6 +12,7 @@ Newest first. A change supersedes; nothing is edited.
 - "Stale page" means the server version differs from the page's, as in the panel, not strictly newer. A dev build never says it.
 - The empty-store text replaces the install hint for `{ layout: null }` (changes the S7.16 wording).
 - Release notes come from the version's CHANGELOG section (`scripts/release-notes.mjs`), with `--generate-notes` as the fallback. `render_readme` is removed from `hacs.json`: HACS defines it on its manifest class and reads it nowhere, and its docs do not list it.
+- Size: the load work (shared request, error text, retry, empty state, stale page, save event) costs 665 bytes gzipped in the card file, which stood at 120,864 of 121,000. The cap in `tests/card/size-budget.spec.ts` moves from 121,000 to 121,580 (`CARD_GROWTH_LIMIT` 30220 to 30800). It is a coder's change pending Diego's yes: the alternative is to drop the stale-page check or the save-event follow.
 - Removing the integration logs a warning, not a stack trace, when the resource store fails.
 
 ## 2026-10-20: cleanup deletes only what the tool made (HACS review)

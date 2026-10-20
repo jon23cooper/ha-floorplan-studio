@@ -30,7 +30,7 @@ export function loadShared(conn: Conn): Promise<{ layout: unknown }> {
 export function loadErrorText(e: unknown): string {
   const { code, message } = (e ?? {}) as { code?: unknown; message?: unknown };
   if (code === "unknown_command") return INSTALL_HINT;
-  return `Could not load the plan: ${typeof message === "string" && message ? message : "no answer from Home Assistant"}. It tries again when the connection is back.`;
+  return `Could not load the plan: ${message || "no answer"}`;
 }
 
 /** True when the integration on the server is not the build this page runs: a cached card after an update. A dev build

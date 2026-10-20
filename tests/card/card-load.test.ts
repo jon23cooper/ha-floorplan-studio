@@ -113,7 +113,9 @@ describe("card load from the websocket", () => {
     ready![1]();
     await settle(el);
     expect(el.shadowRoot!.querySelector("svg")).not.toBeNull();
-    expect(c.removeEventListener).toHaveBeenCalledWith("ready", ready![1]);
+    expect(c.removeEventListener).not.toHaveBeenCalled();
+    el.remove();
+    expect(c.removeEventListener).toHaveBeenCalledWith("ready", ready![1]); // not left behind on a removed card
   });
 
   it("a layout that fails validation on a page older than the server says to reload", async () => {
@@ -210,6 +212,7 @@ describe("card follows a Studio save", () => {
     expect(loads(c)).toHaveLength(2);
     expect(el.shadowRoot!.innerHTML).toContain("After");
     el.remove();
+    await settle(el);
     expect(unsub).toHaveBeenCalledTimes(1);
   });
 
