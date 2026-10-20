@@ -44,4 +44,14 @@ describe("stateText: one text for the plan, the popup and the tooltip", () => {
   it("decides every device type (finding 17): none throws, none is empty", () => {
     for (const t of DEVICE_TYPES) expect(stateText(t, st("on", { unit_of_measurement: "W" })), t).not.toBe("");
   });
+  it("G9: a formatter passed in writes the text, for sensors and for enum states; light and cover keep their own lines", () => {
+    const fmt = (e: string) => ({ "sensor.t": "21.5 °C (f)", "climate.c": "Heat/Cool (f)", "person.p": "Away (f)", "light.l": "On (f)", "cover.c": "Open (f)" })[e];
+    expect(stateText("temp", st("21.456789", { unit_of_measurement: "°C" }), undefined, "sensor.t", fmt)).toBe("21.5 °C (f)");
+    expect(stateText("climate", st("heat_cool"), undefined, "climate.c", fmt)).toBe("Heat/Cool (f)");
+    expect(stateText("person", st("not_home"), "3 W", "person.p", fmt)).toBe("Away (f) · 3 W");
+    expect(stateText("light", st("on", { brightness: 128 }), undefined, "light.l", fmt)).toBe("50 %");
+    expect(stateText("cover", st("open", { current_position: 30 }), undefined, "cover.c", fmt)).toBe("open · 30 %");
+    expect(stateText("temp", st("21.456789", { unit_of_measurement: "°C" }), undefined, "sensor.t")).toBe("21.456789 °C"); // no formatter: raw
+    expect(stateText("temp", st("1"), undefined, "sensor.other", fmt)).toBe("1"); // formatter says nothing: raw
+  });
 });

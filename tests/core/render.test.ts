@@ -337,6 +337,14 @@ describe("renderFloor", () => {
     expect(html).toContain("21.5\u202F°C");
   });
 
+  it("G9: a formatter passed in decides the sensor's text; a non-number still reads the dash", () => {
+    const fmt = (e: string) => (e === "sensor.demo_living_temperature" ? "21.5 °C (fmt)" : undefined);
+    const state = { "sensor.demo_living_temperature": st("21.456789", { attributes: { unit_of_measurement: "°C" } }) };
+    expect(renderFloor(ground, { ...base, state, formatState: fmt })).toContain("21.5 °C (fmt)");
+    expect(renderFloor(ground, { ...base, state })).toContain("21.456789\u202F°C");
+    expect(renderFloor(ground, { ...base, state: { "sensor.demo_living_temperature": st("unknown") }, formatState: () => "Unknown (fmt)" })).not.toContain("(fmt)");
+  });
+
   it("S2.5: shows a humidity label with its unit", () => {
     const f = { ...ground, devices: [{ id: "h", type: "humidity", entity: "sensor.demo_bathroom_humidity", x: 100, y: 100 }] } as unknown as typeof ground;
     const html = renderFloor(f, { ...base, state: { "sensor.demo_bathroom_humidity": st("48", { attributes: { unit_of_measurement: "%" } }) } });

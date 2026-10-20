@@ -4,7 +4,10 @@
 
 import { carStatus, carText } from "./car-status";
 
-const DECIMAL = /^-?\d+(\.\d+)?$/;
+/** G9: the host's text for an entity's state ("21.5 °C", "Heat/Cool"), or undefined to fall back to the raw state. The card wraps `hass.formatEntityState`; core never sees hass. */
+export type StateFormatter = (entity: string) => string | undefined;
+
+const DECIMAL =/^-?\d+(\.\d+)?$/;
 const NO_STATE = "no state";
 
 interface Reading { state?: unknown; attributes?: unknown }
@@ -23,7 +26,7 @@ export const meanText = (n: number): string => String(Math.round(n * 10) / 10);
  * What a device says about itself in one short line. A light on says its brightness (percent), a cover its position, a plug
  * its measured power (`extra`, already formatted by the caller); anything else is the state and its unit.
  */
-export function stateText(type: string, st: Reading | undefined, extra?: string, entity?: string): string {
+export function stateText(type: string, st: Reading | undefined, extra?: string, entity?: string, format?: StateFormatter): string {
   // S35.3: a car's line is the car text. Given the reading's entity id (its domain says whether it is the tracker); else as any state.
   if (type === "car" && entity && st && typeof st.state === "string") {
     const line = carText(carStatus({ entity }, { [entity]: st }));
@@ -32,6 +35,9 @@ export function stateText(type: string, st: Reading | undefined, extra?: string,
   if (!st || typeof st.state !== "string") return NO_STATE;
   const a = attrsOf(st), s = st.state;
   let text = DECIMAL.test(s.trim()) ? readingText(s, a.unit_of_measurement) : s;
+  // G9: the host's own wording (display precision, translated enum states) wins over the raw state; the light and cover lines below still win over it.
+  const formatted = entity && format ? format(entity) : undefined;
+  if (formatted) text = formatted;
   if ((type === "light" || num(a.brightness) !== null) && s === "on") {
     const b = num(a.brightness);
     if (b !== null) text = `${Math.max(0, Math.min(100, Math.round((b / 255) * 100)))} %`;

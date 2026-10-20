@@ -47,6 +47,8 @@ export interface Hass {
   themes?: { darkMode?: boolean };
   connection?: { sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T> };
   callService?(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
+  /** HA's own display text for a state ("21.5 °C", "Heat/Cool"). Absent on an old frontend; the card then prints the raw state. */
+  formatEntityState?(stateObj: HassEntity): string;
 }
 
 export interface FloorplanStudioCardConfig {
@@ -1257,6 +1259,13 @@ export class FloorplanStudioCard extends LitElement {
 
   /** The states the render reads. A motion sensor's own `last_changed` is the moment it went off, so it is also the moment its
    * fade starts (2026-10-06: the card used to remember when it went on, which ended a long motion's fade before it began). */
+  /** G9: HA's display text for an entity (precision, translated state), or undefined when the frontend has no formatter or it throws. */
+  private _format = (entity: string): string | undefined => {
+    const h = this._hass, st = h?.states?.[entity];
+    if (!h?.formatEntityState || !st) return undefined;
+    try { return h.formatEntityState(st) || undefined; } catch { return undefined; }
+  };
+
   private _stateForRender(): Hass["states"] | undefined {
     return this._hass?.states;
   }
@@ -1872,7 +1881,7 @@ export class FloorplanStudioCard extends LitElement {
     this._sync3dBelow();
     // The live state, decided by the plan's own rules (core/live.ts); the view changes its parts in place, and does nothing when it is the same as the last.
     const now = Date.now();
-    this._view3d.setLive(f, { scale: 1, state: this._stateForRender(), now, fade: this._config.fade, plugWatts: plugThreshold(this._config.plug_watts), plugHeat: this._plugHeat(), powerLinks: this._powerLinks(), roomGlow: this._config.room_glow, night: this._night(), labels: this._labels(), showNames: this._names(), around: floorsAroundKey(this._layout!, this._floorKey()!) }, now);
+    this._view3d.setLive(f, { scale: 1, state: this._stateForRender(), formatState: this._format, now, fade: this._config.fade, plugWatts: plugThreshold(this._config.plug_watts), plugHeat: this._plugHeat(), powerLinks: this._powerLinks(), roomGlow: this._config.room_glow, night: this._night(), labels: this._labels(), showNames: this._names(), around: floorsAroundKey(this._layout!, this._floorKey()!) }, now);
     this._view3d.setRing(this._picked());
     this._apply3dFrame();
   }
@@ -2127,7 +2136,7 @@ export class FloorplanStudioCard extends LitElement {
     // A car speaks for all its entities (tracker, charging, battery), not the main one alone: the same line as its chooser title.
     if (s.type === "car" && s.entity) { const line = carText(carStatus({ entity: s.entity, attached: s.entities }, states)); if (line) return line; }
     const w = s.powerEntity ? wattsOf(states?.[s.powerEntity]) : null;
-    return stateText(s.type, states?.[e], w === null ? undefined : `${Math.round(w * 10) / 10} W`, e);
+    return stateText(s.type, states?.[e], w === null ? undefined : `${Math.round(w * 10) / 10} W`, e, this._format);
   }
 
   /** S24.7 (F2): a tap on an Overview row goes to its thing; the popup opens beside the row. */
@@ -3149,7 +3158,7 @@ export class FloorplanStudioCard extends LitElement {
   private _activeRow(it: ActiveDevice): OverviewRow {
     const f = this._layout?.floors[it.floor];
     const d = it.at.what === "device" ? f?.devices[it.at.index] : it.at.what === "piece" ? (f?.furniture?.[it.at.index] && pieceDevice(f.furniture[it.at.index]!)) || undefined : undefined;
-    const state = d ? this._subjectText(this._deviceSubject(d)) : stateText(it.type, this._hass?.states?.[it.entity], undefined, it.entity);
+    const state = d ? this._subjectText(this._deviceSubject(d)) : stateText(it.type, this._hass?.states?.[it.entity], undefined, it.entity, this._format);
     return { entity: it.entity, name: it.name, floor: it.floor, at: it.at, ...(it.room ? { room: it.room } : {}), state, type: it.type, colorVar: it.colorVar, attn: false };
   }
 
@@ -3630,6 +3639,7 @@ export class FloorplanStudioCard extends LitElement {
       zoom: box.w > 0 ? fit.w / box.w : undefined, // S25.4: labels keep their on-screen size at any zoom
       bounds: this._px ? { ...fit, w: Math.max(fit.w / 2, fit.w - qstrip(this._strip, fit.w)) } : undefined, // S23 review S3: names stay off the control stack
       state: this._stateForRender(),
+      formatState: this._format,
       now: Date.now(),
       fade: this._config.fade,
       plugWatts: plugThreshold(this._config.plug_watts),

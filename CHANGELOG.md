@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Card: sensor readings, the popup line and the tooltip use Home Assistant's own display text when the frontend offers `formatEntityState`: 21.5 °C, not 21.456789 °C; Heat/Cool, not heat_cool. Studio keeps the raw state.
+
 ## 0.33.3 - 2026-10-20
 
 - Studio, safety (HACS review): the cleanup list in Edit, Home Assistant, lists and removes only what the editor created. The `floorplan-studio` label alone no longer counts: a light, automation or area you labelled yourself is never listed, and Remove checks the item again before it deletes anything. Helpers must come from `switch_as_x` or `group`, automations must have an `fp_` id, areas must be ones this browser created.
