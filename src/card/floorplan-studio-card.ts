@@ -2427,10 +2427,22 @@ export class FloorplanStudioCard extends LitElement {
     this._closePopup();
   }
 
+  /** G11: the one way the card calls a service. Home Assistant rejects a call it cannot make (no such service, entity gone, no right to);
+   *  that is caught and shown in HA's own toast (`hass-notification`) instead of an unhandled rejection nobody sees. */
+  private _call(domain: string, service: string, data?: Record<string, unknown>): void {
+    const call = this._hass?.callService;
+    if (!call) return;
+    const failed = (e: unknown) => {
+      const m = e && typeof e === "object" && typeof (e as { message?: unknown }).message === "string" ? (e as { message: string }).message : typeof e === "string" ? e : "the call failed";
+      fireEvent(this, "hass-notification", { message: `${domain}.${service}: ${m}` });
+    };
+    try { Promise.resolve(call.call(this._hass, domain, service, data)).catch(failed); } catch (e) { failed(e); }
+  }
+
   /** The one call (or the calls of a relay-lit lamp's Turn off) a popup button makes. */
   private _runOp(s: PopupSubject, op: PopupOp): void {
-    if (op.calls) for (const c of op.calls) this._hass?.callService?.(c.domain, c.service, c.data);
-    else this._hass?.callService?.(op.domain, op.service, { entity_id: s.entity });
+    if (op.calls) for (const c of op.calls) this._call(c.domain, c.service, c.data);
+    else this._call(op.domain, op.service, { entity_id: s.entity });
   }
 
   private _popupMore(): void {
@@ -2449,13 +2461,13 @@ export class FloorplanStudioCard extends LitElement {
     p.draft = { kind, value, from: this._levelOf(kind, a) };
     if (commit) {
       if (kind === "s") {
-        this._hass?.callService?.("fan", "set_percentage", { entity_id: entity, percentage: Math.max(0, Math.min(100, value)) });
+        this._call("fan", "set_percentage", { entity_id: entity, percentage: Math.max(0, Math.min(100, value)) });
         this.requestUpdate();
         return;
       }
       const hs = a?.hs_color, sat = Array.isArray(hs) && typeof hs[1] === "number" && Number.isFinite(hs[1]) ? hs[1] : 100;
       const data = kind === "b" ? { brightness_pct: value } : kind === "t" ? { color_temp_kelvin: value } : { hs_color: [value, sat] };
-      this._hass?.callService?.("light", "turn_on", { entity_id: entity, ...data });
+      this._call("light", "turn_on", { entity_id: entity, ...data });
     }
     this.requestUpdate();
   }
@@ -2610,7 +2622,7 @@ export class FloorplanStudioCard extends LitElement {
 
   private _vacuumAction(service: "start" | "pause" | "return_to_base"): void {
     const d = this._vacuumDialog;
-    if (d) this._hass?.callService?.("vacuum", service, { entity_id: d.entity });
+    if (d) this._call("vacuum", service, { entity_id: d.entity });
     this._closeVacuumDialog();
   }
 
@@ -2629,7 +2641,7 @@ export class FloorplanStudioCard extends LitElement {
 
   private _confirmCoverDialog(): void {
     const door = this._coverDialog;
-    if (door?.cover) this._hass?.callService?.("cover", this._coverService(door), { entity_id: door.cover });
+    if (door?.cover) this._call("cover", this._coverService(door), { entity_id: door.cover });
     this._closeCoverDialog();
   }
 
@@ -3072,7 +3084,7 @@ export class FloorplanStudioCard extends LitElement {
     const f = this._floor(), at = this._picked(), call = this._hass?.callService;
     if (!f || at === null || !call) return;
     const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
-    const send = (c: { domain: string; service: string; data: Record<string, unknown> }) => this._hass?.callService?.(c.domain, c.service, c.data);
+    const send = (c: { domain: string; service: string; data: Record<string, unknown> }) => this._call(c.domain, c.service, c.data);
     if (kind === "ha") {
       if (!roomScenes(f, at, this._hass).ha.some((s) => s.entity === id)) return;
       send({ domain: "scene", service: "turn_on", data: { entity_id: id } });
@@ -3093,7 +3105,7 @@ export class FloorplanStudioCard extends LitElement {
    *  `offEntities`: the lights that are on, and (S22.1) the bound relays that are on, each once. In practice one
    *  `light.turn_off` and, with a relay-lit lamp, one `switch.turn_off`. */
   private _allOff(lights: string[]): void {
-    for (const c of presetCalls("off", lights)) this._hass?.callService?.(c.domain, c.service, c.data);
+    for (const c of presetCalls("off", lights)) this._call(c.domain, c.service, c.data);
     this.requestUpdate();
   }
 
@@ -3584,7 +3596,7 @@ export class FloorplanStudioCard extends LitElement {
   private _confirmOffDialog(): void {
     const d = this._offDialog;
     if (!d) return;
-    for (const c of floorOffCalls(d.rows.filter((_, i) => d.ticked[i]))) this._hass?.callService?.(c.domain, c.service, c.data);
+    for (const c of floorOffCalls(d.rows.filter((_, i) => d.ticked[i]))) this._call(c.domain, c.service, c.data);
     this._closeOffDialog();
   }
 

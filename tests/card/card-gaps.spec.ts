@@ -57,6 +57,34 @@ async function tapIcon(page: Page, i: number) {
 }
 // ground devices: 0 living light, 1 kitchen light, 2 hall switch, 3 TV plug, 4 temperature sensor, 6 camera
 
+test.describe("G11 a failed service call tells the user", () => {
+  const REJECT = `(states, w) => ({ states, callService: (d, s, data) => { w.__calls.push(d + "." + s + " " + JSON.stringify(data)); return Promise.reject(new Error("Service not found")); } })`;
+  const THROW = `(states, w) => ({ states, callService: (d, s, data) => { w.__calls.push(d + "." + s); throw new Error("sync boom"); } })`;
+  test("a rejected call fires hass-notification with the message and leaves no unhandled rejection; the call keeps its shape", async ({ page }) => {
+    await boot(page, REJECT);
+    await tapIcon(page, 2); // hall switch, off: Turn on
+    await pop(page).locator("css=.fp-pop-do").click();
+    await expect.poll(() => win<string[]>(page, "__notes")).toEqual(["switch.turn_on: Service not found"]);
+    expect(await win<string[]>(page, "__calls")).toEqual(['switch.turn_on {"entity_id":"switch.demo_hall"}']);
+    await page.waitForTimeout(100);
+    expect(await win<string[]>(page, "__unhandled")).toEqual([]);
+  });
+  test("a call that throws at once is caught the same way", async ({ page }) => {
+    await boot(page, THROW);
+    await tapIcon(page, 2);
+    await pop(page).locator("css=.fp-pop-do").click();
+    await expect.poll(() => win<string[]>(page, "__notes")).toEqual(["switch.turn_on: sync boom"]);
+  });
+  test("a call that works fires no notification", async ({ page }) => {
+    await boot(page, OK);
+    await tapIcon(page, 2);
+    await pop(page).locator("css=.fp-pop-do").click();
+    await expect.poll(() => win<string[]>(page, "__calls")).toHaveLength(1);
+    await page.waitForTimeout(100);
+    expect(await win<string[]>(page, "__notes")).toEqual([]);
+  });
+});
+
 test.describe("G9 display text from hass.formatEntityState", () => {
   const FMT = `(states, w) => ({ states, formatEntityState: (s) => "FMT<" + s.state + ">", callService: () => {} })`;
   test("the plan reading and the popup line use the host's text", async ({ page }) => {
