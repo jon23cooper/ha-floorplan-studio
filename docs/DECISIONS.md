@@ -2,6 +2,10 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-21 Card size cap 123,800 gz (supersedes 121,580 and 123,000)
+
+The camera thumbnail (cap 123,000) and the card's load work (+665 gz) were built in parallel and each raised the cap alone. Together the card is 123,703 gz (`gzip -9`). The cap is now 123,800. Diego to confirm. The cheaper cuts, if he refuses: drop the stale-page check or the save-event follow in the card.
+
 ## 2026-10-21: S16.4 vacuum path research. Verdict: NO for S16.5
 
 Question: can the plan draw a robot's cleaning path from data Home Assistant already holds? Read: official HA docs and core source (`roborock`, `roomba`, `ecovacs`), the Dreame custom integration source (Tasshack/dreame-vacuum), forum and project notes for Valetudo and Xiaomi Cloud Map Extractor, and, read only, the states of the one vacuum on the maintainer's HA (a Roomba j7 through the core integration). No service was called, nothing changed.
