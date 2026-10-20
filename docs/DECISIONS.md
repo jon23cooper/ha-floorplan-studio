@@ -2,6 +2,14 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-21: card gaps G9 to G12 and G19 (Sonnet)
+
+- Card size cap raised by the minimum, 121,000 to 121,142 gz (`CARD_GROWTH_LIMIT` 30,220 to 30,362). Built at the base (4631937) the card was 120,815; with the five items it is 121,142 (+327, `gzip -9`). **Diego to confirm.** Other branches change the same line; reconcile.
+- G9: core never sees hass. `stateText` and `RenderOpts` take an optional `(entity) => string | undefined`; the card wraps `hass.formatEntityState`. Light brightness and cover position lines still win over it; a non-number temp reading still reads "–". Not done: `room-info.ts` (the room panel's device rows and the Details block) keeps the raw state and unit.
+- G10: the Rotate buttons box follows the card's rule (`kiosk` off, and zoom or View switch on, is the default) and drops the key only when the value equals that default. View switch and Active list cannot be on under kiosk, so they show unticked and disabled; their keys are left alone.
+- G12: no device type is script, scene, button or valve; the popup follows the entity's domain, as for a lock. A scene and a button report `unknown` before first use, so only `unavailable` hides their button. A tap with `tap_action: toggle` still opens the popup for them (not in `TOGGLE_AT_ONCE`), and a Favourites row asks to confirm.
+- G19: Load encodes the scan to fit the room the rest of the plan leaves under `MAX_LAYOUT_BYTES`, instead of only the 4 MB per-image cap. It refuses only when the lowest quality still does not fit. The per-image cap stays 4 MB (the validator is untouched).
+
 ## 2026-10-20: cleanup deletes only what the tool made (HACS review)
 
 Supersedes S4.10, which trusted the `floorplan-studio` label. A label is a name anyone can attach; a user who labelled their own Hue or ZHA light would have lost the whole integration behind a dialog that called it a helper. Now `listLabelled` keeps a labelled entity only if `platform` is `switch_as_x` or `group` (helper) or `automation` with an `fp_` `unique_id`; an area only if this browser recorded its id when `createArea` made it (localStorage `floorplan-studio:areas`, so an area made in another browser is not offered; it can be removed in HA). `removeLabelled` re-lists and refuses a row that is not in the result. Listing no longer calls `ensureLabel`: no label, no writes, empty list. Not done: recording ids in the layout file, which would put HA ids in a shareable file.
