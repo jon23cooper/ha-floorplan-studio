@@ -85,6 +85,27 @@ test.describe("G11 a failed service call tells the user", () => {
   });
 });
 
+test.describe("G12 popup buttons for scene, button, script and valve", () => {
+  // An `other` device on each entity, appended after the demo's 12 ground devices (indexes 12 to 15).
+  const withThings = () => {
+    const l = structuredClone(demo);
+    const at: [string, number, number][] = [["scene.movie", 120, 320], ["button.bell", 380, 320], ["script.goodnight", 120, 60], ["valve.water", 380, 60]];
+    for (const [entity, x, y] of at) l.floors.ground.devices.push({ id: entity, type: "other", entity, name: entity, x, y });
+    return l;
+  };
+  const states = () => ({ ...STATES(), "scene.movie": st("unknown"), "button.bell": st("2026-10-04T09:30:15+00:00"), "script.goodnight": st("off"), "valve.water": st("closed") });
+  for (const [i, entity, label, call] of [[12, "scene.movie", "Activate", "scene.turn_on"], [13, "button.bell", "Press", "button.press"], [14, "script.goodnight", "Run", "script.turn_on"], [15, "valve.water", "Open", "valve.open_valve"]] as const) {
+    test(`a real tap on ${entity} opens a popup whose button reads ${label} and calls ${call}`, async ({ page }) => {
+      await boot(page, OK, withThings(), states());
+      await tapIcon(page, i);
+      const b = pop(page).locator("css=.fp-pop-do");
+      await expect(b).toHaveText(label);
+      await b.click();
+      expect(await win<string[]>(page, "__calls")).toEqual([`${call} ${JSON.stringify({ entity_id: entity })}`]);
+    });
+  }
+});
+
 test.describe("G9 display text from hass.formatEntityState", () => {
   const FMT = `(states, w) => ({ states, formatEntityState: (s) => "FMT<" + s.state + ">", callService: () => {} })`;
   test("the plan reading and the popup line use the host's text", async ({ page }) => {
