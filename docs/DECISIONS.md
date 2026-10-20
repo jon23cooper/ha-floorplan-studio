@@ -2,6 +2,32 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-21: S16.4 vacuum path research. Verdict: NO for S16.5
+
+Question: can the plan draw a robot's cleaning path from data Home Assistant already holds? Read: official HA docs and core source (`roborock`, `roomba`, `ecovacs`), the Dreame custom integration source (Tasshack/dreame-vacuum), forum and project notes for Valetudo and Xiaomi Cloud Map Extractor, and, read only, the states of the one vacuum on the maintainer's HA (a Roomba j7 through the core integration). No service was called, nothing changed.
+
+| Integration | Position | Path | Map frame / calibration | What we can draw |
+|---|---|---|---|---|
+| Roborock, core | Not a state or attribute. Only the action `roborock.get_vacuum_current_position`, which returns `{x, y}` in the robot's map frame. It refreshes the map over the cloud API; the docs warn of rate limiting. Not available for the Q7 (B01) class. | No. The `image` entity "Map" draws the path into pixels (option "Path"). | Robot frame, units undocumented. No calibration attributes. `get_maps` gives segment ids and room names only. | Nothing live. A poll of the action every few seconds would hit the cloud. The map image could be shown as a picture, not as a path. |
+| Roborock, HACS (RoborockCustomMap, Xiaomi Cloud Map Extractor) | Yes, camera attribute `vacuum_position`, plus `charger`. | Yes, attribute `path` where the extractor is configured. | `calibration_points` (vacuum frame to image pixel), `rooms`, `zones`. Needs the Xiaomi Cloud login or the core map. | Possible, but only for users who installed a third-party camera. Attribute names vary by setup. |
+| Dreame, custom (Tasshack) | Yes, map camera attribute `vacuum_position`, `charger_position`. | Not as an attribute. `MapData.as_dict()` has no path key. The path is drawn into the image, and sits in the raw map JSON only when the camera runs in `map_data_json` mode. | Yes: `calibration_points` (three vacuum points to image pixels), `rotation`, `rooms` per segment id. Robot units. | Position and charger yes, with calibration. Path only in JSON mode. |
+| Roomba / iRobot, core | `position` attribute on the vacuum, the string `"(x, y, theta)"`, only when the robot reports the `pose` capability. Origin at the dock, centimetres (library docs). The j7 on the maintainer's HA has no `position` key. Its attributes are `bin_full`, `bin_present`, `status`, `software_version`. Reports say firmware 3.20+ broke pose on some models. | No. | Dock-relative, no map, no rooms. | A dot for models with pose, and a trail we would have to build by sampling. Not the maintainer's robot. |
+| Ecovacs, core | Action `ecovacs.raw_get_positions` returns charger and robot; no entity. | No. | The `image` entity "Map" is an SVG. No calibration. | Nothing live. |
+| Xiaomi / Valetudo | Valetudo publishes over MQTT. An add-on renders a camera with `vacuum_position`; one forum post, unconfirmed format. The raw map JSON is kept out of HA history on purpose (embedded in the PNG). | Raw map has it, not an attribute. | Per setup. | Not a stable target. |
+
+Verdict: **NO.** No core integration exposes a path. Position is a live state attribute in one place only, the Dreame custom integration (and the Xiaomi extractor camera). Roborock needs a cloud call, Ecovacs a service call, Roomba only some models, and the one robot we can read has none. Drawing a path would mean sampling a position that most users cannot give us, in a frame we calibrate by hand. The one integration that gives all of it (Dreame) cannot be tested here: no device, no real state. A guess at its attribute shapes is the mistake of finding 21. S16.5 is not built.
+
+Reopen when one of these holds: a core integration adds a path or position state; or someone with a Dreame (or an extractor camera) supplies a real state dump.
+
+Minimal design if reopened (Dreame-shaped, not built):
+- Source: one `camera.*` the user names on the vacuum device; read `attributes.vacuum_position` (`{x, y}`), `attributes.calibration_points` (three `{vacuum, map}` pairs) and `attributes.charger_position`.
+- Calibration: map vacuum `(x, y)` to the plan with two plan points the user clicks on the charger and one other known spot; fit scale, rotation and offset. Fall back to the camera's own points only if the layout has none. Store the fit on the device, not in HA.
+- Path: sample `vacuum_position` on each state change while the vacuum state is `cleaning`; drop a point under 5 cm from the last; cap at 2000 points; keep in card memory only, nothing saved.
+- Clear on `docked` or `returning` plus `charging`. Clip to the room polygon. Colour from the device's `--fp-*` variable.
+- Test with a copied real state only (finding 21).
+
+Nothing in `src/` changed. The one real state read is not stored in the repo.
+
 ## 2026-10-20: cleanup deletes only what the tool made (HACS review)
 
 Supersedes S4.10, which trusted the `floorplan-studio` label. A label is a name anyone can attach; a user who labelled their own Hue or ZHA light would have lost the whole integration behind a dialog that called it a helper. Now `listLabelled` keeps a labelled entity only if `platform` is `switch_as_x` or `group` (helper) or `automation` with an `fp_` `unique_id`; an area only if this browser recorded its id when `createArea` made it (localStorage `floorplan-studio:areas`, so an area made in another browser is not offered; it can be removed in HA). `removeLabelled` re-lists and refuses a row that is not in the result. Listing no longer calls `ensureLabel`: no label, no writes, empty list. Not done: recording ids in the layout file, which would put HA ids in a shareable file.
