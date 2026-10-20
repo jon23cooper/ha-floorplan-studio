@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from "lit";
 import { planPatch } from "./plan-patch"; // S25.6: the plan is patched, not replaced, on a state update
-import { carStatus, carText, ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
-import type { HeatKind, LayerId, OffRow, SearchEntry } from "../core";
+import { carStatus, carText, ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, CAM_POS, CAM_SIZES, ThumbFeed, camThumbOf, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
+import type { CamPos, CamSize, CamThumb, HeatKind, LayerId, OffRow, SearchEntry } from "../core";
 import type { ActiveDevice, Attention, AttentionItem, AttentionKind, CategoryId, DeviceType, ThingRef, PowerCandidate, RoomDeviceRow, RoomSensorRow, RoomSummary, Theme, WallsMode } from "../core";
 import type { Device, Door, Floor, Layout, SavedView } from "../core";
 import { tapActionOf, holdActionOf } from "./tap-action";
@@ -137,6 +137,12 @@ export interface FloorplanStudioCardConfig {
   floors_below?: BelowMode;
   /** The heat map (docs/card.md, Heat map): `"off"` (default), `"temperature"` or `"humidity"` fills each room that has a reading of that kind on a fixed scale and draws a legend. 2D and 2.5D only. Anything else is `"off"`, with one console warning. The Heat map items of the ⋯ menu change it for one viewer, and the card remembers the pick. */
   heat_map?: unknown;
+  /** S16.3 (docs/card.md, Camera thumbnail): `on` (or YAML's `true`) draws a small live picture beside each camera icon, from the camera's `entity_picture` through Home Assistant's own proxy, refreshed every 10 s while the tab is shown. Default off, and then no picture is requested. The ⋯ menu changes it for one viewer, and the card remembers the pick. */
+  camera_thumb?: unknown;
+  /** `small`, `medium` (default) or `large`; anything else is `medium`. */
+  camera_thumb_size?: unknown;
+  /** Where the picture sits next to the icon: `above`, `below` (default), `left` or `right`; anything else is `below`. */
+  camera_thumb_pos?: unknown;
 }
 
 /** What the View dropdown offers: the two flat plans `renderFloor` draws and the 3D model, which is a renderer of its own. */
@@ -579,6 +585,10 @@ export class FloorplanStudioCard extends LitElement {
   private _pickedBelow: BelowMode | null = null;
   /** S34.8: the Heat map pick; `null` leaves the card's YAML `heat_map` in charge. */
   private _pickedHeat: HeatKind | null = null;
+  /** S16.3: the Camera thumbnail picks (on, size, position), each field a viewer's own; `null` leaves the YAML in charge. */
+  private _pickedCam: Partial<CamThumb> | null = null;
+  /** S16.3: the pictures' refresh clock (10 s, stopped while the tab is hidden or the card is off the page) and the cameras whose picture failed. */
+  private _cam = new ThumbFeed(() => this.requestUpdate());
   private _hiddenLayers: LayerId[] = [];
   /** What search or a row tap located under a hidden family: drawn anyway (`keep`) on its floor, with a note and Show. */
   private _kept: { floor: string; t: "dev" | "furn"; i: number; fam: LayerId } | null = null;
@@ -662,6 +672,7 @@ export class FloorplanStudioCard extends LitElement {
   /** The fit box of the floor on show, from the last render; the zoom handlers clamp against it. */
   private _fit: View | null = null;
   private _unbindZoom: (() => void) | null = null;
+  private _unbindCam: (() => void) | null = null;
   /** S9.5: the Overview's fold, per card, in browser storage (try/catch: private browsing or blocked storage just means
    * the sheet forgets between reloads). S31.5: the panel is no longer dragged, so the stored `x` and `y` of older builds
    * are ignored and not written back; the fold is kept. */
@@ -762,6 +773,7 @@ export class FloorplanStudioCard extends LitElement {
     if (c.ghost_floor !== undefined) seed.push(["ghost_floor", c.ghost_floor]);
     if (c.floors_below !== undefined) seed.push(["floors_below", c.floors_below]);
     if (c.heat_map !== undefined) seed.push(["heat_map", c.heat_map]);
+    for (const k of ["camera_thumb", "camera_thumb_size", "camera_thumb_pos"] as const) if (c[k] !== undefined) seed.push([k, c[k]]);
     if (c.kiosk !== undefined) seed.push(["kiosk", c.kiosk]);
     return `fp-view:${tag(JSON.stringify(seed))}`;
   }
@@ -770,7 +782,7 @@ export class FloorplanStudioCard extends LitElement {
    * config's look. Storage is untrusted: `parseStoredView` drops each bad field, and a throwing `localStorage`
    * (private mode, blocked) is nothing stored. */
   private _loadViewState(): void {
-    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedRot = this._pickedDetail = this._pickedGhost = this._pickedBelow = this._pickedHeat = null;
+    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedRot = this._pickedDetail = this._pickedGhost = this._pickedBelow = this._pickedHeat = this._pickedCam = null;
     this._pendingView = null;
     this._appliedView = null;
     this._shownFloor = null;
@@ -795,6 +807,7 @@ export class FloorplanStudioCard extends LitElement {
     if (s.ghost !== undefined) this._pickedGhost = s.ghost;
     if (s.below !== undefined) this._pickedBelow = s.below;
     if (s.heat !== undefined) this._pickedHeat = s.heat;
+    if (s.cam !== undefined) this._pickedCam = s.cam;
     if (s.floor !== undefined) this._shownFloor = s.floor; // an unknown id is ignored by _floorKey
     this._hiddenLayers = s.layers ?? [];
     for (const [k, fv] of s.floors ?? []) this._floorViews.set(k, fv); // the live fields follow once the first render knows the floor
@@ -846,6 +859,7 @@ export class FloorplanStudioCard extends LitElement {
     if (this._pickedGhost !== null) o.ghost = this._pickedGhost;
     if (this._pickedBelow !== null) o.below = this._pickedBelow;
     if (this._pickedHeat !== null) o.heat = this._pickedHeat;
+    if (this._pickedCam !== null) o.cam = this._pickedCam;
     if (this._shownFloor !== null) o.floor = this._shownFloor;
     if (this._hiddenLayers.length) o.layers = this._hiddenLayers;
     this._stashFloor();
@@ -1161,6 +1175,7 @@ export class FloorplanStudioCard extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    this._syncCam();
     // S2.7: programmatically focusable (not in the tab order) so the card itself can take focus back after the
     // cover dialog closes, without adding a stop no keyboard user would otherwise want. Set here, not in the
     // constructor: the custom element spec forbids gaining attributes during construction (jsdom enforces this
@@ -1327,6 +1342,7 @@ export class FloorplanStudioCard extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._cam.want(false);
     this._releaseFocus();
     this._stopTimer();
     if (this._pulseTimer !== null) { globalThis.clearTimeout(this._pulseTimer); this._pulseTimer = null; this._pulse = null; }
@@ -1738,8 +1754,13 @@ export class FloorplanStudioCard extends LitElement {
       this._unbindHover = svg ? this._bindHover(svg) : null;
       this._unbindZoom?.();
       this._unbindZoom = svg ? this._bindZoom(svg) : null;
+      // S16.3: an <image> that fails to load fires `error` on itself and does not bubble, so it is heard on the way down.
+      this._unbindCam?.();
+      svg?.addEventListener("error", this._onCamError, true);
+      this._unbindCam = svg ? () => svg.removeEventListener("error", this._onCamError, true) : null;
       this._actionsSvg = svg;
     }
+    this._syncCam();
 
     // S12.4: the 3D view's taps, on its own host, bound once per element like the plan's.
     const host3 = this.shadowRoot?.querySelector<HTMLElement>(".fp-3d") ?? null;
@@ -1872,7 +1893,7 @@ export class FloorplanStudioCard extends LitElement {
     this._sync3dBelow();
     // The live state, decided by the plan's own rules (core/live.ts); the view changes its parts in place, and does nothing when it is the same as the last.
     const now = Date.now();
-    this._view3d.setLive(f, { scale: 1, state: this._stateForRender(), now, fade: this._config.fade, plugWatts: plugThreshold(this._config.plug_watts), plugHeat: this._plugHeat(), powerLinks: this._powerLinks(), roomGlow: this._config.room_glow, night: this._night(), labels: this._labels(), showNames: this._names(), around: floorsAroundKey(this._layout!, this._floorKey()!) }, now);
+    this._view3d.setLive(f, { scale: 1, state: this._stateForRender(), now, fade: this._config.fade, plugWatts: plugThreshold(this._config.plug_watts), plugHeat: this._plugHeat(), powerLinks: this._powerLinks(), roomGlow: this._config.room_glow, night: this._night(), labels: this._labels(), showNames: this._names(), camThumb: this._camOpts(), around: floorsAroundKey(this._layout!, this._floorKey()!) }, now);
     this._view3d.setRing(this._picked());
     this._apply3dFrame();
   }
@@ -1924,7 +1945,7 @@ export class FloorplanStudioCard extends LitElement {
       resolve: (e) => {
         if (e.pointerType === "mouse" && e.button !== 0) return null;
         const p = this._pick3d(e);
-        return !p ? null : p.type === "device" ? svgEl("g", "data-x", p.index) : p.type === "door" ? svgEl("line", "data-d", p.index) : p.type === "unlinked" ? svgEl("g", "data-u", p.index) : p.type === "piece" ? svgEl("g", "data-f", p.index, true) : null;
+        return !p ? null : p.type === "cam" ? svgEl("g", "data-cam", p.index) : p.type === "device" ? svgEl("g", "data-x", p.index) : p.type === "door" ? svgEl("line", "data-d", p.index) : p.type === "unlinked" ? svgEl("g", "data-u", p.index) : p.type === "piece" ? svgEl("g", "data-f", p.index, true) : null;
       },
     });
     let start: { x: number; y: number } | null = null, pointers = 0;
@@ -1941,7 +1962,7 @@ export class FloorplanStudioCard extends LitElement {
       start = null;
       if (!s || this._view3d?.dragged !== false || Math.hypot(e.clientX - s.x, e.clientY - s.y) > TAP_SLOP_PX) { if (s && this._view3d?.dragged) this._closePopup(); last = null; return; }
       const p = this._pick3d({ clientX: s.x, clientY: s.y, timeStamp: -1 } as PointerEvent);
-      if (p && (p.type === "device" || p.type === "door" || p.type === "unlinked" || p.type === "piece")) { last = null; return; } // its own thing, never a pick
+      if (p && (p.type === "device" || p.type === "cam" || p.type === "door" || p.type === "unlinked" || p.type === "piece")) { last = null; return; } // its own thing, never a pick
       this._closePopup(); // a tap on anything else is an outside tap
       const now = performance.now();
       if (last && now - last.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DOUBLE_TAP_PX) {
@@ -2216,6 +2237,27 @@ export class FloorplanStudioCard extends LitElement {
     this._heatWarned = true;
     console.warn(`floorplan-studio-card: heat_map is not off, temperature or humidity, so it is off. Use one of the three words, in lower case (docs/card.md).`);
   }
+
+  /** S16.3: the thumbnail choice: this viewer's picks over the YAML, junk as the defaults. */
+  private _camThumb(): CamThumb {
+    return camThumbOf(this._config as Record<string, unknown>, this._pickedCam);
+  }
+
+  /** S16.3: what `renderFloor` and the 3D view are given, or `undefined` while the option is off (then no picture is asked for). */
+  private _camOpts() {
+    const t = this._camThumb();
+    return t.on ? { ...t, bust: this._cam.bust, failed: this._cam.failed } : undefined;
+  }
+
+  /** S16.3: the refresh clock runs while pictures are on and the card is on the page; a picture that fails to load is dropped until the next refresh. */
+  private _syncCam(): void {
+    this._cam.want(this.isConnected && !!this._config && this._camThumb().on);
+  }
+
+  private _onCamError = (e: Event): void => {
+    const i = Number((e.target as Element | null)?.closest?.("g[data-cam]")?.getAttribute("data-cam")), entity = this._floor()?.devices[i]?.entity;
+    if (entity) this._cam.fail(entity);
+  };
 
   /** S34.8: the heat map mode: this viewer's pick, else the YAML `heat_map`, else off. Junk is off. */
   private _heatKind(): HeatKind {
@@ -2706,6 +2748,13 @@ export class FloorplanStudioCard extends LitElement {
     // S34.8: the Heat map is data, like Detail and Layers, and keeps their condition: it stays under `view_switch: false`, is not in live
     // 3D, and kiosk and `active_list: false` have no menu for it (the YAML key still applies there).
     if (this._activeListVisible() && f && !this._shows3d()) out.push({ label: "Heat map", items: HEAT_KINDS.map((k) => radio(HEAT_LABELS[k], `heat:${k}`, k === this._heatKind())) });
+    // S16.3: the Camera thumbnail is a view choice too, offered while the shown floor has a camera. In 3D as well: the picture floats beside the icon there.
+    if (this._activeListVisible() && f?.devices.some((d) => d.type === "camera")) {
+      const t = this._camThumb(), cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
+      out.push({ label: "Camera thumbnail", items: [radio("Off", "cam:off", !t.on), radio("On", "cam:on", t.on)] },
+        { label: "Thumbnail size", items: CAM_SIZES.map((s) => radio(cap(s), `camsize:${s}`, s === t.size)) },
+        { label: "Thumbnail position", items: CAM_POS.map((p) => radio(cap(p), `campos:${p}`, p === t.pos)) });
+    }
     if (!this._shows3d() && this._hasViewControls()) {
       const acts: MenuItem[] = [];
       if (this._rotateOn()) acts.push({ kind: "action", label: "Rotate left", value: "rotate:-1" }, { kind: "action", label: "Rotate right", value: "rotate:1" });
@@ -2772,6 +2821,9 @@ export class FloorplanStudioCard extends LitElement {
       case "names": this._pickedNames = !this._names(); done(); break;
       case "detail": if ((DETAIL_MODES as readonly string[]).includes(arg)) { this._pickedDetail = arg as DetailMode; done(); } break;
       case "heat": if ((HEAT_KINDS as readonly string[]).includes(arg)) { this._pickedHeat = arg as HeatKind; done(); } break;
+      case "cam": if (arg === "on" || arg === "off") { this._pickedCam = { ...this._pickedCam, on: arg === "on" }; done(); } break;
+      case "camsize": if ((CAM_SIZES as readonly string[]).includes(arg)) { this._pickedCam = { ...this._pickedCam, size: arg as CamSize }; done(); } break;
+      case "campos": if ((CAM_POS as readonly string[]).includes(arg)) { this._pickedCam = { ...this._pickedCam, pos: arg as CamPos }; done(); } break;
       case "layer": if (LAYERS.some((l) => l.id === arg)) this._setLayers(d?.alt === true ? soloLayer(this._hiddenLayers, arg as LayerId) : toggleLayer(this._hiddenLayers, arg as LayerId)); break; // Alt: this family alone, again: all
       case "rotate": if (arg === "1" || arg === "-1") this._turnBy(Number(arg) * ROTATION_STEP); break;
       case "reset": this._resetView(); break;
@@ -3654,6 +3706,7 @@ export class FloorplanStudioCard extends LitElement {
       spider: this._spiderSpots(f, fit, box, rotate), // S25.5: a fanned stack, or nothing
       keep: this._keptHere(),
       heat: this._heatKind(), // S34.8: rooms with a reading of that kind are filled by it; `off` draws the plan as before
+      camThumb: this._camOpts(), // S16.3: a picture beside each camera icon; off asks for none
       colors: this._layout!.colors, // S19.E3: the studio's per-type colours, as the editor draws them
     });
     // The zoom buttons come after the plan's <svg> in the DOM (they are positioned, so order is not placement):
@@ -3718,7 +3771,7 @@ export class FloorplanStudioCard extends LitElement {
   /** Whether anything about the view differs from what the config alone would show: a pick, a zoom, a turn. */
   private _modified(): boolean {
     return this._turn !== null || this._view !== null || this._pendingView !== null || this._camMoved
-      || [this._pickedView, this._pickedTilt, this._pickedWalls, this._pickedTheme, this._pickedLabels, this._pickedNames, this._pickedRot, this._pickedDetail, this._pickedGhost, this._pickedBelow, this._pickedHeat].some((v) => v !== null);
+      || [this._pickedView, this._pickedTilt, this._pickedWalls, this._pickedTheme, this._pickedLabels, this._pickedNames, this._pickedRot, this._pickedDetail, this._pickedGhost, this._pickedBelow, this._pickedHeat, this._pickedCam].some((v) => v !== null);
   }
 
   /** Reset view: every view option back to the config's own, the stored entry cleared, the floor kept. The turn goes
@@ -3726,7 +3779,7 @@ export class FloorplanStudioCard extends LitElement {
   private _resetView(): void {
     this._appliedView = null;
     this._fallback3d = null;
-    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedDetail = this._pickedGhost = this._pickedBelow = this._pickedHeat = null;
+    this._pickedView = this._pickedTilt = this._pickedWalls = this._pickedTheme = this._pickedLabels = this._pickedNames = this._pickedDetail = this._pickedGhost = this._pickedBelow = this._pickedHeat = this._pickedCam = null;
     this._pendingView = null;
     this._view = null;
     this._forgetCamera();
@@ -4005,7 +4058,7 @@ export class FloorplanStudioCard extends LitElement {
       const tap = !panning && !pinched;
       panning = false;
       pinched = false;
-      const onThing = (e.target as Element | null)?.closest?.(THINGS);
+      const onThing = (e.target as Element | null)?.closest?.(`${THINGS}, g[data-cam]`);
       if (!tap || onThing) {
         lastTap = null;
         return;

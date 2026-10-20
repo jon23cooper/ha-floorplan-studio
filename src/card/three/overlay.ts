@@ -10,6 +10,8 @@ import type { RoomKind } from "../../core/schema";
 import { declutter, type Box } from "./declutter";
 
 type P3 = readonly [number, number, number];
+/** S16.3: a camera's picture, `x` and `y` from the icon's centre (px). */
+type Thumb = NonNullable<Live3D["devices"][number]>["thumb"] & object;
 /** `roomInfo` (optional) says what each room is and how large, for the label priority (S28.11): a room over a garden, a garden over water. */
 export interface Anchors { devices: Map<number, P3>; rooms: Map<number, P3>; roomInfo?: Map<number, { kind: string; area: number }>; /** S35.5: where a linked car's badge floats, by furniture index. */ cars?: Map<number, P3> }
 /** Where a point is on the screen (px from the layer's top left), and whether it is in front of the camera at all. */
@@ -36,6 +38,7 @@ const CSS = `.fp3-ov{position:absolute;inset:0;overflow:hidden;pointer-events:no
 .fp3-dv{top:${ICON_PX / 2 + 1}px}
 .fp3-dn{top:${ICON_PX / 2 + 13}px;opacity:.85}
 .fp3-dv,.fp3-dn,.fp3-name,.fp3-val{color:var(--fp-text);text-shadow:0 0 2px var(--fp-outline),0 0 2px var(--fp-outline),0 0 3px var(--fp-outline),0 0 5px var(--fp-outline)}
+.fp3-cam{position:absolute;display:block;box-sizing:border-box;object-fit:cover;background:var(--fp-room);border:1px solid var(--fp-idle);border-radius:3px}
 .fp3-car{width:0;height:0}
 .fp3-cb{position:absolute;left:0;bottom:2px;transform:translateX(-50%);display:flex;align-items:center;gap:3px;white-space:nowrap;font:11px/1.2 var(--fp-font,system-ui,sans-serif);color:var(--fp-text);text-shadow:0 0 2px var(--fp-outline),0 0 2px var(--fp-outline),0 0 3px var(--fp-outline)}
 .fp3-cb svg{width:16px;height:16px;overflow:visible}
@@ -61,7 +64,7 @@ export function createOverlay(container: HTMLElement) {
   container.appendChild(root);
   /** S35.5: a linked car's badge: the charging bolt, the away mark and the level (the plan's own marks, drawn here from the same paths). */
   const cars = new Map<number, Item & { bolt: SVGSVGElement; away: SVGSVGElement; gone: SVGSVGElement; level: HTMLElement }>();
-  const icons = new Map<number, Item & { svg: SVGSVGElement; g: SVGGElement; dv: HTMLElement | null; dn: HTMLElement | null }>(), rooms = new Map<number, Item & { name: HTMLElement; val: HTMLElement; kind: string; area: number }>();
+  const icons = new Map<number, Item & { svg: SVGSVGElement; g: SVGGElement; dv: HTMLElement | null; dn: HTMLElement | null; th: HTMLImageElement | null; box: Thumb | null }>(), rooms = new Map<number, Item & { name: HTMLElement; val: HTMLElement; kind: string; area: number }>();
   /** Measured size of an element (px), kept until its text changes: reading it is a layout, so it is done once, not per frame. */
   const sizes = new Map<Element, [number, number]>();
   // A 0 x 0 answer means the element is not laid out yet (hidden card, no font), so it is not kept: it is measured again next time.
@@ -104,7 +107,7 @@ export function createOverlay(container: HTMLElement) {
         svg.appendChild(g);
         el.appendChild(svg);
         root.appendChild(el);
-        icons.set(i, (it = { el, svg, g, dv: null, dn: null, at, sig: "", shown: false, x: NaN, y: NaN }));
+        icons.set(i, (it = { el, svg, g, dv: null, dn: null, th: null, box: null, at, sig: "", shown: false, x: NaN, y: NaN }));
         dirty = true;
       }
       if (it.at[0] !== at[0] || it.at[1] !== at[1] || it.at[2] !== at[2]) dirty = true;
@@ -115,6 +118,15 @@ export function createOverlay(container: HTMLElement) {
       if (val) { if (!it.dv) { it.dv = text("fp3-dv", ""); it.el.appendChild(it.dv); dirty = true; } if (it.dv.textContent !== val) { it.dv.textContent = val; sizes.delete(it.dv); dirty = true; } } else if (it.dv) { sizes.delete(it.dv); it.dv.remove(); it.dv = null; dirty = true; }
       if (name) { if (!it.dn) { it.dn = text("fp3-dn", ""); it.el.appendChild(it.dn); dirty = true; } if (it.dn.textContent !== name) { it.dn.textContent = name; sizes.delete(it.dn); dirty = true; } } else if (it.dn) { sizes.delete(it.dn); it.dn.remove(); it.dn = null; dirty = true; }
       if (it.dn) it.dn.style.top = `${ICON_PX / 2 + (val ? 13 : 1)}px`;
+      // S16.3: a camera's picture beside its icon. A load that fails hides it until the url changes (the next refresh); `place` keeps it on the view.
+      const th = d.thumb ?? null;
+      if (th && !it.th) { const im = it.th = document.createElement("img"); im.className = "fp3-cam"; im.alt = ""; im.draggable = false; im.onerror = () => { im.style.display = "none"; }; it.el.appendChild(im); }
+      else if (!th && it.th) { it.th.remove(); it.th = null; }
+      if (th && it.th) {
+        if (it.th.getAttribute("src") !== th.url) { it.th.setAttribute("src", th.url); it.th.style.display = ""; }
+        if (!it.box || it.box.w !== th.w) { it.th.style.width = `${th.w}px`; it.th.style.height = `${th.h}px`; }
+      }
+      it.box = th;
     });
     for (const [i, it] of icons) if (!seenD.has(i)) { it.el.remove(); icons.delete(i); dirty = true; }
     const seenC = new Set<number>();
@@ -191,9 +203,17 @@ export function createOverlay(container: HTMLElement) {
     for (const [r, it] of rooms) if (!seenR.has(r)) { it.el.remove(); rooms.delete(r); dirty = true; }
   }
 
+  /** Where a camera's picture sits (its top left, px in the layer): beside the icon, pulled back inside the view when the icon is near an edge. */
+  const thumbAt = (it: { x: number; y: number; box: Thumb | null }, w: number, h: number): [number, number] => {
+    const b = it.box!;
+    return [Math.max(0, Math.min(it.x + b.x, w - b.w)), Math.max(0, Math.min(it.y + b.y, h - b.h))];
+  };
+  const viewSize = { w: 0, h: 0 };
+
   /** Moves every element to where its point is on the screen, and hides the ones that are behind the camera, off the view or behind a wall. */
   function place(project: Projector, blocked: (p: P3) => boolean, w: number, h: number) {
     let moved = false;
+    viewSize.w = w; viewSize.h = h;
     const put = (it: Item, centred: boolean) => {
       const s = project(it.at), shown = s.front && s.x > -ICON_PX && s.x < w + ICON_PX && s.y > -ICON_PX && s.y < h + ICON_PX && !blocked(it.at);
       if (shown !== it.shown) { it.shown = shown; it.el.style.visibility = shown ? "" : "hidden"; dirty = true; }
@@ -203,7 +223,10 @@ export function createOverlay(container: HTMLElement) {
         it.el.style.transform = `translate(${s.x.toFixed(1)}px,${s.y.toFixed(1)}px)${centred ? " translate(-50%,-50%)" : ""}`;
       }
     };
-    for (const it of icons.values()) put(it, false);
+    for (const it of icons.values()) {
+      put(it, false);
+      if (it.th && it.box && it.shown) { const [l, t] = thumbAt(it, w, h); it.th.style.left = `${l - it.x}px`; it.th.style.top = `${t - it.y}px`; }
+    }
     for (const it of cars.values()) put(it, false);
     for (const it of rooms.values()) put(it, true);
     if (moved) { lastMove = performance.now(); dirty = true; }
@@ -252,6 +275,15 @@ export function createOverlay(container: HTMLElement) {
       }
       return best;
     },
+    /** S16.3: the camera whose picture is under (x, y) in the layer's pixels, or null. A picture that is hidden (a failed load) does not count. */
+    hitCam(x: number, y: number): number | null {
+      for (const [i, it] of icons) {
+        if (!it.shown || !it.th || !it.box || it.th.style.display === "none") continue;
+        const [l, t] = thumbAt(it, viewSize.w, viewSize.h);
+        if (x >= l && x <= l + it.box.w && y >= t && y <= t + it.box.h) return i;
+      }
+      return null;
+    },
     /** What an icon is filled with now, as the browser computes it from the card's own stylesheet: a CSS colour and an opacity 0..1. */
     fill(i: number): { css: string; opacity: number } | null {
       const it = icons.get(i), path = it?.g.querySelector("path");
@@ -262,7 +294,7 @@ export function createOverlay(container: HTMLElement) {
       return { css: getComputedStyle(src).fill, opacity: op(it.g) * op(src) };
     },
     /** Test and debug: which devices and rooms have an element, and whether it is on show. */
-    state: () => ({ cars: [...cars].map(([i, it]) => ({ i, shown: it.shown, bolt: it.bolt.style.display !== "none", away: it.away.style.display !== "none", level: it.level.textContent ?? "" })), icons: [...icons].map(([i, it]) => ({ i, shown: it.shown, kept: !it.svg.classList.contains(LOSE) })), rooms: [...rooms].map(([r, it]) => ({ r, shown: it.shown, kept: !it.name.classList.contains(LOSE) })) }),
+    state: () => ({ cars: [...cars].map(([i, it]) => ({ i, shown: it.shown, bolt: it.bolt.style.display !== "none", away: it.away.style.display !== "none", level: it.level.textContent ?? "" })), icons: [...icons].map(([i, it]) => ({ i, shown: it.shown, kept: !it.svg.classList.contains(LOSE), thumb: !!it.th && it.th.style.display !== "none" })), rooms: [...rooms].map(([r, it]) => ({ r, shown: it.shown, kept: !it.name.classList.contains(LOSE) })) }),
     dispose() { gone = true; if (timer) clearTimeout(timer); timer = null; container.removeEventListener("pointerdown", onDown, true); window.removeEventListener("pointerup", onUp, true); window.removeEventListener("pointercancel", onUp, true); container.removeEventListener("lostpointercapture", onLost, true); document.removeEventListener("visibilitychange", onHide); document.fonts?.removeEventListener?.("loadingdone", onFonts); root.remove(); icons.clear(); cars.clear(); rooms.clear(); sizes.clear(); },
   };
 }
