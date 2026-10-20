@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Card: sensor readings, the popup line and the tooltip use Home Assistant's own display text when the frontend offers `formatEntityState`: 21.5 °C, not 21.456789 °C; Heat/Cool, not heat_cool. Studio keeps the raw state.
+- Card form: under kiosk the Rotate buttons box shows what the card does (unticked) and ticking it writes `rotate_switch: true`. View switch and Active list show unticked and disabled under kiosk, which hides them for good.
 
 ## 0.33.3 - 2026-10-20
 

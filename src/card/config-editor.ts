@@ -402,9 +402,15 @@ export class FloorplanStudioCardEditor extends LitElement {
     this._set("view_switch", (e.target as HTMLInputElement).checked, DEFAULT_VIEW_SWITCH);
   }
 
-  /** Only a real `false` unticks the box, as on the card; `true` (the kiosk opt-in) is YAML only and shows ticked. */
+  /** G10: what the card does with no `rotate_switch` key (`_rotateOn`): the pair comes with another control and goes with kiosk. */
+  private _rotateDefault(): boolean {
+    const c = this._config;
+    return c.kiosk !== true && (c.zoom !== false || c.view_switch !== false);
+  }
+
+  /** The box shows what the card does: a boolean key wins, else the default above. The key is dropped only when it says what the default says. */
   private _onRotateSwitch(e: Event): void {
-    this._set("rotate_switch", (e.target as HTMLInputElement).checked, true);
+    this._set("rotate_switch", (e.target as HTMLInputElement).checked, this._rotateDefault());
   }
 
   private _onNames(e: Event): void {
@@ -595,12 +601,12 @@ export class FloorplanStudioCardEditor extends LitElement {
 
       <div class="row">
         <label class="main" for="view_switch">View switch</label>
-        <input id="view_switch" type="checkbox" .checked=${this._config.view_switch ?? DEFAULT_VIEW_SWITCH} @change=${this._onViewSwitch} />
+        <input id="view_switch" type="checkbox" .checked=${this._config.kiosk !== true && (this._config.view_switch ?? DEFAULT_VIEW_SWITCH)} .disabled=${this._config.kiosk === true} title=${this._config.kiosk === true ? "Kiosk hides the View switch" : ""} @change=${this._onViewSwitch} />
       </div>
 
       <div class="row">
         <label class="main" for="rotate_switch">Rotate buttons</label>
-        <input id="rotate_switch" type="checkbox" .checked=${this._config.rotate_switch !== false} @change=${this._onRotateSwitch} />
+        <input id="rotate_switch" type="checkbox" .checked=${typeof this._config.rotate_switch === "boolean" ? this._config.rotate_switch : this._rotateDefault()} @change=${this._onRotateSwitch} />
       </div>
 
       <div class="row">
@@ -667,7 +673,7 @@ export class FloorplanStudioCardEditor extends LitElement {
 
       <div class="row">
         <label class="main" for="active_list">Active list</label>
-        <input id="active_list" type="checkbox" .checked=${this._config.active_list ?? DEFAULT_ACTIVE_LIST} @change=${this._onActiveList} />
+        <input id="active_list" type="checkbox" .checked=${this._config.kiosk !== true && (this._config.active_list ?? DEFAULT_ACTIVE_LIST)} .disabled=${this._config.kiosk === true} title=${this._config.kiosk === true ? "Kiosk hides the Active list" : ""} @change=${this._onActiveList} />
       </div>
 
       <div class="row">
