@@ -107,7 +107,7 @@ Optional: `"color": "#rrggbb"` sets a floor colour; `"texture"` (`wood-light`, `
 { "id": "furniture-ground-1", "symbol": "sofa", "x": 250, "y": 320, "rot": 0, "w": 200, "h": 90 }
 ```
 
-`symbol` is one of `table sofa bed cabinet chair sink toilet shower bathtub tv computer tree patio-wood patio-concrete car`. `x`, `y` is the centre. `w`, `h` are its size in cm, each between 5 and 2000. `rot` in degrees. Furniture is optional; skip anything you are not sure of.
+`symbol` is one of `table sofa bed cabinet chair sink toilet shower bathtub tv computer speaker tree patio-wood patio-concrete car`. `x`, `y` is the centre. `w`, `h` are its size in cm, each between 5 and 2000. `rot` in degrees. Furniture is optional; skip anything you are not sure of.
 
 ## Walls, openings, extras
 
@@ -163,7 +163,7 @@ To add one, push an object onto the right floor's `devices` array:
 
 A `plug` device may carry `"power": "sensor.<name>"`, the sensor (device class `power`) that measures it; a plug is active only while it reads 2 W or more. Leave it out unless the user names the sensor: an `available` row has no device id, so you cannot tell which power sensor belongs to which plug. The editor and the card link the plug's own sibling sensor themselves.
 
-`id` unique within its floor, `type` one of the `DeviceType` values (see `docs/schema.md`), `entity` copied verbatim from `available`, `x`/`y` the centre in centimetres (or `a`/`b` for a two-point device such as a cover) — inside the room `available` named, or wherever the user told you. Leave `available` itself in the file; the editor drops it automatically the next time the file is saved or re-exported, so you don't need to strip it yourself.
+`id` unique within its floor, `type` one of `heater light switch plug temp humidity motion contact camera climate ac tv computer media cover battery inverter server access_point lock vibration other boiler car ups printer speaker person radar vacuum siren alarm fan`, `entity` copied verbatim from `available`, `x`/`y` the centre in centimetres (or `a`/`b` for a two-point device such as a cover) — inside the room `available` named, or wherever the user told you. Leave `available` itself in the file; the editor drops it automatically the next time the file is saved or re-exported, so you don't need to strip it yourself.
 
 `available` never appears in a file you produced yourself (tracing a drawing gives Home Assistant nothing to snapshot). It only appears in a file the user downloaded from an already-configured plan's **File → Export**, with Home Assistant connected at the time.
 
