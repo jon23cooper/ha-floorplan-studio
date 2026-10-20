@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Studio, safety (HACS review): the cleanup list in Edit, Home Assistant, lists and removes only what the editor created. The `floorplan-studio` label alone no longer counts: a light, automation or area you labelled yourself is never listed, and Remove checks the item again before it deletes anything. Helpers must come from `switch_as_x` or `group`, automations must have an `fp_` id, areas must be ones this browser created.
+- Studio: opening the panel no longer creates the `floorplan-studio` label. It is created the first time the editor makes something.
+
 ## 0.33.2 - 2026-10-19
 
 - Card: a tap on a car piece opens the card's popup (name, `Home · Charging · 78 %`, More info), in 2D, 2.5D and 3D, and from its Active row. It was Home Assistant's more-info of the tracker. A hold still opens the chooser.

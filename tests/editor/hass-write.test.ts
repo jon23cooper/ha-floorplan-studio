@@ -95,44 +95,78 @@ describe("createHelper", () => {
 });
 
 describe("S4.10: listLabelled / removeLabelled", () => {
-  const registries = (entities: unknown[], areas: unknown[] = []) => (m: Msg) => {
-    if (m.type === "config/label_registry/list") return [{ label_id: "fs", name: LABEL_NAME }];
+  // Shapes copied from HA's entity_registry/list (it sends `platform`) and area_registry/list.
+  const registries = (entities: unknown[], areas: unknown[] = [], labels: unknown[] = [{ label_id: "fs", name: LABEL_NAME }]) => (m: Msg) => {
+    if (m.type === "config/label_registry/list") return labels;
     if (m.type === "config/entity_registry/list") return entities;
     if (m.type === "config/area_registry/list") return areas;
     return {};
   };
 
-  it("lists a labelled helper by its config entry id, an automation by its own id, and a labelled area", async () => {
+  it("lists a labelled helper by its config entry id, an automation by its own id, and an area the tool created", async () => {
+    const mk = stub((m) => (m.type === "config/label_registry/list" ? [{ label_id: "fs", name: LABEL_NAME }] : { area_id: "attic", name: "Attic" }));
+    await createArea(mk, "Attic");
     const h = stub(registries([
-      { entity_id: "light.hall_switch", config_entry_id: "E1", labels: ["fs"], name: "Hall switch light" },
-      { entity_id: "automation.close_at_night", unique_id: "A1", labels: ["fs"], original_name: "Close at night" },
-      { entity_id: "sensor.unrelated", config_entry_id: "E9", labels: [] }, // no label: left out
+      { entity_id: "light.hall_switch", platform: "switch_as_x", config_entry_id: "E1", labels: ["fs"], name: "Hall switch light" },
+      { entity_id: "light.group", platform: "group", config_entry_id: "E2", labels: ["fs"], name: "Group" },
+      { entity_id: "automation.close_at_night", platform: "automation", unique_id: "fp_abc123", labels: ["fs"], original_name: "Close at night" },
+      { entity_id: "sensor.unrelated", platform: "switch_as_x", config_entry_id: "E9", labels: [] }, // no label: left out
     ], [
       { area_id: "attic", name: "Attic", labels: ["fs"] },
       { area_id: "kitchen", name: "Kitchen", labels: [] }, // no label: left out
     ]));
     expect(await listLabelled(h)).toEqual([
       { kind: "helper", id: "E1", name: "Hall switch light", entityId: "light.hall_switch" },
-      { kind: "automation", id: "A1", name: "Close at night", entityId: "automation.close_at_night" },
+      { kind: "helper", id: "E2", name: "Group", entityId: "light.group" },
+      { kind: "automation", id: "fp_abc123", name: "Close at night", entityId: "automation.close_at_night" },
       { kind: "area", id: "attic", name: "Attic" },
     ]);
   });
 
   it("an unlabelled instance (nothing floorplan-studio made) lists nothing", async () => {
-    const h = stub(registries([{ entity_id: "light.x", config_entry_id: "E1" }], [{ area_id: "a", name: "A" }]));
+    const h = stub(registries([{ entity_id: "light.x", platform: "switch_as_x", config_entry_id: "E1" }], [{ area_id: "a", name: "A" }]));
     expect(await listLabelled(h)).toEqual([]);
   });
 
+  it("a person's own thing that carries the label is not the tool's: a ZHA light, a hand-made automation, an area", async () => {
+    const h = stub(registries([
+      { entity_id: "light.my_bulb", platform: "zha", config_entry_id: "ZHA", labels: ["fs"], name: "My bulb" },
+      { entity_id: "automation.mine", platform: "automation", unique_id: "1699999999", labels: ["fs"], name: "Mine" },
+      { entity_id: "automation.no_id", platform: "automation", labels: ["fs"], name: "No id" },
+    ], [{ area_id: "my_area_never_made_here", name: "Mine", labels: ["fs"] }]));
+    expect(await listLabelled(h)).toEqual([]);
+  });
+
+  it("listing writes nothing: no label is created when it does not exist", async () => {
+    const h = stub(registries([], [], []));
+    expect(await listLabelled(h)).toEqual([]);
+    expect(types(h)).not.toContain("config/label_registry/create");
+    expect(h.callApi).not.toHaveBeenCalled();
+  });
+
   it("removeLabelled sends the call documented for each kind", async () => {
-    const h = stub();
+    const mk = stub((m) => (m.type === "config/label_registry/list" ? [{ label_id: "fs", name: LABEL_NAME }] : { area_id: "attic", name: "Attic" }));
+    await createArea(mk, "Attic");
+    const h = stub(registries([
+      { entity_id: "light.x", platform: "switch_as_x", config_entry_id: "E1", labels: ["fs"] },
+      { entity_id: "automation.y", platform: "automation", unique_id: "fp_y", labels: ["fs"] },
+    ], [{ area_id: "attic", name: "Attic", labels: ["fs"] }]));
     await removeLabelled(h, { kind: "helper", id: "E1", name: "x" });
-    await removeLabelled(h, { kind: "automation", id: "A1", name: "y", entityId: "automation.y" });
+    await removeLabelled(h, { kind: "automation", id: "fp_y", name: "y", entityId: "automation.y" });
     await removeLabelled(h, { kind: "area", id: "attic", name: "z" });
     expect(h.callApi.mock.calls).toEqual([
       ["DELETE", "config/config_entries/entry/E1"],
-      ["DELETE", "config/automation/config/A1"],
+      ["DELETE", "config/automation/config/fp_y"],
     ]);
     expect(h.callWS).toHaveBeenCalledWith({ type: "config/area_registry/delete", area_id: "attic" });
+  });
+
+  it("removeLabelled refuses a row that is not the tool's, and deletes nothing", async () => {
+    const h = stub(registries([{ entity_id: "light.my_bulb", platform: "zha", config_entry_id: "ZHA", labels: ["fs"] }]));
+    await expect(removeLabelled(h, { kind: "helper", id: "ZHA", name: "My bulb" })).rejects.toThrow(/not created by floorplan-studio/);
+    await expect(removeLabelled(h, { kind: "area", id: "living_room", name: "Living" })).rejects.toThrow(/not created by floorplan-studio/);
+    expect(h.callApi).not.toHaveBeenCalled();
+    expect(types(h)).not.toContain("config/area_registry/delete");
   });
 });
 

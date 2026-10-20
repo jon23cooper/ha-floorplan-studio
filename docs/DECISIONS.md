@@ -2,6 +2,10 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-20: cleanup deletes only what the tool made (HACS review)
+
+Supersedes S4.10, which trusted the `floorplan-studio` label. A label is a name anyone can attach; a user who labelled their own Hue or ZHA light would have lost the whole integration behind a dialog that called it a helper. Now `listLabelled` keeps a labelled entity only if `platform` is `switch_as_x` or `group` (helper) or `automation` with an `fp_` `unique_id`; an area only if this browser recorded its id when `createArea` made it (localStorage `floorplan-studio:areas`, so an area made in another browser is not offered; it can be removed in HA). `removeLabelled` re-lists and refuses a row that is not in the result. Listing no longer calls `ensureLabel`: no label, no writes, empty list. Not done: recording ids in the layout file, which would put HA ids in a shareable file.
+
 ## 2026-10-19: a car piece opens the card's popup on a tap (Diego)
 
 Supersedes S35 C8 (tap is more-info of the main entity). On his own dashboard the car had no detail card. A tap on a car piece, in 2D, 2.5D and 3D, and its row in Active, now opens the popup every device has: name, `carText`, More info. No switch button. More info opens the chooser (or the more-info of a car with one entity). A hold still opens the chooser; kiosk still does nothing. The popup is the existing device popup (`pieceDevice` as the subject), so the card file grows by a few bytes.

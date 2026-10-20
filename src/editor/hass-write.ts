@@ -1,7 +1,7 @@
 /**
  * Every write the panel makes to Home Assistant, in one place. The editor never imports this file: the panel builds a `HaWriter`
- * from `hass` and hands it over as a property, so the standalone build (no `hass`) cannot reach a write. Nothing here runs on load
- * or on save; each function is called by an explicit action the person has confirmed.
+ * from `hass` and hands it over as a property, so the standalone build (no `hass`) cannot reach a write. Nothing here writes on load
+ * or on save (listing only reads); each write is called by an explicit action the person has confirmed.
  */
 
 import type { AutomationConfig } from "./automations";
@@ -37,11 +37,29 @@ export const LABEL_NAME = "floorplan-studio";
 
 interface Label { label_id: string; name: string }
 interface FlowResult { type: string; flow_id?: string; errors?: Record<string, string> | null; reason?: string; result?: unknown; description_placeholders?: Record<string, string> | null }
-interface EntityEntry { entity_id: string; config_entry_id?: string | null; unique_id?: string; name?: string | null; original_name?: string | null; labels?: string[] }
+interface EntityEntry { entity_id: string; platform?: string; config_entry_id?: string | null; unique_id?: string; name?: string | null; original_name?: string | null; labels?: string[] }
 interface AreaEntry { area_id: string; name: string; labels?: string[] }
 
 /** S4.10: one thing floorplan-studio created in HA (a helper, an automation, or an area) that can be found again for cleanup. */
 export interface Labelled { kind: "helper" | "automation" | "area"; id: string; name: string; entityId?: string }
+
+/** The label is only a way to find things; it proves nothing, since anyone can put it on their own light. What the tool made is
+ * decided by what only the tool does: helpers come from the `switch_as_x` and `group` platforms, automations get an `fp_` id, and
+ * areas (which have neither) are remembered by id in this browser when `createArea` makes them. */
+const HELPER_PLATFORMS = ["switch_as_x", "group"];
+const AREA_KEY = "floorplan-studio:areas";
+const areaMemory = new Set<string>();
+function madeAreas(): Set<string> {
+  try { return new Set([...areaMemory, ...(JSON.parse(localStorage.getItem(AREA_KEY) ?? "[]") as string[])]); } catch { return new Set(areaMemory); }
+}
+function rememberArea(id: string) {
+  areaMemory.add(id);
+  try { localStorage.setItem(AREA_KEY, JSON.stringify([...madeAreas()])); } catch { /* private window: the in-memory record still holds for this session */ }
+}
+function forgetArea(id: string) {
+  areaMemory.delete(id);
+  try { localStorage.setItem(AREA_KEY, JSON.stringify([...madeAreas()].filter((x) => x !== id))); } catch { /* as above */ }
+}
 
 /** The id of the `floorplan-studio` label, created when missing. Not cached: `hass` changes all the time and the label may have been deleted in HA. */
 export async function ensureLabel(hass: WriteHass): Promise<string> {
@@ -67,6 +85,7 @@ export async function createArea(hass: WriteHass, name: string): Promise<{ id: s
   if (!n) throw new Error("An area needs a name. Give the room a plan name first.");
   const labelId = await ensureLabel(hass);
   const a = await hass.callWS<AreaEntry>({ type: "config/area_registry/create", name: n, labels: [labelId] });
+  rememberArea(a.area_id);
   return { id: a.area_id, name: a.name };
 }
 
@@ -109,26 +128,31 @@ export async function createHelper(hass: WriteHass, handler: "switch_as_x" | "gr
 }
 
 /**
- * S4.10: every helper, automation and area labelled `floorplan-studio`, whole-instance (not just the current plan), so cleanup finds
- * something even after a plan edit orphaned it. A helper's `id` is its config entry (removed by `removeLabelled` as a whole config
- * entry); an automation's `id` is its own id, read from the entity's `unique_id` (the id the automation delete API takes); an area's
- * `id` is its area id.
+ * S4.10: every helper, automation and area the tool made and labelled `floorplan-studio`, whole-instance (not just the current
+ * plan), so cleanup finds something even after a plan edit orphaned it. Only reads: when the label does not exist yet, nothing is
+ * listed and nothing is created. A labelled thing the person made themselves is not listed (see `HELPER_PLATFORMS`). A helper's
+ * `id` is its config entry (removed by `removeLabelled` as a whole config entry); an automation's `id` is its own id, read from the
+ * entity's `unique_id` (the id the automation delete API takes); an area's `id` is its area id.
  */
 export async function listLabelled(hass: WriteHass): Promise<Labelled[]> {
-  const labelId = await ensureLabel(hass);
-  const has = (labels: string[] | undefined) => (labels ?? []).includes(labelId);
+  const labels = await hass.callWS<Label[]>({ type: "config/label_registry/list" });
+  const labelId = labels.find((l) => l.name === LABEL_NAME)?.label_id;
+  if (!labelId) return [];
+  const has = (l: string[] | undefined) => (l ?? []).includes(labelId);
   const [entities, areas] = await Promise.all([
     hass.callWS<EntityEntry[]>({ type: "config/entity_registry/list" }),
     hass.callWS<AreaEntry[]>({ type: "config/area_registry/list" }),
   ]);
+  const made = madeAreas();
   const out: Labelled[] = [];
   for (const e of entities) {
     if (!has(e.labels)) continue;
     const name = e.name ?? e.original_name ?? e.entity_id;
-    if (e.entity_id.startsWith("automation.")) out.push({ kind: "automation", id: e.unique_id ?? e.entity_id, name, entityId: e.entity_id });
-    else if (e.config_entry_id) out.push({ kind: "helper", id: e.config_entry_id, name, entityId: e.entity_id });
+    if (e.entity_id.startsWith("automation.")) {
+      if (e.platform === "automation" && e.unique_id?.startsWith("fp_")) out.push({ kind: "automation", id: e.unique_id, name, entityId: e.entity_id });
+    } else if (e.config_entry_id && e.platform && HELPER_PLATFORMS.includes(e.platform)) out.push({ kind: "helper", id: e.config_entry_id, name, entityId: e.entity_id });
   }
-  for (const a of areas) if (has(a.labels)) out.push({ kind: "area", id: a.area_id, name: a.name });
+  for (const a of areas) if (has(a.labels) && made.has(a.area_id)) out.push({ kind: "area", id: a.area_id, name: a.name });
   return out;
 }
 
@@ -169,11 +193,16 @@ export async function callService(hass: WriteHass, call: { domain: string; servi
  * file) — re-exported here so the panel host and this file's own tests can still reach it from one place. */
 export { openAutomation } from "./automations";
 
-/** Removes the HA-side thing a `Labelled` row points at. Never touches the plan: that is a separate, ordinary "remove from plan" edit. */
+/** Removes the HA-side thing a `Labelled` row points at. Never touches the plan: that is a separate, ordinary "remove from plan" edit.
+ * The row is checked against a fresh `listLabelled` first, so a row that is not the tool's (or no longer exists) deletes nothing. */
 export async function removeLabelled(hass: WriteHass, item: Labelled): Promise<void> {
+  const ours = await listLabelled(hass);
+  if (!ours.some((x) => x.kind === item.kind && x.id === item.id)) {
+    throw new Error(`${item.name} was not created by floorplan-studio, so it is not removed. Remove it in Home Assistant if you want it gone.`);
+  }
   if (item.kind === "helper") await hass.callApi("DELETE", `config/config_entries/entry/${item.id}`);
   else if (item.kind === "automation") await hass.callApi("DELETE", `config/automation/config/${item.id}`);
-  else await hass.callWS({ type: "config/area_registry/delete", area_id: item.id });
+  else { await hass.callWS({ type: "config/area_registry/delete", area_id: item.id }); forgetArea(item.id); }
 }
 
 /** The writer the editor is given. */
