@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { GUIDE_STEPS, guideControls } from "../../src/editor/guide";
+import { CONTROL_MARK, GUIDE_STEPS, guideControls } from "../../src/editor/guide";
 
 // S22.7 (review U23): the guide told people to click a "+" by the floor tabs, open "Devices" and draw stairs from Add,
 // none of which the editor has. Every control the guide names, written [Label], must exist in the rendered editor by
@@ -48,3 +48,28 @@ test("the Help panel shows each named control in bold, without the brackets", as
   expect(await guide.evaluate((el) => el.textContent)).not.toMatch(/[[\]]/);
   expect(GUIDE_STEPS.length).toBeGreaterThan(0);
 });
+
+// S22.F3: the names can all exist and the path still be wrong ("[Add], then [Wall]" when Wall lives under Add > Openings). Each
+// "open [A], then [B], then [C]" in the guide is followed with real clicks: A is a menu, every step but the last is a submenu
+// that opens, and the last is visible once its parent is open.
+const chains = GUIDE_STEPS.flatMap((s) => [...s.body.matchAll(/[Oo]pen (\[[^\]]+\](?:, then \[[^\]]+\])+)/g)].map((m) => [...m[1].matchAll(CONTROL_MARK)].map((x) => x[1])));
+
+test("the guide has menu paths to check", () => {
+  expect(chains.length).toBeGreaterThan(8);
+});
+
+for (const chain of chains) {
+  test(`guide path opens with real clicks: ${chain.join(" > ")}`, async ({ page }) => {
+    let scope = page.locator(EDITOR);
+    for (let i = 0; i < chain.length; i++) {
+      const name = norm(chain[i]);
+      const hit = scope.locator("summary, button, option").filter({ hasText: new RegExp(`^\\s*(\\S+\\s)?${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(…|\\.\\.\\.)?\\s*(\\S{0,3})?$`, "u") }).first();
+      await expect(hit, `[${chain[i]}] is visible after ${chain.slice(0, i).join(" > ") || "the page loads"}`).toBeVisible();
+      if (i < chain.length - 1) {
+        const box = (await hit.boundingBox())!;
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        scope = hit.locator("xpath=..");
+      }
+    }
+  });
+}
