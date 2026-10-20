@@ -6,6 +6,7 @@
 - Card form: under kiosk the Rotate buttons box shows what the card does (unticked) and ticking it writes `rotate_switch: true`. View switch and Active list show unticked and disabled under kiosk, which hides them for good.
 - Card: a service call that Home Assistant rejects now shows HA's toast (`hass-notification`, "switch.turn_on: message") instead of failing silently. One helper makes every call the card sends.
 - Card: the popup of a device on a scene, button, script or valve has its button: Activate (`scene.turn_on`), Press (`button.press`), Run (`script.turn_on`), Open or Close by state (`valve.open_valve`, `valve.close_valve`). None asks first; a tap with `tap_action: toggle` still opens the popup rather than acting.
+- Studio: Trace image, Load checks the whole plan against the 3.5 MB save limit, not only the 4 MB per image. The scan is encoded to fit what the other floors leave; if it cannot fit, Load says so with what to do and changes nothing. Before, a 3.8 MB scan loaded and Save then refused.
 
 ## 0.33.3 - 2026-10-20
 

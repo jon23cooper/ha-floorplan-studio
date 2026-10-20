@@ -246,3 +246,35 @@ test("when the autosave has no room for the trace image, the status says so", as
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("floorplan-studio:layout") ?? localStorage.getItem(Object.keys(localStorage).find((k) => (localStorage.getItem(k) ?? "").includes('"floors"')) ?? "") ?? "null"));
   expect(stored?.floors?.ground && "trace" in stored.floors.ground).toBe(false); // the plan itself is still autosaved, without the image
 });
+
+// G19: the per-trace limit (4 MB) and the save limit for the whole plan (3.5 MB) disagreed: a 3.8 MB trace loaded, then Save refused.
+// Load now checks the room the rest of the plan leaves, in the image's own encoding loop, and says so at once when nothing fits.
+/** Puts a filler trace on the "first" floor so the rest of the plan leaves `room` characters for another trace. */
+async function leaveRoom(page: Page, room: number) {
+  await page.evaluate(([tag, room, cap]) => {
+    const el = document.querySelector(tag) as any;
+    const l = JSON.parse(JSON.stringify(el.layout));
+    const rest = JSON.stringify(l).length + 200; // the filler trace's own fields
+    l.floors.first.trace = { src: "data:image/png;base64," + "A".repeat((cap as number) - (room as number) - rest - 400), x: 0, y: 0, w: 800, rot: 0, alpha: 0.5, on: true };
+    el.layout = l;
+  }, [EDITOR, room, MAX_LAYOUT_BYTES] as const);
+}
+
+test("G19: a scan the rest of the plan has no room for is refused at Load, with what, why and what to do; nothing changes", async ({ page }) => {
+  await leaveRoom(page, 60_000);
+  const before = await layoutOf(page);
+  await load(page, await png(page, 1200, 3000, true), "scan.png", "image/png", false); // noise: far over 60 KB even at quality 0.3
+  await expect(page.locator("#status")).toContainText("3.5 MB");
+  await expect(page.locator("#status")).toContainText("Remove");
+  await expect(page.locator(IMG)).toHaveCount(0);
+  expect(await layoutOf(page)).toEqual(before);
+});
+
+test("G19: a scan that fits only at a lower quality is encoded to fit, so Save is not refused afterwards", async ({ page }) => {
+  await leaveRoom(page, 400_000);
+  await load(page, await png(page, 1200, 3000, true));
+  const l = await layoutOf(page);
+  expect(JSON.stringify(l).length).toBeLessThanOrEqual(MAX_LAYOUT_BYTES);
+  expect(l.floors.ground.trace!.src.length).toBeLessThanOrEqual(400_000);
+  expect(validate(l).ok).toBe(true);
+});
