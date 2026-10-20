@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Card: a failed load shows the integration's own message instead of "install the integration"; a store with nothing saved says "No plan saved yet" and links admins to the Studio. One retry on the next update and when the connection is ready again.
+- Card: after an update, a cached page that cannot read the new plan says "Floorplan Studio was updated. Reload this page."
+- Card: cards on one dashboard share one load, a config change that keeps the source keeps the plan, and the load no longer carries trace images (only the Studio asks for them, and only an admin gets them).
+- Card: a save in the Studio fires `floorplan_studio_updated`, and open cards reload the plan. Only admin sessions can subscribe to it.
+- Release notes on GitHub are now the CHANGELOG entry. `render_readme` (ignored by HACS) is gone from `hacs.json`. Removing the integration no longer fails when the dashboard resource store errors.
+
 ## 0.33.3 - 2026-10-20
 
 - Studio, safety (HACS review): the cleanup list in Edit, Home Assistant, lists and removes only what the editor created. The `floorplan-studio` label alone no longer counts: a light, automation or area you labelled yourself is never listed, and Remove checks the item again before it deletes anything. Helpers must come from `switch_as_x` or `group`, automations must have an `fp_` id, areas must be ones this browser created.

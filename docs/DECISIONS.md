@@ -2,6 +2,18 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-21: the card's load (gap audit G3, G4, G5, G7, G14, G17, G18, G20, G21)
+
+- `floorplan_studio/load` takes `with_trace` (default false). Traces are stripped from the reply unless it is true and the user is an admin; a non-admin who asks gets none, without an error. The Studio panel asks. Traces are scanned plans, may carry an address, and the card never draws them.
+- The card shares one in-flight load per connection (a `WeakMap` keyed by `hass.connection`). It is dropped when it settles, not cached: a cache would go stale for a session that cannot hear the update event. Each card copies the reply.
+- `setConfig` keeps the loaded plan when `layout` and `layout_url` are unchanged and no inline `layout` is set.
+- `ws_save` fires `floorplan_studio_updated`; the card subscribes with `subscribeEvents`. HA lets only admins subscribe to a custom event, so non-admin sessions load once. A `floorplan_studio/subscribe` command would fix that; not done, it is a second command for a kiosk case no one has reported.
+- Failure text is the integration's `message`; only `unknown_command` keeps the install hint. Retry is bounded: once on the next `hass`, then on each connection `ready`.
+- "Stale page" means the server version differs from the page's, as in the panel, not strictly newer. A dev build never says it.
+- The empty-store text replaces the install hint for `{ layout: null }` (changes the S7.16 wording).
+- Release notes come from the version's CHANGELOG section (`scripts/release-notes.mjs`), with `--generate-notes` as the fallback. `render_readme` is removed from `hacs.json`: HACS defines it on its manifest class and reads it nowhere, and its docs do not list it.
+- Removing the integration logs a warning, not a stack trace, when the resource store fails.
+
 ## 2026-10-20: cleanup deletes only what the tool made (HACS review)
 
 Supersedes S4.10, which trusted the `floorplan-studio` label. A label is a name anyone can attach; a user who labelled their own Hue or ZHA light would have lost the whole integration behind a dialog that called it a helper. Now `listLabelled` keeps a labelled entity only if `platform` is `switch_as_x` or `group` (helper) or `automation` with an `fp_` `unique_id`; an area only if this browser recorded its id when `createArea` made it (localStorage `floorplan-studio:areas`, so an area made in another browser is not offered; it can be removed in HA). `removeLabelled` re-lists and refuses a row that is not in the result. Listing no longer calls `ensureLabel`: no label, no writes, empty list. Not done: recording ids in the layout file, which would put HA ids in a shareable file.

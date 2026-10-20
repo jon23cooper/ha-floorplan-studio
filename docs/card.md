@@ -83,6 +83,21 @@ A state change from Home Assistant redraws only what it changes. The card builds
 what is on screen and rewrites the nodes that differ: the device's icon, and what hangs on it (a lamp's light, its room's glow, the
 room badge). Other icons are not replaced, so a fade or a glide runs on the same element. An update that changes nothing writes nothing.
 
+## Loading the plan
+
+With no `layout` and no `layout_url`, the card asks the integration for the saved plan.
+
+- **One request per page.** Cards on the same dashboard share one request, and a config change that keeps the source (the card form
+  calls it on every keystroke) keeps the plan on screen. The reply has no trace images; only the Studio, for an admin, gets those.
+- **It says why it failed.** The card shows the integration's own message. "No layout: install the Floorplan Studio integration" shows
+  only when Home Assistant does not know the command. After a failure it tries once more on the next `hass` update and again when the
+  connection is ready; it never loops.
+- **Nothing saved yet.** "No plan saved yet. Open Floorplan Studio in the sidebar to draw one." with a link to the Studio for admins.
+- **Follows a save.** A save in the Studio fires `floorplan_studio_updated`; an open card reloads the plan. Home Assistant lets only
+  admins subscribe to a custom event, so a card signed in as a non-admin user loads once and needs a page reload to see a save.
+- **A page older than the server.** If the plan is refused and the installed version differs from the page's, the card says "Floorplan
+  Studio was updated. Reload this page."
+
 ## 2.5D view
 
 `view: 2.5d` draws the same plan with depth: walls rise, furniture becomes
