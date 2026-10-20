@@ -367,8 +367,13 @@ export class FloorplanStudioEditor extends LitElement {
     }
     this.floor = this.st.floor;
     this.refreshNames();
+    this.st.markSaved(); // the host's layout, names refreshed, is the saved state
     this.requestUpdate("layout", old);
   }
+  /** True when the plan differs from the last load or successful save. The HA panel asks before the tab closes. */
+  get dirty(): boolean { return this.st.dirty; }
+  /** The host has made the plan current (it just loaded the stored one) without a save-request. */
+  markSaved() { this.st.markSaved(); }
 
   // ---- the remembered view -------------------------------------------------
 
@@ -2912,6 +2917,7 @@ export class FloorplanStudioEditor extends LitElement {
     this.errors = [];
     this.st.persist();
     this.status = "Saving…";
+    this.st.saveSent();
     const ev = new CustomEvent("save-request", { detail: this.st.layout, bubbles: true, composed: true, cancelable: true });
     this.dispatchEvent(ev);
     // A host that listens owns the outcome and answers with saveDone(). Nobody listening: nothing else will write it.
@@ -2944,6 +2950,7 @@ export class FloorplanStudioEditor extends LitElement {
   }
   /** The host calls this when it has written (or failed to write) the layout it got in `save-request`. */
   saveDone(ok: boolean, message?: string) {
+    if (ok) this.st.saveWritten();
     this.status = ok ? message || "Saved" : message || "Save failed";
     this.requestUpdate();
   }
@@ -2979,17 +2986,20 @@ export class FloorplanStudioEditor extends LitElement {
     this.applyLayout(this.demo, "Demo home loaded");
   }
   /** Validates first; on any problem lists them and leaves the current layout untouched. */
-  private applyLayout(x: unknown, status: string) {
+  private applyLayout(x: unknown, status: string, lock = true): boolean {
     const r = loadLayout(x);
-    if (!r.ok) { this.errors = r.errors; this.status = "Could not use that layout"; return; }
+    if (!r.ok) { this.errors = r.errors; this.status = "Could not use that layout"; return false; }
     this.stopDraw();
     this.errors = [];
     this.st.setLayout(structuredClone(r.layout), undefined, true);
-    this.st.planLocked = !isBlank(r.layout);
+    if (lock) this.st.planLocked = !isBlank(r.layout);
     this.floor = this.st.floor;
     this.refreshNames();
     this.changed(status);
+    return true;
   }
+  /** For a host that has another version of the plan (a draft, the copy saved elsewhere): through validate, one undo step, nothing changes when it fails. The lock stays as it is. */
+  adoptLayout(x: unknown, status: string): boolean { return this.applyLayout(x, status, false); }
   async openFile(ev: Event) {
     const input = ev.target as HTMLInputElement, file = input.files?.[0];
     if (!file) return;

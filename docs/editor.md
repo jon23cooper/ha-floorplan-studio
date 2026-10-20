@@ -440,3 +440,10 @@ anyone (or an LLM) can hand you, it's treated as untrusted: a missing field
 gets a sane default, an out-of-range value gets clamped or wrapped rather
 than crashing the load, and only `validate()` itself is the strict gate that
 decides whether the result is usable.
+
+## Saving in Home Assistant
+
+- **Unsaved work.** Closing the tab with edits that were not saved asks first. Leaving through HA's sidebar does not unload the page, so the editor also keeps an autosave draft in this browser. The next time the panel opens and that draft differs from the stored plan, a bar asks "Restore unsaved draft from 2026-10-21 14:03?". Restore is one undo step; Discard forgets the draft. A draft that fails validation is ignored.
+- **Two tabs.** The stored plan has a revision number. A save carries the revision the page loaded; if someone saved in between, nothing is written and a bar offers Reload (take the stored plan in, one undo step, yours is one Undo away) or Overwrite (save yours over it).
+- **Dark mode.** A change of HA's theme restyles the editor and leaves your edits and undo history alone.
+- **Narrow screens.** The panel shows HA's menu button in a top bar.

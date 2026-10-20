@@ -125,6 +125,24 @@ export function restoreLayout(): Layout | null {
   }
 }
 
+/** When the autosave was last written (ISO), kept beside it so the HA panel can say how old a draft is. */
+export const DRAFT_AT_KEY = `${STORAGE_KEY}:at`;
+
+/** The raw autosave, untrusted and unvalidated, with its time; null when there is none. The HA panel validates it before it offers it. */
+export function readDraft(): { raw: unknown; at: string } | null {
+  try {
+    const text = localStorage.getItem(STORAGE_KEY);
+    if (!text) return null;
+    return { raw: JSON.parse(text), at: localStorage.getItem(DRAFT_AT_KEY) ?? "" };
+  } catch {
+    return null;
+  }
+}
+
+export function clearDraft() {
+  try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(DRAFT_AT_KEY); } catch { /* blocked: nothing to clear */ }
+}
+
 /** The room list a device of `type` moves into (S11.2): temperature, humidity and motion devices only. */
 const roomFieldOf = (type: DeviceType | undefined): RoomSensorField | undefined => (type === "temp" ? "temps" : type === "humidity" ? "humidity" : type === "motion" ? "motion" : undefined);
 
@@ -250,8 +268,13 @@ export class EditorState {
   private hist: string[] = [];
   private fut: string[] = [];
 
+  /** The layout as it was at the last load or successful save, serialised; `dirty` compares against it. */
+  private savedSig = "";
+  private pendingSig = "";
+
   constructor(layout: Layout = emptyLayout(), floor?: string) {
     this.layout = layout;
+    this.savedSig = JSON.stringify(layout);
     this.floor = floor && hasOwn(layout.floors, floor) ? floor : Object.keys(layout.floors)[0];
   }
 
@@ -265,8 +288,16 @@ export class EditorState {
     this.layout = layout;
     this.floor = floor && hasOwn(layout.floors, floor) ? floor : hasOwn(layout.floors, this.floor) ? this.floor : Object.keys(layout.floors)[0];
     this.sel = null; this.views = {}; this.openDoor = null; this.confirmDelete = false;
-    if (!keepHistory) { this.hist = []; this.fut = []; }
+    if (!keepHistory) { this.hist = []; this.fut = []; this.markSaved(); } // a host load is the saved state; Open and Reset are edits
   }
+
+  /** True when the layout is not the one last loaded or saved: undoing back to it makes it clean again. Serialises, so ask on demand, not per frame. */
+  get dirty(): boolean { return JSON.stringify(this.layout) !== this.savedSig; }
+  /** The layout as it stands now is the saved one. */
+  markSaved() { this.savedSig = JSON.stringify(this.layout); }
+  /** A save was sent: remember what it carried, so an edit made while it is in flight stays dirty. */
+  saveSent() { this.pendingSig = JSON.stringify(this.layout); }
+  saveWritten() { if (this.pendingSig) this.savedSig = this.pendingSig; }
 
   setFloor(name: string) {
     if (!hasOwn(this.layout.floors, name)) return;
@@ -1280,6 +1311,7 @@ export class EditorState {
   /** Writes the autosave. S7.11: a trace image can fill the few MB a browser gives a site; the plan is then saved
    *  without its images rather than not at all, and this returns false. Blocked storage also returns false. */
   persist(): boolean {
+    try { localStorage.setItem(DRAFT_AT_KEY, new Date().toISOString()); } catch { /* the draft then has no time */ }
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.layout)); return true; } catch { /* private mode, quota */ }
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.layout, (k, v) => (k === "trace" ? undefined : v))); } catch { /* blocked */ }
     return false;
