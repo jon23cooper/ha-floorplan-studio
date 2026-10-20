@@ -12,7 +12,7 @@ import type { Device, Floor, Furniture, Pt } from "./schema";
 // plan's own helpers (`LiveDeps`, core/three-deps.ts), so there is one copy of them in the page.
 type Render = typeof import("./render");
 export type LiveDeps = Pick<Render, "acMode" | "attachedTest" | "classOf" | "deviceMarkup" | "lightFill" | "lightOpacity" | "MOTION_PULSE_S" | "MOTION_PULSES" | "motionRooms" | "personRoom" | "pieceOn" | "polyCentre" | "roomAt" | "roomReadout" | "ROOM_OWNS">
-  & Pick<typeof import("./solids"), "pieceDevice"> & Pick<typeof import("./car-status"), "carStatus"> & Pick<typeof import("./door-state"), "doorStateOf"> & Pick<typeof import("./schema"), "fxScale">;
+  & Pick<typeof import("./camera-thumb"), "thumbBox" | "thumbUrl"> & Pick<typeof import("./solids"), "pieceDevice"> & Pick<typeof import("./car-status"), "carStatus"> & Pick<typeof import("./door-state"), "doorStateOf"> & Pick<typeof import("./schema"), "fxScale">;
 
 export interface LiveLight { device: number; room: number; at: Pt; /** The lamp's own CSS colour, or null for the theme's light colour. */ rgb: string | null; /** 0..1 */ level: number; /** S14.3: the lamp's effect size as a fraction; absent at 100 %, so a layout that never sets it gives the same JSON as before. */ scale?: number }
 export interface LiveDevice {
@@ -32,6 +32,8 @@ export interface LiveDevice {
   playing: boolean;
   /** A person's room sensor names a room: the centre of that room, else absent (the device's own point). */
   at?: Pt;
+  /** S16.3: a camera's thumbnail: the picture url and its box in pixels, from the icon's centre (the overlay draws it, and keeps it on the view). */
+  thumb?: { url: string; x: number; y: number; w: number; h: number };
 }
 /**
  * A linked furniture piece: `on` by the rule of the device of its type (`pieceOn`). A car piece (S35.5) adds what its entities say
@@ -54,7 +56,7 @@ export interface Live3D {
 
 /** `liveOf`, bound to the 2D plan's helpers. The 3D chunk builds one per view; `core/live.ts` binds the real ones for the tests. */
 export function makeLiveOf(d: LiveDeps): (floor: Floor, o: RenderOpts, now: number) => Live3D {
-  const { acMode, attachedTest, classOf, deviceMarkup, lightFill, lightOpacity, MOTION_PULSE_S, MOTION_PULSES, motionRooms, personRoom, pieceDevice, pieceOn, polyCentre, roomAt, roomReadout, ROOM_OWNS, doorStateOf, fxScale, carStatus } = d;
+  const { acMode, attachedTest, classOf, deviceMarkup, lightFill, lightOpacity, MOTION_PULSE_S, MOTION_PULSES, motionRooms, personRoom, pieceDevice, pieceOn, polyCentre, roomAt, roomReadout, ROOM_OWNS, doorStateOf, fxScale, carStatus, thumbBox, thumbUrl } = d;
   const isPt = (p: unknown): p is Pt => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]);
   const ringOf = (r: { pts?: unknown } | null | undefined): Pt[] | null => (r && Array.isArray(r.pts) && r.pts.length >= 3 && r.pts.every(isPt) ? (r.pts as Pt[]) : null);
   const list = <T>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
@@ -83,7 +85,8 @@ export function makeLiveOf(d: LiveDeps): (floor: Floor, o: RenderOpts, now: numb
           value = bad ? "–" : s.state + (typeof s.attributes.unit_of_measurement === "string" ? `\u202F${s.attributes.unit_of_measurement}` : ""); // S23.1: as render.ts
         }
         const where = d.type === "person" ? personRoom(d, rooms, o) : -1, ring = where >= 0 ? ringOf(rooms[where]) : null;
-        out[i] = { type: String(d.type), klass: `dev dev-${d.type}${ac}${bound} ${cls}`, style: style.join(";"), icon, name: String(d.name ?? d.id ?? ""), value, state: base, playing: (d.type === "speaker" || d.type === "media") && s?.state === "playing", ...(ring ? { at: polyCentre(ring) } : {}) };
+        const ct = o.camThumb, url = ct && ct.on === true && d.type === "camera" && !ct.failed?.has(d.entity) ? thumbUrl(o.state?.[d.entity], ct.bust) : null;
+        out[i] = { type: String(d.type), klass: `dev dev-${d.type}${ac}${bound} ${cls}`, style: style.join(";"), icon, name: String(d.name ?? d.id ?? ""), value, state: base, playing: (d.type === "speaker" || d.type === "media") && s?.state === "playing", ...(ring ? { at: polyCentre(ring) } : {}), ...(url ? { thumb: { url, ...thumbBox([0, 0], ct!, 1) } } : {}) };
         if (d.type === "light" && base === "on") {
           const st = o.state?.[d.entity];
           lights.push({ device: i, room: roomAt(safe, at), at, rgb: lightFill(st), level: lightOpacity(st) ?? 1, ...(fxScale(d) !== 1 ? { scale: fxScale(d) } : {}) });

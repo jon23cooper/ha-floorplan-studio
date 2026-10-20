@@ -15,6 +15,7 @@ import { doorStateOf } from "./door-state";
 import { heatRange, plugThreshold, powerHeat, wattsOf } from "./power";
 import { meanReading } from "./readings";
 import { roomHeat, type HeatKind } from "./heat";
+import { thumbBox, thumbUrl, type CamThumbOpts } from "./camera-thumb";
 import { badges } from "./rollup";
 import { carStatus } from "./car-status";
 import { carLook, carTop, type CarLook } from "./car";
@@ -86,6 +87,8 @@ export interface RenderOpts {
   plugHeat?: [number, number];
   /** S34.7: the heat map. `temperature` or `humidity` fills every room that reads that kind (`roomHeat`) by its place on the fixed scale: class `heat heat-<kind>` and `--fp-heat` (0..1) on the polygon, the value in the room's readout line (also under `labels: false`), and no night veil. Omitted, `off` or junk, the markup is byte for byte as before. */
   heat?: HeatKind;
+  /** S16.3: the camera thumbnail. With `on`, a camera whose state has an `entity_picture` draws that picture beside its icon (`size`, `pos`), in class `fp-cam-thumb` (a tap target `data-cam`, not in the editor); `bust` is the cache buster, `failed` the cameras whose picture did not load. A camera that is unavailable, has no picture or failed draws nothing. Omitted, off or junk, the markup is byte for byte as before. */
+  camThumb?: CamThumbOpts;
   /** S25.5: a stack of devices fanned out. Each entry moves device `i`'s icon to `at` (plan units), with a leader line to its true
    *  spot, a pin there and its name beside it. The card computes the spots (`spiderLayout`) and passes them while a ring is open.
    *  Junk entries (an unknown index, a point that is not finite), a hidden device and a device with no spot are skipped.
@@ -560,6 +563,7 @@ g.dev.unavailable path{fill:var(--fp-idle);fill-opacity:.7}
 @keyframes fp-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.dev-vacuum.spin path{animation:none}}
 .dev-motion{--fp-fade:0} .dev.dev-motion path{fill:color-mix(in srgb,var(--fp-motion) calc(var(--fp-fade) * 100%),var(--fp-idle))}
+.fp-cam-bg{fill:var(--fp-room);stroke:var(--fp-idle);stroke-width:1} .fp-cam-thumb{cursor:pointer} .fp-cam-thumb.fp-cam-ed{pointer-events:none;cursor:auto}
 .heater{stroke:var(--fp-idle)} .heater.on{stroke:var(--fp-heater)} .val,.lbl{fill:var(--fp-text);paint-order:stroke;stroke:var(--fp-outline);stroke-width:3;stroke-linejoin:round} .lbl-leader{stroke:var(--fp-text);opacity:.5;pointer-events:none} .lbl-tag{fill:var(--fp-outline);stroke:none;pointer-events:none} .lbl-on{pointer-events:none}
 /* S25.5: a fanned stack. Leader, pin and name never take a click (finding 18: class rules); a member stays drawn at far. */
 .spider-leader{stroke:var(--fp-text);stroke-opacity:.6;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none} .spider-pin{fill:var(--fp-text);fill-opacity:.8;pointer-events:none}
@@ -1812,6 +1816,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
       ringOut.push(`<line class="spider-leader" x1="${num(from[0])}" y1="${num(from[1])}" x2="${num(e.at[0])}" y2="${num(e.at[1])}"/><circle class="spider-pin" cx="${num(from[0])}" cy="${num(from[1])}" r="${num(3 * k)}"/>`);
     }
 
+  const ct = o.camThumb && typeof o.camThumb === "object" && o.camThumb.on === true ? o.camThumb : null, thumbs: string[] = [], thumbWithin = () => B ?? viewBoxFor(f, 60, o.rotate, o.view, o.tilt);
   const needs = attentionDevices(f, o.state, o.attention); // S25 fix B: what the Overview's Attention lists stays a dot at far
   const ringCx = spiderAt.size ? [...spiderAt.values()].reduce((a, p) => a + p[0], 0) / spiderAt.size : 0;
   f.devices.forEach((d, i) => {
@@ -1871,6 +1876,13 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
     // S2.5: the bar carries the same on/off/unavailable class as the icon, so it goes orange only while heating (classOf already reads hvac_action).
     if ("a" in d) out.push(`<line data-xbar="${i}" class="heater ${cls}${sel ? " sel" : ""}" x1="${num(d.a[0])}" y1="${num(d.a[1])}" x2="${num(d.b[0])}" y2="${num(d.b[1])}" stroke-width="${sel ? 12 : 8}"/>`);
     const dim = o.dimmed?.has(d.entity) ? " dim" : "";
+    // S16.3: the camera's picture, in the screen frame beside its icon and upright in a turned plan, over every icon (pushed after the loop).
+    const url = ct && d.type === "camera" && !sp && !ct.failed?.has(d.entity) ? thumbUrl(o.state?.[d.entity], ct.bust) : null;
+    if (url) {
+      const b = thumbBox(toScreen(c), ct!, k, thumbWithin()), mid: Pt = [b.x + b.w / 2, b.y + b.h / 2], q = turn ? rotateAbout(mid, -turn.deg, turn.pivot) : mid;
+      const size = `x="${num(q[0] - b.w / 2)}" y="${num(q[1] - b.h / 2)}" width="${num(b.w)}" height="${num(b.h)}"`;
+      thumbs.push(`<g class="fp-cam-thumb${o.editor ? " fp-cam-ed" : ""}" data-cam${o.editor ? "x" : ""}="${i}"${up(q[0], q[1])}><title>${esc(label)}</title><rect class="fp-cam-bg" ${size} rx="${num(3 * k)}"/><image class="fp-cam-img" href="${esc(url)}" ${size} preserveAspectRatio="xMidYMid slice"/></g>`);
+    }
     (sp ? ringOut : out).push(`<g data-x="${i}" class="dev dev-${esc(String(d.type))}${sp ? " spider" : ""}${d.type === "ac" ? ` ${acMode(d, o) ?? ""}`.trimEnd() : ""}${bound ? " bound" : ""}${o.editor && d.entity === "" ? " unbound" : ""} ${cls}${needs.has(i) ? " needs-attention" : ""}${sel ? " sel" : ""}${dim}"${style}${person ? "" : ` transform="translate(${at([c[0] - 12 * k, c[1] - 12 * k])}) scale(${num(k)})${rot ? ` rotate(${num(rot)} 12 12)` : ""}"`}><title>${title}</title>${cone}${back ? `<g transform="rotate(${num(-back)} 12 12)">${icon}</g>` : icon}${o.locate?.t === "dev" && o.locate.i === i ? `<circle class="locate" cx="12" cy="12" r="16"/>` : ""}</g>`);
     if (sp && showText) { // S25.5: the member's name, outward of the ring's side so it never covers the next member
       const right = sp[0] >= ringCx, lx = sp[0] + (right ? 1 : -1) * 20 * k, ly = sp[1] + 4 * kt;
@@ -1934,7 +1946,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
     if (showText && (o.showNames || sel)) out.push(`<text class="lbl" x="${num(u.x)}" y="${num(u.y - 16 * k)}"${up(u.x, u.y - 16 * k)} text-anchor="middle" font-size="${num(9 * kt)}">${esc(label)}</text>`);
   });
 
-  out.push(...tags); // S23.3: over every icon, under the editor's handles
+  out.push(...thumbs, ...tags); // S16.3: pictures over the icons; S23.3: over every icon, under the editor's handles
   if (showText) out.push(...badges({ f, state: o.state, attn: o.attention, k: kt, up, screenOff, anchor: (i) => nameAt[i] ?? { at: centroid(f.rooms[i]!.pts), size: 0 }, hasValue: (i) => heated.has(i) })); // S25.3: shown by CSS at far and mid only; text, so none with labels off
   if (o.editor && o.handles !== false)
     for (const P of polys) P.pts.forEach((p, j) => out.push(`<circle class="h" data-h="${P.id}:${j}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`));
