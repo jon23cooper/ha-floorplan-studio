@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.34.0 - 2026-10-21
+
 - The Studio's update banner only trusts a release URL that starts with this repository's GitHub address, so a look-alike URL gets no banner and no link.
 - Studio, safety (review): Reload after a conflict (and Overwrite) now asks the server for the trace images. Before, the reloaded plan had none, and the next Save erased them from the stored plan.
 - Studio, safety (review): a successful Save clears this browser's autosave draft, so the "Restore unsaved draft" bar no longer offers an old plan that another device has since replaced. A draft that only lost its trace images (the autosave drops them when browser storage is full) is no longer offered for that alone, and Restore keeps the stored images.
