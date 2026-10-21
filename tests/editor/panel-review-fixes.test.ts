@@ -159,7 +159,7 @@ describe("R3: a second Save before the first reply is not a conflict with the fi
     const state = { stored: base, rev: 5 };
     const release: Array<() => void> = [];
     const hass = stubHass((m) => {
-      if (m.type === "floorplan_studio/load") return { layout: state.stored, rev: state.rev };
+      if (m.type !== "floorplan_studio/save") return { layout: state.stored, rev: state.rev }; // load, and HA's registry calls
       return new Promise((resolve, reject) => {
         release.push(() => {
           if (m.expected_rev !== state.rev) { reject({ code: "conflict", message: "The plan was saved elsewhere." }); return; }
@@ -188,7 +188,7 @@ describe("R3: a second Save before the first reply is not a conflict with the fi
 
   it("when the first save fails, the held one is dropped and the failure is shown", async () => {
     const hass = stubHass((m) => {
-      if (m.type === "floorplan_studio/load") return { layout: base, rev: 1 };
+      if (m.type !== "floorplan_studio/save") return { layout: base, rev: 1 };
       return new Promise((_r, reject) => { setTimeout(() => reject({ code: "unknown", message: "boom" }), 5); });
     });
     const el = await mount(hass);

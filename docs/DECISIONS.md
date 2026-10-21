@@ -2,6 +2,10 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-21 A load that strips fields must never feed a path that can save
+
+The server strips `floor.trace` from `floorplan_studio/load` unless the message says `with_trace: true`. `reloadStored` forgot it, adopted the stripped plan as saved, and the next Save would have erased every trace image. Every Studio load now asks for traces, and a test scans `src/editor` for any load call without it. Same review: Save clears the autosave draft once the server has the plan (a stale draft misled the banner); a draft that only lacks traces the stored plan has is compared with them put back, and Restore keeps them; a second Save before the first reply is held and sent after it, with the new revision. Known limit: a trace removed on purpose and never saved returns with a restored draft, because a draft cannot tell removed from dropped.
+
 ## 2026-10-21 Card size cap 124,100 gz (supersedes 123,800)
 
 The card-gaps work (display precision, call errors, popup buttons) adds about 310 gz. Card is 124,015 gz (`gzip -9`). Cap is 124,100. Diego to confirm. Three parallel branches each raised the cap by hand; from here, one cap decision per merge.

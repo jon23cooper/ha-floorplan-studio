@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Studio, safety (review): Reload after a conflict (and Overwrite) now asks the server for the trace images. Before, the reloaded plan had none, and the next Save erased them from the stored plan.
+- Studio, safety (review): a successful Save clears this browser's autosave draft, so the "Restore unsaved draft" bar no longer offers an old plan that another device has since replaced. A draft that only lost its trace images (the autosave drops them when browser storage is full) is no longer offered for that alone, and Restore keeps the stored images.
+- Studio: pressing Save twice before the first reply no longer ends in a false conflict. The second press waits, then saves the newest state against the new revision.
+- 3D: sensor readings use the same display text as the 2D plan (21.5 °C, not 21.456789 °C).
+
 - Studio, safety: a change of Home Assistant's theme no longer resets the editor (edits, undo, zoom). After a Save the panel also holds what was saved, so a later redraw cannot bring the old plan back.
 - Studio: closing the tab with unsaved edits asks first. When the panel opens and this browser holds an autosave draft that differs from the stored plan, a bar offers "Restore unsaved draft from <time>?" (one undo step) or Discard.
 - Integration: the stored plan has a revision. `floorplan_studio/load` returns `rev`; `floorplan_studio/save` takes an optional `expected_rev`, answers the error `conflict` and writes nothing when it is stale, and returns the new `rev`. The Studio shows Reload and Overwrite on a conflict. A save without `expected_rev` still overwrites. Storage written by older versions reads as revision 0.
