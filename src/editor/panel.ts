@@ -77,6 +77,8 @@ export class FloorplanStudioPanel extends LitElement {
   declare draftAt: string;
   /** The autosave found at load, unvalidated; Restore sends it through `validate` again. */
   private draft: unknown = null;
+  private saving = false;
+  private saveQueued = false;
   /** Empty, or what to tell the person after the server refused a save because the plan changed elsewhere. */
   declare conflict: string;
   /** The stored revision this page last saw; null when the integration does not report one (then a save carries no `expected_rev`). */
@@ -158,8 +160,20 @@ export class FloorplanStudioPanel extends LitElement {
     const draft = loadLayout(d.raw);
     if (!draft.ok) return;
     const same = stored ? loadLayout(stored) : null;
-    if (same?.ok && JSON.stringify(same.layout) === JSON.stringify(draft.layout)) return;
-    this.draft = d.raw;
+    let offer: unknown = d.raw;
+    if (same?.ok) {
+      // The autosave drops trace images when the browser's storage is full (persist), so a draft without a trace on a floor
+      // that has one stored is a draft that lost it, not one that removed it. Put the stored trace back before comparing:
+      // otherwise the banner shows on every visit and Restore leads to a Save that erases the image.
+      const merged = structuredClone(draft.layout);
+      for (const [k, f] of Object.entries(merged.floors)) {
+        const had = Object.prototype.hasOwnProperty.call(same.layout.floors, k) ? same.layout.floors[k].trace : undefined;
+        if (had && !f.trace) f.trace = structuredClone(had);
+      }
+      if (JSON.stringify(same.layout) === JSON.stringify(merged)) return;
+      offer = merged;
+    }
+    this.draft = offer;
     this.draftAt = draftTime(d.at);
   }
   private restoreDraft() {
@@ -195,6 +209,10 @@ export class FloorplanStudioPanel extends LitElement {
     const ed = e.currentTarget as FloorplanStudioEditor;
     const layout = (e as CustomEvent<Layout>).detail;
     if (this.stale) { ed.saveDone(false, `Not saved: this page is out of date (${this.built}, installed ${this.stale}). Reload, then save again.`); return; }
+    // A second request before the first reply would carry the same expected_rev and be refused as a conflict with the user's own save.
+    // Hold it: when the first lands, the editor is asked to save its newest state against the new revision.
+    if (this.saving) { this.saveQueued = true; return; }
+    this.saving = true;
     // `layout` is the editor's live object; copy it now, before the await, so an edit made while saving is not mistaken for saved.
     const sent = structuredClone(layout);
     try {
@@ -202,12 +220,19 @@ export class FloorplanStudioPanel extends LitElement {
       this.rev = typeof r?.rev === "number" ? r.rev : null;
       this.layout = sent; // what is stored now; the editor is not drawn again for it (see `render`)
       this.conflict = "";
+      this.saving = false;
+      if (this.saveQueued) { this.saveQueued = false; ed.save(); return; } // the status stays "Saving…" until the newest state is written
       ed.saveDone(true, "Saved to Home Assistant");
+      // The stored plan is now this one: an old draft would only offer it back, and Restore then Save would undo what another device saved since.
+      if (!ed.dirty) clearDraft();
     } catch (err) {
+      this.saveQueued = false;
       if ((err as { code?: unknown } | null)?.code === "conflict") {
         this.conflict = errText(err);
         ed.saveDone(false, "Not saved: the plan was changed elsewhere. Reload it or overwrite it, above the plan.");
       } else ed.saveDone(false, `Save failed: ${errText(err)}`);
+    } finally {
+      this.saving = false;
     }
   }
 
@@ -216,7 +241,8 @@ export class FloorplanStudioPanel extends LitElement {
     const ed = this.editor();
     if (!ed) return;
     try {
-      const r = await this.hass!.callWS<{ layout: Layout | null; rev?: number }>({ type: "floorplan_studio/load" });
+      // with_trace: the server strips every trace image without it, and this plan is loaded as saved: the next Save would erase them.
+      const r = await this.hass!.callWS<{ layout: Layout | null; rev?: number }>({ type: "floorplan_studio/load", with_trace: true });
       if (!ed.adoptLayout(r.layout, "Reloaded the plan saved elsewhere. Undo brings your version back.")) return; // the editor lists why; the conflict stays
       ed.markSaved();
       this.rev = typeof r.rev === "number" ? r.rev : null;
@@ -231,7 +257,7 @@ export class FloorplanStudioPanel extends LitElement {
     const ed = this.editor();
     if (!ed) return;
     try {
-      const r = await this.hass!.callWS<{ rev?: number }>({ type: "floorplan_studio/load" });
+      const r = await this.hass!.callWS<{ rev?: number }>({ type: "floorplan_studio/load", with_trace: true }); // only the revision is used; asked the same as every Studio load
       this.rev = typeof r.rev === "number" ? r.rev : null;
       this.conflict = "";
       ed.save();
