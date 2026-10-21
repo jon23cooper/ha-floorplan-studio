@@ -196,6 +196,21 @@ describe("<floorplan-studio-panel>", () => {
       expect(banner(other)).toBeNull();
     });
 
+    it("matches the release URL by its GitHub prefix, so a look-alike or a non-https URL gets no banner and no link", async () => {
+      const bad = [
+        "javascript:alert(1)//vespassassina/ha-floorplan-studio",
+        "https://evil.example/vespassassina/ha-floorplan-studio/releases/v9",
+        "https://github.com/evil/x?u=vespassassina/ha-floorplan-studio",
+        "http://github.com/vespassassina/ha-floorplan-studio/releases/v9",
+      ];
+      for (const release_url of bad) {
+        const el = await mount(withUpdate({ "update.x": UPDATE("on", { release_url }) }));
+        expect(banner(el), release_url).toBeNull();
+      }
+      const good = await mount(withUpdate({ "update.x": UPDATE() }));
+      expect(banner(good)!.querySelector("a")!.getAttribute("href")).toBe("https://github.com/vespassassina/ha-floorplan-studio/releases/v0.4.0");
+    });
+
     it("Update calls HACS's install on that entity, then says to restart", async () => {
       const hass = withUpdate({ "update.floorplan_studio_update": UPDATE() });
       const el = await mount(hass);

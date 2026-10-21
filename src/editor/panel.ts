@@ -27,14 +27,14 @@ interface PanelHass {
   callService?(domain: string, service: string, data: Record<string, unknown>): Promise<unknown>;
 }
 
-const REPO = "vespassassina/ha-floorplan-studio";
+const REPO_URL = "https://github.com/vespassassina/ha-floorplan-studio/";
 
-/** The update HACS offers for this integration, if any. Matched by its release URL, so a renamed entity is still found. */
+/** The update HACS offers for this integration, if any. Matched by its release URL, so a renamed entity is still found. The prefix is checked, not a substring: the URL ends up in a link href. */
 function findUpdate(hass: PanelHass | undefined) {
   for (const [id, s] of Object.entries(hass?.states ?? {})) {
     if (!id.startsWith("update.") || s.state !== "on") continue;
     const url = String(s.attributes.release_url ?? "");
-    if (!url.includes(REPO)) continue;
+    if (!url.startsWith(REPO_URL)) continue;
     return { id, installed: String(s.attributes.installed_version ?? "?"), latest: String(s.attributes.latest_version ?? "?"), url, busy: s.attributes.in_progress === true };
   }
   return null;
