@@ -2670,10 +2670,10 @@ Branch `task/s23-visual`. From the visual review (V-ids, review of 2026-10-08). 
 
 ### Follow-ups from the Sprint 23 review
 
-- [ ] S23.F1 Leaders at 375 px with the controls in a column: add each placed leader to the obstacles and prefer spots off
+- [x] S23.F1 Leaders at 375 px with the controls in a column: add each placed leader to the obstacles and prefer spots off
       other rooms' interiors. "Garden pond" crosses the Hall's outer wall and the Garden leader runs through it
       (`render.ts` leader fallback).
-- [ ] S23.F2 Window lines under 3:1 on the new pane in light (2.4) and solarized (2.8). Try the pane as `--fp-bg` mixed
+- [x] S23.F2 Window lines under 3:1 on the new pane in light (2.4) and solarized (2.8). Try the pane as `--fp-bg` mixed
       15 % glass, and check the cut does not read as a hole again.
 - [x] S23.F3 Put `--fp-text-out` in the generic `:host,.fp,[data-theme]` defaults so a nested theme group cannot inherit
       solarized's outdoor ink.
@@ -2681,8 +2681,10 @@ Branch `task/s23-visual`. From the visual review (V-ids, review of 2026-10-08). 
       quote state.
 - [ ] S23.F5 Left by the coders: paint dim in 3D; a heavier dash on a selected zone; 3D walls on HA dark still mix 55 %;
       JSDoc still ships in the card (about 16 KB gzip); `docs/img/themes/*.png` are out of date.
+      Status 2026-10-21: paint dim in 3D and 3D walls on HA dark were done in S28.9, JSDoc in S24.4, the theme PNGs
+      regenerated (`scripts/theme-shots.mjs`). Open: "a heavier dash on a selected zone" is not defined (the Studio
+      already draws a 2 px `.hl` outline on a selected zone; the card has no selection). Needs Diego's call.
 - [x] S23.F6 Door swing arcs removed (Diego, 2026-10-08).
-      JSDoc still ships in the card (about 16 KB gzip; done in S24.4); `docs/img/themes/*.png` are out of date.
 
 ## Sprint 24 (0.22.0): find and navigate
 
