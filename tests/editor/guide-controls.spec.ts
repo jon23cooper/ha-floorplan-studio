@@ -58,18 +58,26 @@ test("the guide has menu paths to check", () => {
   expect(chains.length).toBeGreaterThan(8);
 });
 
-for (const chain of chains) {
-  test(`guide path opens with real clicks: ${chain.join(" > ")}`, async ({ page }) => {
-    let scope = page.locator(EDITOR);
-    for (let i = 0; i < chain.length; i++) {
-      const name = norm(chain[i]);
-      const hit = scope.locator("summary, button, option").filter({ hasText: new RegExp(`^\\s*(\\S+\\s)?${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(…|\\.\\.\\.)?\\s*(\\S{0,3})?$`, "u") }).first();
-      await expect(hit, `[${chain[i]}] is visible after ${chain.slice(0, i).join(" > ") || "the page loads"}`).toBeVisible();
-      if (i < chain.length - 1) {
-        const box = (await hit.boundingBox())!;
-        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-        scope = hit.locator("xpath=..");
+// The shortcut beside a menu item reads ⌘S on a Mac and Ctrl+S elsewhere; CI is Linux and a Mac run never saw the second.
+const KEYS = String.raw`(?:\s*(?:[⌘⇧⌥⌃]|Ctrl\+|Shift\+|Alt\+)*[A-Za-z0-9,.\[\]/=-]{1,3})?`;
+
+for (const platform of ["MacIntel", "Linux x86_64"]) {
+  for (const chain of chains) {
+    test(`guide path opens with real clicks (${platform}): ${chain.join(" > ")}`, async ({ page }) => {
+      await page.addInitScript((p) => Object.defineProperty(navigator, "platform", { get: () => p }), platform);
+      await page.reload();
+      await expect(page.locator(`${EDITOR} svg polygon[data-r]`).first()).toBeVisible();
+      let scope = page.locator(EDITOR);
+      for (let i = 0; i < chain.length; i++) {
+        const name = norm(chain[i]);
+        const hit = scope.locator("summary, button, option").filter({ hasText: new RegExp(`^\\s*(\\S+\\s)?${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(…|\\.\\.\\.)?${KEYS}\\s*$`, "u") }).first();
+        await expect(hit, `[${chain[i]}] is visible after ${chain.slice(0, i).join(" > ") || "the page loads"}`).toBeVisible();
+        if (i < chain.length - 1) {
+          const box = (await hit.boundingBox())!;
+          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+          scope = hit.locator("xpath=..");
+        }
       }
-    }
-  });
+    });
+  }
 }
