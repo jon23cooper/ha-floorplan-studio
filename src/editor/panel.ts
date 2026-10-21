@@ -216,7 +216,8 @@ export class FloorplanStudioPanel extends LitElement {
     const ed = this.editor();
     if (!ed) return;
     try {
-      const r = await this.hass!.callWS<{ layout: Layout | null; rev?: number }>({ type: "floorplan_studio/load" });
+      // with_trace: the server strips every trace image without it, and this plan is loaded as saved: the next Save would erase them.
+      const r = await this.hass!.callWS<{ layout: Layout | null; rev?: number }>({ type: "floorplan_studio/load", with_trace: true });
       if (!ed.adoptLayout(r.layout, "Reloaded the plan saved elsewhere. Undo brings your version back.")) return; // the editor lists why; the conflict stays
       ed.markSaved();
       this.rev = typeof r.rev === "number" ? r.rev : null;
@@ -231,7 +232,7 @@ export class FloorplanStudioPanel extends LitElement {
     const ed = this.editor();
     if (!ed) return;
     try {
-      const r = await this.hass!.callWS<{ rev?: number }>({ type: "floorplan_studio/load" });
+      const r = await this.hass!.callWS<{ rev?: number }>({ type: "floorplan_studio/load", with_trace: true }); // only the revision is used; asked the same as every Studio load
       this.rev = typeof r.rev === "number" ? r.rev : null;
       this.conflict = "";
       ed.save();
