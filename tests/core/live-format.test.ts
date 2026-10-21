@@ -7,7 +7,7 @@ import { liveOf } from "../../src/core/live";
 // The 2D plan prints it (render.ts); the 3D overlay must print the same text. Reply shape: render.ts RenderOpts.formatState.
 const sq = (s: number): [number, number][] => [[0, 0], [s, 0], [s, s], [0, s]];
 const f = { title: "T", outline: sq(2000), rooms: [], walls: [], stairs: [], doors: [], openings: [], extras: [], furniture: [], unlinked: [], devices: [{ id: "t", type: "temp", entity: "sensor.t", x: 300, y: 300 }] } as unknown as Floor;
-const state = { "sensor.t": { state: "21.456789", attributes: { unit_of_measurement: "°C" } } };
+const state = { "sensor.t": { state: "21.456789", attributes: { unit_of_measurement: "°C" }, last_changed: "2026-10-08T09:00:00Z" } };
 const NOW = Date.parse("2026-10-08T10:00:00Z");
 
 describe("3D sensor value uses the card's formatter, as 2D does", () => {
@@ -22,7 +22,7 @@ describe("3D sensor value uses the card's formatter, as 2D does", () => {
     expect(liveOf(f, { scale: 1, state, formatState: () => undefined }, NOW).devices[0]?.value).toBe(raw);
   });
   it("a reading that is not a number still reads as a dash", () => {
-    const bad = { "sensor.t": { state: "unavailable", attributes: {} } };
+    const bad = { "sensor.t": { state: "unavailable", attributes: {}, last_changed: "2026-10-08T09:00:00Z" } };
     expect(liveOf(f, { scale: 1, state: bad, formatState }, NOW).devices[0]?.value).toBe("–");
   });
 });
