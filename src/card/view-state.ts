@@ -1,6 +1,6 @@
 /** The card's view memory and rotation, as pure maths and parsing. No DOM, no storage handle: the card reads and
  * writes `localStorage` itself and hands the raw string here. */
-import { DETAIL_MODES, HEAT_KINDS, WALLS_MODES, clampTilt, parseLayers, type DetailMode, type HeatKind, type LayerId } from "../core";
+import { DETAIL_MODES, HEAT_KINDS, WALLS_MODES, camPickOf, clampTilt, parseLayers, type CamThumb, type DetailMode, type HeatKind, type LayerId } from "../core";
 import { MAX_ZOOM, MIN_ZOOM, type Pt, type View } from "./viewport";
 
 /** S27.14: how the 3D view draws the floors below the shown one. A list of decisions, one per member: `off` draws none (the
@@ -92,6 +92,8 @@ export interface StoredView {
   below?: BelowMode;
   /** The Heat map choice (S34.8), one of `HEAT_KINDS`; it wins over the card's YAML `heat_map`, `off` included. */
   heat?: HeatKind;
+  /** The Camera thumbnail choice (S16.3): the fields the viewer picked, each winning over the card's YAML. */
+  cam?: Partial<CamThumb>;
 }
 
 /** Further than this from the origin is not a plan in cm; the bound keeps later arithmetic finite. */
@@ -162,5 +164,7 @@ export function parseStoredView(raw: unknown, isView: (v: unknown) => boolean, t
   if (typeof r.ghost === "boolean") out.ghost = r.ghost;
   if (typeof r.below === "string" && (BELOW_MODES as readonly string[]).includes(r.below)) out.below = r.below as BelowMode;
   if (typeof r.heat === "string" && (HEAT_KINDS as readonly string[]).includes(r.heat)) out.heat = r.heat as HeatKind;
+  const cam = camPickOf(r.cam);
+  if (cam) out.cam = cam;
   return out;
 }

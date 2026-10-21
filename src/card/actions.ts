@@ -132,7 +132,7 @@ export function bindDeviceActions(
     }
     startX = pe.clientX ?? 0;
     startY = pe.clientY ?? 0;
-    const target = opts?.resolve ? opts.resolve(pe) : (e.target as Element | null)?.closest('g[data-x], button[data-x], line[data-d], g[data-u], g[data-f][data-linked]');
+    const target = opts?.resolve ? opts.resolve(pe) : (e.target as Element | null)?.closest('g[data-x], button[data-x], line[data-d], g[data-u], g[data-f][data-linked], g[data-cam]');
     if (!target) return;
     const at = { x: startX, y: startY };
     const popupFrom = (el: Element) => (el.tagName === "BUTTON" ? el : null);
@@ -148,6 +148,12 @@ export function bindDeviceActions(
       return;
     }
 
+    // S16.3: a camera's thumbnail (2D, 2.5D and the 3D overlay) opens the camera's more-info, tap or hold; kiosk never reaches Home Assistant's dialog.
+    if (target.hasAttribute("data-cam")) {
+      const entityId = getDevice(Number(target.getAttribute("data-cam")))?.entity;
+      if (entityId && longPress) arm(() => fireEvent(host, "hass-more-info", { entityId }));
+      return;
+    }
     // A linked tv, speaker or computer piece is its device here, and a tv or speaker has no toggle: a tap or a hold is the entity's own more-info, no popup (as an unlinked appliance with a player).
     if (target.hasAttribute("data-f")) {
       // S35.6 (spec C8, Q4): kiosk never reaches Home Assistant's dialog, and `longPress: false` is kiosk's flag, so a linked piece does nothing there.

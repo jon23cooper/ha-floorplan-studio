@@ -15,6 +15,7 @@ import { doorStateOf } from "./door-state";
 import { heatRange, plugThreshold, powerHeat, wattsOf } from "./power";
 import { meanReading } from "./readings";
 import { roomHeat, type HeatKind } from "./heat";
+import { thumbBox, thumbUrl, type CamThumbOpts } from "./camera-thumb";
 import { badges } from "./rollup";
 import { carStatus } from "./car-status";
 import { carLook, carTop, type CarLook } from "./car";
@@ -28,6 +29,8 @@ import type { Device, DeviceType, EdgeKind, Floor, Furniture, Layout, Pt, RoomKi
 
 export interface StateOverlay { [entityId: string]: { state: string; attributes: Record<string, unknown>; last_changed: string } }
 export interface RenderOpts {
+  /** G9: the host's text for a sensor reading (display precision and unit). Omitted, or returning nothing, the plan prints the raw state and its unit. A non-number still reads "–". */
+  formatState?: (entity: string) => string | undefined;
   /** S11.3: the room the card has picked (its left panel shows it); drawn with an outline, class `picked`. The editor draws its own selection in an overlay and never passes this. */
   selectedRoom?: number;
   scale: number; selection?: PlanSel | null; showNames?: boolean;
@@ -86,6 +89,8 @@ export interface RenderOpts {
   plugHeat?: [number, number];
   /** S34.7: the heat map. `temperature` or `humidity` fills every room that reads that kind (`roomHeat`) by its place on the fixed scale: class `heat heat-<kind>` and `--fp-heat` (0..1) on the polygon, the value in the room's readout line (also under `labels: false`), and no night veil. Omitted, `off` or junk, the markup is byte for byte as before. */
   heat?: HeatKind;
+  /** S16.3: the camera thumbnail. With `on`, a camera whose state has an `entity_picture` draws that picture beside its icon (`size`, `pos`), in class `fp-cam-thumb` (a tap target `data-cam`, not in the editor); `bust` is the cache buster, `failed` the cameras whose picture did not load. A camera that is unavailable, has no picture or failed draws nothing. Omitted, off or junk, the markup is byte for byte as before. */
+  camThumb?: CamThumbOpts;
   /** S25.5: a stack of devices fanned out. Each entry moves device `i`'s icon to `at` (plan units), with a leader line to its true
    *  spot, a pin there and its name beside it. The card computes the spots (`spiderLayout`) and passes them while a ring is open.
    *  Junk entries (an unknown index, a point that is not finite), a hidden device and a device with no spot are skipped.
@@ -483,7 +488,7 @@ ${THEME_EXTRAS}
 .door-sym.k-window,.door-sym.k-slit,.door-sym.k-fullwindow{stroke:var(--fp-window)} .door-sym.open,.door-sym.alarm,.door-sym.cover-open{stroke:var(--fp-open-door)}
 /* S1 (Opus review of S23): a window's pane fills the whole cut, so the outer half of the gap on an outer wall is glass, not the
    board; opaque, a glass tint mixed into the bare room. Its jambs are window hairlines, red with the state like the symbol. */
-.win-pane{fill:color-mix(in srgb,var(--fp-window) 22%,var(--fp-room-empty));stroke:none;pointer-events:none} .win-pane.open,.win-pane.alarm{fill:color-mix(in srgb,var(--fp-open-door) 22%,var(--fp-room-empty))}
+.win-pane{fill:color-mix(in srgb,var(--fp-window) 15%,var(--fp-bg));stroke:none;pointer-events:none} .win-pane.open,.win-pane.alarm{fill:color-mix(in srgb,var(--fp-open-door) 15%,var(--fp-bg))}
 .win-jamb{fill:none;stroke:var(--fp-window);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none} .win-jamb.open,.win-jamb.alarm,.win-jamb.cover-open{stroke:var(--fp-open-door)}
 .dev.unbound path{stroke:var(--fp-warn);stroke-width:1.5;stroke-dasharray:3 2} .dev path{fill:var(--fp-idle);fill-opacity:.7}
 /* S23.4 (V10): an on glyph is ink on its solid disc, 4.5:1 in every theme. g.dev.on path (0,2,2) on purpose: it must beat
@@ -560,6 +565,7 @@ g.dev.unavailable path{fill:var(--fp-idle);fill-opacity:.7}
 @keyframes fp-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.dev-vacuum.spin path{animation:none}}
 .dev-motion{--fp-fade:0} .dev.dev-motion path{fill:color-mix(in srgb,var(--fp-motion) calc(var(--fp-fade) * 100%),var(--fp-idle))}
+.fp-cam-bg{fill:var(--fp-room);stroke:var(--fp-idle);stroke-width:1} .fp-cam-thumb{cursor:pointer} .fp-cam-thumb.fp-cam-ed{pointer-events:none;cursor:auto}
 .heater{stroke:var(--fp-idle)} .heater.on{stroke:var(--fp-heater)} .val,.lbl{fill:var(--fp-text);paint-order:stroke;stroke:var(--fp-outline);stroke-width:3;stroke-linejoin:round} .lbl-leader{stroke:var(--fp-text);opacity:.5;pointer-events:none} .lbl-tag{fill:var(--fp-outline);stroke:none;pointer-events:none} .lbl-on{pointer-events:none}
 /* S25.5: a fanned stack. Leader, pin and name never take a click (finding 18: class rules); a member stays drawn at far. */
 .spider-leader{stroke:var(--fp-text);stroke-opacity:.6;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none} .spider-pin{fill:var(--fp-text);fill-opacity:.8;pointer-events:none}
@@ -635,6 +641,17 @@ const OPENING_EXTRA = WALL_HALO_EXTRA + 2;
  *  its localStorage entry off a hash of the card's own config, the same idea as the mask and pattern ids below. */
 export { tag }; // lives in fmt.ts now, so solids.ts can mint a clip id without importing this file
 type Box = [number, number, number, number];
+/** Does the segment p-q touch the box (Liang-Barsky clip)? A leader is a thin line: its bounding box would claim a whole diagonal of space. */
+const segHitsBox = (p: Pt, q: Pt, [x, y, w, h]: Box): boolean => {
+  let t0 = 0, t1 = 1;
+  const dx = q[0] - p[0], dy = q[1] - p[1];
+  for (const [d, lo] of [[-dx, p[0] - x], [dx, x + w - p[0]], [-dy, p[1] - y], [dy, y + h - p[1]]] as const) {
+    if (d === 0) { if (lo < 0) return false; continue; }
+    const t = lo / d;
+    if (d < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
+  }
+  return true;
+};
 const meets = (a: Box, b: Box) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
 
 /** `p` turned clockwise by `deg` degrees about `pivot` (y points down, so this is the direction SVG's rotate() turns). */
@@ -1510,6 +1527,8 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
   // none free it keeps its first one regardless, so nothing is ever dropped (a name longer than its room, say).
   const placed: Box[] = [], words = new Set<Box>(); // `words`: the boxes in `placed` that are text (a tag may cover an icon, never a text)
   const toScreen = (p: Pt): Pt => (turn ? rotateAbout(p, turn.deg, turn.pivot) : p);
+  // S23.F1: the leaders placed so far, as screen segments. A name placed later keeps off them.
+  const lines: [Pt, Pt][] = [], onLine = (b: Box) => lines.some(([p, q]) => segHitsBox(p, q, b));
   const cs = Math.cos((planDeg * Math.PI) / 180), sn = Math.sin((planDeg * Math.PI) / 180);
   /** The plan point that shows `dx` right of and `dy` below `a` on the screen: the screen vector turned back into the plan. */
   const screenOff = (a: Pt, dx: number, dy: number): Pt => (planDeg ? [a[0] + dx * cs + dy * sn, a[1] - dx * sn + dy * cs] : [a[0] + dx, a[1] + dy]);
@@ -1624,7 +1643,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
         const c = screenOff(a, dx * kt, dy * kt);
         if (!fits(c, size)) continue;
         const box = textBox(c, size, len);
-        if (!placed.some((q) => meets(box, q))) { placed.push(box); words.add(box); return { at: c, size }; }
+        if (!placed.some((q) => meets(box, q)) && !onLine(box)) { placed.push(box); words.add(box); return { at: c, size }; }
         if ((!best.tag || size > best.tag.size) && ![...words].some((q) => meets(box, q))) best.tag = { at: c, size, tag: true };
       }
       return null;
@@ -1652,7 +1671,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
         spots.sort((a, b) => Math.hypot(a[0] - ax, a[1] - ay) - Math.hypot(b[0] - ax, b[1] - ay));
         for (const sp of spots) {
           const c = fromScreen(sp), box = textBox(c, size, len);
-          if (!inB(box) || placed.some((q) => meets(box, q)) || !ring(box).every((p) => bare(fromScreen(p)))) continue;
+          if (!inB(box) || placed.some((q) => meets(box, q)) || onLine(box) || !ring(box).every((p) => bare(fromScreen(p)))) continue;
           placed.push(box); words.add(box);
           return { at: c, size };
         }
@@ -1676,11 +1695,43 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
     };
     const above = intoB(screenOff(from, 0, Math.min(...ys) - GAP * kt - 0.25 * size - ay)), below = intoB(screenOff(from, 0, Math.max(...ys) + GAP * kt + 0.75 * size - ay));
     // The leader is one more thing that must not run across another text: its own thin box counts too.
-    const leaderBox = (c: Pt): Box => { const [x, y] = toScreen(from), [cx, cy] = toScreen(c); return [Math.min(x, cx) - k / 2, Math.min(y, cy), Math.abs(cx - x) + k, Math.abs(cy - y)]; };
-    const free = (c: Pt) => !placed.some((q) => meets(textBox(c, size, len), q));
-    const at = [below, above].find((c) => free(c) && !placed.some((q) => meets(leaderBox(c), q))) ?? [below, above].find(free) ?? below;
+    // Where the line ends: the edge of the text box nearest the start (the draw below uses the same rule).
+    const tip = (c: Pt): Pt => screenOff(c, 0, toScreen(c)[1] > toScreen(from)[1] ? -0.75 * size - 0.5 * kt : 0.25 * size + 0.5 * kt);
+    const free = (c: Pt) => { const b = textBox(c, size, len); return !placed.some((q) => meets(b, q)) && !onLine(b); };
+    // S23.F1: a leader should not run through another room's inside (it would cross that room's wall). The rooms that count
+    // are the indoor ones that do not hold the leader's start; a garden, a zone or a fill is not walled. `across` is the
+    // number of 8-unit steps of the line, and the spot itself, that lie in such a room.
+    const walled = f.rooms.filter((q) => q !== r && !OUTDOOR.has(q.kind) && q.kind !== "zone" && q.kind !== "fill" && q.kind !== "structure" && Array.isArray(q.pts) && q.pts.length > 2 && !inPoly(from, q.pts)).map((q) => q.pts);
+    const across = (c: Pt) => {
+      const e = tip(c), n = Math.ceil(Math.hypot(e[0] - from[0], e[1] - from[1]) / 8);
+      let hits = 0;
+      for (let i = 1; i <= n; i++) { const p: Pt = [from[0] + (e[0] - from[0]) * i / n, from[1] + (e[1] - from[1]) * i / n]; if (walled.some((q) => inPoly(p, q))) hits++; }
+      return hits;
+    };
+    const cands = [below, above], clearOf = (c: Pt) => { const a = toScreen(from), e = toScreen(tip(c)); return !placed.some((q) => segHitsBox(a, e, q)); };
+    // Only when above and below both cross a room: the same two rows slid sideways in 12k steps and moved further out in
+    // 12k steps, nearest the leader's start first. Bounds clamp them, so a room under the controls still finds a spot.
+    const wide = (): Pt[] => {
+      const [fx, fy] = toScreen(from), st = 12 * kt, out: Pt[] = [];
+      for (let j = -12; j <= 12; j++) for (let m = 0; m <= 8; m++) if (j || m) for (const row of cands) { const [, ry] = toScreen(row); out.push(intoB(fromScreen([fx + j * st, ry + (row === below ? m : -m) * st]))); }
+      return out.sort((a, b) => { const [ax, ay] = toScreen(a), [bx, by] = toScreen(b); return Math.hypot(ax - fx, ay - fy) - Math.hypot(bx - fx, by - fy); });
+    };
+    const pick = (list: Pt[], ok: (c: Pt) => boolean) => list.find((c) => free(c) && ok(c));
+    // Off every room and off every text; else the sideways spots; else off every text and across the fewest rooms; else
+    // the first free row, as before. A leader over a text is worse than one over a room.
+    let at = pick(cands, (c) => across(c) === 0 && clearOf(c));
+    if (!at) {
+      const w = wide();
+      at = pick(w, (c) => across(c) === 0 && clearOf(c));
+      if (!at) {
+        const open = [...cands, ...w].filter((c) => free(c) && clearOf(c)).map((c, n) => ({ c, n, room: across(c) }));
+        at = open.sort((x, y) => x.room - y.room || x.n - y.n)[0]?.c ?? pick(cands, () => true);
+      }
+    }
+    at ??= below;
     const box = textBox(at, size, len);
-    placed.push(box); words.add(box);
+    // The leader joins the obstacles, so a name placed later does not sit on it (S23.F1).
+    placed.push(box); words.add(box); lines.push([toScreen(from), toScreen(tip(at))]);
     return { at, size, from };
   };
   const nameAt: Label[] = [], zoneAt: Label[] = [];
@@ -1812,6 +1863,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
       ringOut.push(`<line class="spider-leader" x1="${num(from[0])}" y1="${num(from[1])}" x2="${num(e.at[0])}" y2="${num(e.at[1])}"/><circle class="spider-pin" cx="${num(from[0])}" cy="${num(from[1])}" r="${num(3 * k)}"/>`);
     }
 
+  const ct = o.camThumb && typeof o.camThumb === "object" && o.camThumb.on === true ? o.camThumb : null, thumbs: string[] = [], thumbWithin = () => B ?? viewBoxFor(f, 60, o.rotate, o.view, o.tilt);
   const needs = attentionDevices(f, o.state, o.attention); // S25 fix B: what the Overview's Attention lists stays a dot at far
   const ringCx = spiderAt.size ? [...spiderAt.values()].reduce((a, p) => a + p[0], 0) / spiderAt.size : 0;
   f.devices.forEach((d, i) => {
@@ -1871,6 +1923,13 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
     // S2.5: the bar carries the same on/off/unavailable class as the icon, so it goes orange only while heating (classOf already reads hvac_action).
     if ("a" in d) out.push(`<line data-xbar="${i}" class="heater ${cls}${sel ? " sel" : ""}" x1="${num(d.a[0])}" y1="${num(d.a[1])}" x2="${num(d.b[0])}" y2="${num(d.b[1])}" stroke-width="${sel ? 12 : 8}"/>`);
     const dim = o.dimmed?.has(d.entity) ? " dim" : "";
+    // S16.3: the camera's picture, in the screen frame beside its icon and upright in a turned plan, over every icon (pushed after the loop).
+    const url = ct && d.type === "camera" && !sp && !ct.failed?.has(d.entity) ? thumbUrl(o.state?.[d.entity], ct.bust) : null;
+    if (url) {
+      const b = thumbBox(toScreen(c), ct!, k, thumbWithin()), mid: Pt = [b.x + b.w / 2, b.y + b.h / 2], q = turn ? rotateAbout(mid, -turn.deg, turn.pivot) : mid;
+      const size = `x="${num(q[0] - b.w / 2)}" y="${num(q[1] - b.h / 2)}" width="${num(b.w)}" height="${num(b.h)}"`;
+      thumbs.push(`<g class="fp-cam-thumb${o.editor ? " fp-cam-ed" : ""}" data-cam${o.editor ? "x" : ""}="${i}"${up(q[0], q[1])}><title>${esc(label)}</title><rect class="fp-cam-bg" ${size} rx="${num(3 * k)}"/><image class="fp-cam-img" href="${esc(url)}" ${size} preserveAspectRatio="xMidYMid slice"/></g>`);
+    }
     (sp ? ringOut : out).push(`<g data-x="${i}" class="dev dev-${esc(String(d.type))}${sp ? " spider" : ""}${d.type === "ac" ? ` ${acMode(d, o) ?? ""}`.trimEnd() : ""}${bound ? " bound" : ""}${o.editor && d.entity === "" ? " unbound" : ""} ${cls}${needs.has(i) ? " needs-attention" : ""}${sel ? " sel" : ""}${dim}"${style}${person ? "" : ` transform="translate(${at([c[0] - 12 * k, c[1] - 12 * k])}) scale(${num(k)})${rot ? ` rotate(${num(rot)} 12 12)` : ""}"`}><title>${title}</title>${cone}${back ? `<g transform="rotate(${num(-back)} 12 12)">${icon}</g>` : icon}${o.locate?.t === "dev" && o.locate.i === i ? `<circle class="locate" cx="12" cy="12" r="16"/>` : ""}</g>`);
     if (sp && showText) { // S25.5: the member's name, outward of the ring's side so it never covers the next member
       const right = sp[0] >= ringCx, lx = sp[0] + (right ? 1 : -1) * 20 * k, ly = sp[1] + 4 * kt;
@@ -1899,7 +1958,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
       // an integration can report an empty string, a comma decimal or a word, and printing "not-a-number °C" is worse than saying nothing.
       const bad = !/^-?\d+(\.\d+)?$/.test(s.state.trim()) || !Number.isFinite(Number(s.state));
       const unit = typeof s.attributes.unit_of_measurement === "string" ? `\u202F${s.attributes.unit_of_measurement}` : ""; // S23.1: never wraps
-      const text = bad ? "–" : s.state + unit, vs = 11 * kt, gap = 16 * k + 2 * kt; // 2kt clear of the 16k disc
+      const text = bad ? "–" : (d.entity && o.formatState?.(d.entity)) || s.state + unit, vs = 11 * kt, gap = 16 * k + 2 * kt; // 2kt clear of the 16k disc
       // S7.1: below the icon, then above, then to the right (the box centred on the icon's centre line).
       const [vx, vy] = place([screenOff(c, 0, gap + 0.75 * vs), screenOff(c, 0, -gap - 0.25 * vs), screenOff(c, gap + (text.length * 0.6 * vs) / 2, 0.25 * vs)], vs, text);
       if (showText) out.push(`<text class="val" x="${num(vx)}" y="${num(vy)}"${up(vx, vy)} text-anchor="middle" font-size="${num(vs)}">${esc(text)}</text>`);
@@ -1934,7 +1993,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
     if (showText && (o.showNames || sel)) out.push(`<text class="lbl" x="${num(u.x)}" y="${num(u.y - 16 * k)}"${up(u.x, u.y - 16 * k)} text-anchor="middle" font-size="${num(9 * kt)}">${esc(label)}</text>`);
   });
 
-  out.push(...tags); // S23.3: over every icon, under the editor's handles
+  out.push(...thumbs, ...tags); // S16.3: pictures over the icons; S23.3: over every icon, under the editor's handles
   if (showText) out.push(...badges({ f, state: o.state, attn: o.attention, k: kt, up, screenOff, anchor: (i) => nameAt[i] ?? { at: centroid(f.rooms[i]!.pts), size: 0 }, hasValue: (i) => heated.has(i) })); // S25.3: shown by CSS at far and mid only; text, so none with labels off
   if (o.editor && o.handles !== false)
     for (const P of polys) P.pts.forEach((p, j) => out.push(`<circle class="h" data-h="${P.id}:${j}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`));

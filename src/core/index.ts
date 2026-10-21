@@ -43,10 +43,13 @@ export type { HaSceneRow, RoomSceneMenu, SceneCall, SceneHass } from "./room-sce
 export { ALL_OFF_SHARED, ALL_OFF_TITLE, ROOM_ROW_TAP, allOffTitle, deviceCentre, deviceInfo, filterToRoom, formatAge, formatChanged, relayText, floorSummary, lampOffEntities, roomAreaM2, roomSummary } from "./room-info";
 export type { InfoHass, InfoRow, RoomDeviceRow, RoomSensorRow, RoomSummary } from "./room-info";
 export { meanText, readingText, stateText } from "./state-text";
+export type { StateFormatter } from "./state-text";
 export { carEntities, carMain, carStatus, carText } from "./car-status";
 export type { CarStatus } from "./car-status";
 export { HEAT_KINDS, HEAT_SCALE, HEAT_SOURCE, anyRoomHeated, heatKindOf, heatLegend, roomHeat } from "./heat";
 export type { HeatKind } from "./heat";
+export { CAM_POS, CAM_SIZES, ThumbFeed, camPickOf, camThumbOf, thumbBox, thumbUrl } from "./camera-thumb";
+export type { CamPos, CamSize, CamThumb, CamThumbOpts } from "./camera-thumb";
 export { meanValue } from "./readings";
 export { buildSearchIndex, entryDetail, layoutEntries, normalize, searchIndex } from "./search";
 export type { SearchEntry, SearchIndex } from "./search";

@@ -54,6 +54,21 @@ const alignHouse = JSON.parse(readFileSync("tests/fixtures/align-house.json", "u
 // One entity table for the whole demo. `off` is every device at rest; `on` is every device doing its thing.
 const now = () => new Date().toISOString();
 const st = (state, attributes = {}) => ({ state, attributes, last_changed: now() });
+// S16.3: the stub picture of the demo camera, a 96 x 54 PNG made here (a sky, a floor, a door), so no real camera image is ever in the repo.
+const CAMPIC = await (async () => {
+  const { deflateSync, crc32 } = await import("node:zlib");
+  const W = 96, H = 54, raw = Buffer.alloc((W * 3 + 1) * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const door = x > 58 && x < 78 && y > 14, floor = y > 40, o = y * (W * 3 + 1) + 1 + x * 3;
+    const c = door ? [150, 90, 40] : floor ? [90, 90, 100] : [120 + y, 160 + y, 200];
+    raw[o] = c[0]; raw[o + 1] = c[1]; raw[o + 2] = c[2];
+  }
+  const chunk = (type, data) => { const b = Buffer.concat([Buffer.from(type), data]), n = Buffer.alloc(4), c = Buffer.alloc(4); n.writeUInt32BE(data.length); c.writeUInt32BE(crc32(b)); return Buffer.concat([n, b, c]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+  return `data:image/png;base64,${png.toString("base64")}`;
+})();
+const withCam = (hass) => ({ ...hass, states: { ...hass.states, "camera.demo_hall": st("idle", { entity_picture: CAMPIC }) } });
 const STATES = {
   off: {
     "light.demo_kitchen": "off", "sensor.demo_hall_pc": "off", "cover.demo_hall_blind": "closed", "sensor.demo_hall_printer": "idle", "sensor.demo_hall_ap": "off", "light.demo_living": "off", "light.demo_bedroom": "off", "switch.demo_hall": "off",
@@ -436,6 +451,12 @@ try {
   }
   for (const t of THEMES.filter((x) => ["light", "blueprint", "ha-dark"].includes(x.id)))
     cardShots.push({ name: `card-ground-heat-temperature-living-3x-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, dpr: 3, cfg: { heat_map: "temperature", active_list: false }, cropRoom: 0 });
+  // S16.3: the camera thumbnail, 2D and 2.5D, in every position at the default size and in the three sizes, light, blueprint and a dark theme.
+  // The Hall camera sits by the plan's west wall, so left shows the pull-back into the card.
+  for (const t of THEMES.filter((x) => ["light", "blueprint", "ha-dark"].includes(x.id))) for (const view of ["2d", "2.5d"])
+    cardShots.push({ name: `card-ground-camthumb-${t.id}${view === "2.5d" ? "-2-5d" : ""}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, view, cam: true, cfg: { camera_thumb: "on", active_list: false } });
+  for (const t of THEMES.filter((x) => ["light", "blueprint"].includes(x.id))) for (const [size, pos] of [["small", "above"], ["large", "left"], ["medium", "right"]])
+    cardShots.push({ name: `card-ground-camthumb-${size}-${pos}-${t.id}`, floor: "ground", which: "on", dark: t.dark, theme: t.theme, vars: t.vars, page: t.page, cam: true, cfg: { camera_thumb: "on", camera_thumb_size: size, camera_thumb_pos: pos, active_list: false } });
   // S35.4: the demo car in three states (home charging, away at Work, home with an unlocked door), 2D and 2.5D, light, blueprint and
   // midnight, each cropped to the car at 4x; and the nine models on the test-only layout (2D and 2.5D, light and blueprint).
   for (const t of [...THEMES.filter((x) => x.id === "blueprint" || x.id === "light"), { id: "midnight", theme: "midnight", dark: true, vars: "", page: "#111111" }]) for (const view of ["2d", "2.5d"]) {
@@ -455,7 +476,7 @@ try {
       const el = document.getElementById("c");
       el.setConfig(config); el.hass = hass;
       return el.updateComplete;
-    }, [{ layout: s.cars ? carsLayout : s.turned ? turnedLayout : s.ghost ? ghostLayout : s.rooms ? roomLayout : s.floor === "ground" ? monLayout : layout, floor: s.floor, theme: s.theme, ...(s.view ? { view: s.view } : {}), ...(s.cfg ?? {}) }, lamp(hassFor(s.which, s.dark), s.tap === 0 || s.hover === 0)]);
+    }, [{ layout: s.cars ? carsLayout : s.turned ? turnedLayout : s.ghost ? ghostLayout : s.rooms ? roomLayout : s.floor === "ground" ? monLayout : layout, floor: s.floor, theme: s.theme, ...(s.view ? { view: s.view } : {}), ...(s.cfg ?? {}) }, ((h) => (s.cam ? withCam(h) : h))(lamp(hassFor(s.which, s.dark), s.tap === 0 || s.hover === 0))]);
     if (s.pick !== undefined) {
       // A real click on bare floor, found with elementFromPoint (CLAUDE.md finding 3), then the first row's popup Details.
       await page.evaluate(([reg]) => { const el = document.getElementById("c"); el.hass = { ...el.hass, ...reg }; return el.updateComplete; },
@@ -544,6 +565,9 @@ try {
     shots3d.push({ name: `card-ground-textured-night-${t.id}-3d`, floor: "ground", t, orbit: false, which: "night", tex: true });
     shots3d.push({ name: `card-ground-textured-night-${t.id}-3d-orbit`, floor: "ground", t, orbit: true, which: "night", tex: true });
   }
+  // S16.3: the camera thumbnail in 3D.
+  for (const t of THEMES.filter((x) => x.id === "blueprint" || x.id === "light"))
+    shots3d.push({ name: `card-ground-camthumb-${t.id}-3d`, floor: "ground", t, orbit: false, cam: true, cfg: { camera_thumb: "on", active_list: false } });
   // S14.2: the popup after a real tap on the Living light in 3D, and the hover tooltip.
   for (const t of THEMES.filter((x) => x.id === "blueprint" || x.id === "light")) {
     shots3d.push({ name: `card-ground-popup-${t.id}-3d`, floor: "ground", t, orbit: false, tap: 0 });
@@ -574,7 +598,7 @@ try {
       const el = document.getElementById("c");
       el.setConfig(config); el.hass = hass;
       return el.updateComplete;
-    }, [{ layout: s.house ?? (s.ghost ? ghostLayout : s.tex ? texLayout : s.rooms ? roomLayout : s.floor === "ground" ? monLayout : layout), floor: s.floor, theme: s.t.theme, view: "3d", active_list: !!s.pick, ...(s.cfg ?? {}) }, lamp(hassFor(s.which ?? "on", s.t.dark), s.tap === 0 || s.hover === 0)]);
+    }, [{ layout: s.house ?? (s.ghost ? ghostLayout : s.tex ? texLayout : s.rooms ? roomLayout : s.floor === "ground" ? monLayout : layout), floor: s.floor, theme: s.t.theme, view: "3d", active_list: !!s.pick, ...(s.cfg ?? {}) }, ((h) => (s.cam ? withCam(h) : h))(lamp(hassFor(s.which ?? "on", s.t.dark), s.tap === 0 || s.hover === 0))]);
     const holder = page.locator("floorplan-studio-card").locator(".fp-3d");
     try { await page.waitForFunction(() => +(document.getElementById("c").shadowRoot.querySelector(".fp-3d")?.dataset.drawn ?? 0) >= 1, null, { timeout: 15000 }); }
     catch { errors.push(`${s.name}: the 3D view never drew a frame (WebGL missing, or the chunk failed)`); }

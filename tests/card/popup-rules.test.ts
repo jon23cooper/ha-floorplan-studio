@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEVICE_TYPES, type DeviceType } from "../../src/core";
 import { lightCaps, popupOp } from "../../src/card/popup";
+import { NO_TOGGLE } from "../../src/card/actions";
 
 // S14.2 items 3 and 5: what the popup's one button does, per device type, and where OFF asks first.
 // A type needs a representative entity: the button follows the entity's domain, the type says whether the card operates it.
@@ -54,7 +55,24 @@ describe("popupOp: the default operation per device type", () => {
   }
   it("an `other` device decides by its entity's domain: fan, siren and a pump switch ask; a sensor has no button", () => {
     for (const e of ["fan.x", "siren.x", "switch.pump", "humidifier.x", "input_boolean.x"]) expect(popupOp("other", e, "on")!.confirm, e).toBe("Confirm turn off");
-    for (const e of ["sensor.x", "binary_sensor.x", "button.x", "scene.x"]) expect(popupOp("other", e, "on"), e).toBeNull();
+    for (const e of ["sensor.x", "binary_sensor.x"]) expect(popupOp("other", e, "on"), e).toBeNull();
+  });
+  // G12: script, scene, button and valve have a service that does one thing. Neither a scene nor a button has an on/off: HA reports the
+  // time it was last used, or `unknown` before the first use, so `unknown` must not hide the button here as it does for a switch.
+  it("G12: a scene activates, a button presses, a script runs, a valve opens or closes by state; none asks first", () => {
+    expect(popupOp("other", "scene.movie", "unknown")).toEqual({ label: "Activate", domain: "scene", service: "turn_on", confirm: null });
+    expect(popupOp("other", "scene.movie", "2026-10-04T09:30:15+00:00")).toMatchObject({ label: "Activate", domain: "scene", service: "turn_on" });
+    expect(popupOp("other", "button.bell", "unknown")).toEqual({ label: "Press", domain: "button", service: "press", confirm: null });
+    expect(popupOp("other", "script.goodnight", "off")).toEqual({ label: "Run", domain: "script", service: "turn_on", confirm: null });
+    expect(popupOp("other", "script.goodnight", "on")).toMatchObject({ domain: "script", service: "turn_on" });
+    expect(popupOp("other", "valve.water", "closed")).toEqual({ label: "Open", domain: "valve", service: "open_valve", confirm: null });
+    expect(popupOp("other", "valve.water", "open")).toEqual({ label: "Close", domain: "valve", service: "close_valve", confirm: null });
+    for (const e of ["scene.movie", "button.bell", "script.goodnight", "valve.water"]) expect(popupOp("other", e, "unavailable"), `${e} unavailable`).toBeNull();
+  });
+  it("G12 (finding 17, 20): over every device type, the new domains get a button exactly when the type is not NO_TOGGLE", () => {
+    for (const t of DEVICE_TYPES) for (const e of ["scene.x", "button.x", "script.x", "valve.x"]) {
+      expect(popupOp(t, e, "off") !== null, `${t} on ${e}`).toBe(!NO_TOGGLE.has(t));
+    }
   });
   it("a group has no turn_on of its own: its button calls homeassistant.turn_on / turn_off (S14 review)", () => {
     expect(popupOp("other", "group.lamps", "off")).toMatchObject({ label: "Turn on", domain: "homeassistant", service: "turn_on", confirm: null });

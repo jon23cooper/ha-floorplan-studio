@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing } from "lit";
 import { live } from "./live-keep";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
-import { COORD_LIMIT, DEFAULT_MOTION_FADE_S, MAX_VIEWS, alignCandidates, chooseAlign, alignSummary, alignStatus, alignKeyOf, stairPlace, stairReport, floorBelow, floorPivot, floorPlace, floorPose, floorSwitch, poseFromPlace, detailFor, type DetailMode, DEVICE_COLOURS, FLOORPLAN_CSS, UI_ICONS, MAX_LAYOUT_BYTES, applyHaNames, furnitureForType, areaMove, availableEntities, inside, FURNITURE, FURNITURE_SYMBOLS, UNLINKED_TYPES, dist, edgeRooms, groupKind, anyRoomHeated, heatLegend, insertPoint, nearestEdge, polys, renderFloor, floorsAroundKey, rotateAbout, snapPoint, snapped, stitch, validate, viewBoxFor, wallWidthAt, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer } from "../core";
+import { COORD_LIMIT, DEFAULT_MOTION_FADE_S, MAX_VIEWS, alignCandidates, chooseAlign, alignSummary, alignStatus, alignKeyOf, stairPlace, stairReport, floorBelow, floorPivot, floorPlace, floorPose, floorSwitch, poseFromPlace, detailFor, type DetailMode, DEVICE_COLOURS, FLOORPLAN_CSS, UI_ICONS, MAX_LAYOUT_BYTES, applyHaNames, furnitureForType, areaMove, availableEntities, inside, FURNITURE, FURNITURE_SYMBOLS, UNLINKED_TYPES, dist, edgeRooms, groupKind, anyRoomHeated, heatLegend, ThumbFeed, insertPoint, nearestEdge, polys, renderFloor, floorsAroundKey, rotateAbout, snapPoint, snapped, stitch, validate, viewBoxFor, wallWidthAt, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer } from "../core";
 import type { AddCandidate, DeviceType, Floor, HaData, LayerId, Layout, Pt, Stairs, StateOverlay, Trace, WallKind } from "../core";
 import { MAX_ZOOM, panBy } from "../card/viewport";
 import { ROTATION_STEP, easeInOut, normaliseRotation, shortestDelta } from "../card/view-state";
@@ -367,15 +367,20 @@ export class FloorplanStudioEditor extends LitElement {
     }
     this.floor = this.st.floor;
     this.refreshNames();
+    this.st.markSaved(); // the host's layout, names refreshed, is the saved state
     this.requestUpdate("layout", old);
   }
+  /** True when the plan differs from the last load or successful save. The HA panel asks before the tab closes. */
+  get dirty(): boolean { return this.st.dirty; }
+  /** The host has made the plan current (it just loaded the stored one) without a save-request. */
+  markSaved() { this.st.markSaved(); }
 
   // ---- the remembered view -------------------------------------------------
 
   /** Cheap stand-in for the view: when it is unchanged, `exportView` need not run on every render. */
   private viewKey(): string {
     const st = this.st;
-    return `${st.floor}|${st.labels}|${st.viewRot}|${st.hidden.join(",")}|${st.heat}|${JSON.stringify(st.views)}`;
+    return `${st.floor}|${st.labels}|${st.viewRot}|${st.hidden.join(",")}|${st.heat}|${JSON.stringify(st.cam)}|${JSON.stringify(st.views)}`;
   }
 
   /** S27.12: the direction of a floor switch waiting to start on the next render; the attribute itself is set by hand (see `startSwitch`), never bound in the template. */
@@ -394,6 +399,7 @@ export class FloorplanStudioEditor extends LitElement {
   };
 
   protected updated() {
+    this.thumbs.want(this.isConnected && this.st.cam.on);
     if (this.switchDir) { const d = this.switchDir; this.switchDir = null; this.startSwitch(d); }
     if (this.ctxMenu) fitCtxMenu(this.renderRoot);
     if (this.outlineFocus) {
@@ -586,8 +592,17 @@ export class FloorplanStudioEditor extends LitElement {
   `,
   ];
 
+  /** S16.3: the camera pictures' refresh clock, running while they are on and the editor is on the page (core/camera-thumb.ts). */
+  private thumbs = new ThumbFeed(() => this.requestUpdate());
+  /** An <image> that fails to load fires `error` on itself, which does not bubble: heard on the way down, it is dropped until the next refresh. */
+  private onThumbError = (e: Event) => {
+    const i = Number((e.target as Element | null)?.closest?.("g[data-camx]")?.getAttribute("data-camx")), entity = this.st.f.devices[i]?.entity;
+    if (entity) this.thumbs.fail(entity);
+  };
+
   connectedCallback() {
     super.connectedCallback();
+    this.renderRoot.addEventListener("error", this.onThumbError, true);
     // Keys are heard on the element only, so Delete or Ctrl+Z elsewhere in a page does nothing here.
     if (!this.hasAttribute("tabindex")) this.tabIndex = 0;
     this.addEventListener("keydown", this.onKey);
@@ -602,6 +617,8 @@ export class FloorplanStudioEditor extends LitElement {
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    this.thumbs.want(false);
+    this.renderRoot.removeEventListener("error", this.onThumbError, true);
     this.removeEventListener("keydown", this.onKey);
     this.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("blur", this.onBlur);
@@ -1432,7 +1449,9 @@ export class FloorplanStudioEditor extends LitElement {
     this.status = "Loading the image…";
     this.requestUpdate();
     let img;
-    try { img = await traceImage(file); } catch (e) { this.status = (e as Error).message; this.requestUpdate(); return; }
+    // G19: the image may take what the save limit leaves after the rest of the plan (this floor's old trace is replaced, so it does not count), less the trace's own fields.
+    const room = MAX_LAYOUT_BYTES - (JSON.stringify(this.st.layout).length - (this.st.f.trace?.src.length ?? 0)) - 400;
+    try { img = await traceImage(file, room); } catch (e) { this.status = (e as Error).message; this.requestUpdate(); return; }
     if (this.st.floor !== floor) { this.status = "Floor changed while loading; load the image again."; this.requestUpdate(); return; }
     const o = this.st.f.outline, v = this.st.view;
     const box = o.length >= 3
@@ -2912,6 +2931,7 @@ export class FloorplanStudioEditor extends LitElement {
     this.errors = [];
     this.st.persist();
     this.status = "Saving…";
+    this.st.saveSent();
     const ev = new CustomEvent("save-request", { detail: this.st.layout, bubbles: true, composed: true, cancelable: true });
     this.dispatchEvent(ev);
     // A host that listens owns the outcome and answers with saveDone(). Nobody listening: nothing else will write it.
@@ -2944,6 +2964,7 @@ export class FloorplanStudioEditor extends LitElement {
   }
   /** The host calls this when it has written (or failed to write) the layout it got in `save-request`. */
   saveDone(ok: boolean, message?: string) {
+    if (ok) this.st.saveWritten();
     this.status = ok ? message || "Saved" : message || "Save failed";
     this.requestUpdate();
   }
@@ -2979,17 +3000,20 @@ export class FloorplanStudioEditor extends LitElement {
     this.applyLayout(this.demo, "Demo home loaded");
   }
   /** Validates first; on any problem lists them and leaves the current layout untouched. */
-  private applyLayout(x: unknown, status: string) {
+  private applyLayout(x: unknown, status: string, lock = true): boolean {
     const r = loadLayout(x);
-    if (!r.ok) { this.errors = r.errors; this.status = "Could not use that layout"; return; }
+    if (!r.ok) { this.errors = r.errors; this.status = "Could not use that layout"; return false; }
     this.stopDraw();
     this.errors = [];
     this.st.setLayout(structuredClone(r.layout), undefined, true);
-    this.st.planLocked = !isBlank(r.layout);
+    if (lock) this.st.planLocked = !isBlank(r.layout);
     this.floor = this.st.floor;
     this.refreshNames();
     this.changed(status);
+    return true;
   }
+  /** For a host that has another version of the plan (a draft, the copy saved elsewhere): through validate, one undo step, nothing changes when it fails. The lock stays as it is. */
+  adoptLayout(x: unknown, status: string): boolean { return this.applyLayout(x, status, false); }
   async openFile(ev: Event) {
     const input = ev.target as HTMLInputElement, file = input.files?.[0];
     if (!file) return;
@@ -3125,7 +3149,7 @@ export class FloorplanStudioEditor extends LitElement {
     const { activeGroup } = floorGroups(st);
     const dimmed = activeGroup ? new Set(f.devices.filter((d) => d.entity && !(activeGroup.members ?? []).includes(d.entity)).map((d) => d.entity)) : undefined;
     // The grid is placed before renderFloor's own output, so the plan draws over it; a turned plan turns grid and overlay the same way.
-    const body = turnG(grid) + renderFloor(f, { scale: s, selection: sel, keep: st.sel && (st.sel.t === "furn" || st.sel.t === "unl") ? { t: st.sel.t, i: st.sel.i } : null, hiddenLayers: st.hidden, detail: detailFor(viewBoxFor(f, 80, st.rotation), v, this.detailMode), showNames: st.showNames, editor: true, handles: !(this.asideMode === "align" && this.alignKey === st.floor), trace: true, rotate: rot, colors: st.layout.colors, theme: st.theme, dark: this.isDark(), dimmed, night: st.night, state: this.stateForRender(), now: Date.now(), roomGlow: true, ghost: this.ghostOpts(), labels: st.labels, heat: st.heat, around: floorsAroundKey(st.layout, st.floor), locate: this.locate?.floor === st.floor ? { t: this.locate.t, i: this.locate.i } : null }) + turnG(overlay);
+    const body = turnG(grid) + renderFloor(f, { scale: s, selection: sel, keep: st.sel && (st.sel.t === "furn" || st.sel.t === "unl") ? { t: st.sel.t, i: st.sel.i } : null, hiddenLayers: st.hidden, detail: detailFor(viewBoxFor(f, 80, st.rotation), v, this.detailMode), showNames: st.showNames, editor: true, handles: !(this.asideMode === "align" && this.alignKey === st.floor), trace: true, rotate: rot, colors: st.layout.colors, theme: st.theme, dark: this.isDark(), dimmed, night: st.night, state: this.stateForRender(), now: Date.now(), roomGlow: true, ghost: this.ghostOpts(), labels: st.labels, heat: st.heat, camThumb: st.cam.on ? { ...st.cam, bust: this.thumbs.bust, failed: this.thumbs.failed } : undefined, around: floorsAroundKey(st.layout, st.floor), locate: this.locate?.floor === st.floor ? { t: this.locate.t, i: this.locate.i } : null }) + turnG(overlay);
     const find = this.findData();
     return html`
       ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}

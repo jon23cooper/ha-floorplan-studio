@@ -1,5 +1,5 @@
 import { LitElement, css, html } from "lit";
-import { UI_ICONS, DEFAULT_TILT, HEAT_KINDS, heatKindOf, pieceDevice, DETAIL_LABELS, DETAIL_MODES, parseDetailMode, THEMES, WALLS_LABELS, WALLS_MODES, wallsModeOf, clampTilt, migrate, validate } from "../core";
+import { CAM_POS, CAM_SIZES, camThumbOf, UI_ICONS, DEFAULT_TILT, HEAT_KINDS, heatKindOf, pieceDevice, DETAIL_LABELS, DETAIL_MODES, parseDetailMode, THEMES, WALLS_LABELS, WALLS_MODES, wallsModeOf, clampTilt, migrate, validate } from "../core";
 import type { DetailMode, HeatKind, Layout, Theme, WallsMode } from "../core";
 import type { FloorplanStudioCardConfig, Hass } from "./floorplan-studio-card";
 import { defineElement } from "./define";
@@ -212,6 +212,19 @@ export class FloorplanStudioCardEditor extends LitElement {
     this._set("heat_map", heatKindOf((e.target as HTMLSelectElement).value).kind, "off");
   }
 
+  // S16.3: the three camera choices; a default is left out of the YAML. Junk in the YAML reads as the default.
+  private _onCam(e: Event): void {
+    this._set("camera_thumb", (e.target as HTMLInputElement).checked ? "on" : "off", "off");
+  }
+
+  private _onCamSize(e: Event): void {
+    this._set("camera_thumb_size", camThumbOf({ camera_thumb_size: (e.target as HTMLSelectElement).value }).size, "medium");
+  }
+
+  private _onCamPos(e: Event): void {
+    this._set("camera_thumb_pos", camThumbOf({ camera_thumb_pos: (e.target as HTMLSelectElement).value }).pos, "below");
+  }
+
   private _onGhost(e: Event): void {
     this._set("ghost_floor", (e.target as HTMLInputElement).checked, false);
   }
@@ -402,9 +415,15 @@ export class FloorplanStudioCardEditor extends LitElement {
     this._set("view_switch", (e.target as HTMLInputElement).checked, DEFAULT_VIEW_SWITCH);
   }
 
-  /** Only a real `false` unticks the box, as on the card; `true` (the kiosk opt-in) is YAML only and shows ticked. */
+  /** G10: what the card does with no `rotate_switch` key (`_rotateOn`): the pair comes with another control and goes with kiosk. */
+  private _rotateDefault(): boolean {
+    const c = this._config;
+    return c.kiosk !== true && (c.zoom !== false || c.view_switch !== false);
+  }
+
+  /** The box shows what the card does: a boolean key wins, else the default above. The key is dropped only when it says what the default says. */
   private _onRotateSwitch(e: Event): void {
-    this._set("rotate_switch", (e.target as HTMLInputElement).checked, true);
+    this._set("rotate_switch", (e.target as HTMLInputElement).checked, this._rotateDefault());
   }
 
   private _onNames(e: Event): void {
@@ -504,6 +523,7 @@ export class FloorplanStudioCardEditor extends LitElement {
     const floors = this._floorEntries();
     const checked = new Set(this._config.floors ?? []);
     const floorChoice = this._floorChoice();
+    const cam = camThumbOf(this._config as Record<string, unknown>);
     return html`
       <div class="row">
         <label class="main" for="theme">Theme</label>
@@ -595,12 +615,12 @@ export class FloorplanStudioCardEditor extends LitElement {
 
       <div class="row">
         <label class="main" for="view_switch">View switch</label>
-        <input id="view_switch" type="checkbox" .checked=${this._config.view_switch ?? DEFAULT_VIEW_SWITCH} @change=${this._onViewSwitch} />
+        <input id="view_switch" type="checkbox" .checked=${this._config.kiosk !== true && (this._config.view_switch ?? DEFAULT_VIEW_SWITCH)} .disabled=${this._config.kiosk === true} title=${this._config.kiosk === true ? "Kiosk hides the View switch" : ""} @change=${this._onViewSwitch} />
       </div>
 
       <div class="row">
         <label class="main" for="rotate_switch">Rotate buttons</label>
-        <input id="rotate_switch" type="checkbox" .checked=${this._config.rotate_switch !== false} @change=${this._onRotateSwitch} />
+        <input id="rotate_switch" type="checkbox" .checked=${typeof this._config.rotate_switch === "boolean" ? this._config.rotate_switch : this._rotateDefault()} @change=${this._onRotateSwitch} />
       </div>
 
       <div class="row">
@@ -626,6 +646,23 @@ export class FloorplanStudioCardEditor extends LitElement {
         <label class="main" for="heat_map">Heat map</label>
         <select id="heat_map" title="Fill the rooms by the current temperature or humidity" @change=${this._onHeatMap}>
           ${HEAT_KINDS.map((k) => html`<option value=${k} ?selected=${heatKindOf(this._config.heat_map).kind === k}>${HEAT_LABELS[k]}</option>`)}
+        </select>
+      </div>
+
+      <div class="row">
+        <label class="main" for="camera_thumb">Camera thumbnail</label>
+        <input id="camera_thumb" type="checkbox" title="Show a small live picture beside each camera icon" .checked=${cam.on} @change=${this._onCam} />
+      </div>
+      <div class="row">
+        <label class="main" for="camera_thumb_size">Thumbnail size</label>
+        <select id="camera_thumb_size" @change=${this._onCamSize}>
+          ${CAM_SIZES.map((s) => html`<option value=${s} ?selected=${cam.size === s}>${s[0]!.toUpperCase() + s.slice(1)}</option>`)}
+        </select>
+      </div>
+      <div class="row">
+        <label class="main" for="camera_thumb_pos">Thumbnail position</label>
+        <select id="camera_thumb_pos" @change=${this._onCamPos}>
+          ${CAM_POS.map((p) => html`<option value=${p} ?selected=${cam.pos === p}>${p[0]!.toUpperCase() + p.slice(1)}</option>`)}
         </select>
       </div>
 
@@ -667,7 +704,7 @@ export class FloorplanStudioCardEditor extends LitElement {
 
       <div class="row">
         <label class="main" for="active_list">Active list</label>
-        <input id="active_list" type="checkbox" .checked=${this._config.active_list ?? DEFAULT_ACTIVE_LIST} @change=${this._onActiveList} />
+        <input id="active_list" type="checkbox" .checked=${this._config.kiosk !== true && (this._config.active_list ?? DEFAULT_ACTIVE_LIST)} .disabled=${this._config.kiosk === true} title=${this._config.kiosk === true ? "Kiosk hides the Active list" : ""} @change=${this._onActiveList} />
       </div>
 
       <div class="row">

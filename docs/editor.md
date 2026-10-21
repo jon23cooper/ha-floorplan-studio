@@ -53,7 +53,7 @@ Left to right:
   coordinate limit says so in the status line.
 - **View** — how the plan looks while you work: snap grid, measure grid, lengths, a Labels submenu (Device names, Names and values),
   Floor below (the floor under this one as faint lines, kept in this browser, no undo step),
-  Preview night, theme, Detail (Auto, Full or Minimal), Heat map (Off, Temperature or Humidity), Saved views, Re-center and Fit to window. The editor draws the plan
+  Preview night, theme, Detail (Auto, Full or Minimal), Heat map (Off, Temperature or Humidity), Camera thumbnail (On/Off, size, position), Saved views, Re-center and Fit to window. The editor draws the plan
   flat only; 2.5D (and soon 3D) is a way to look, so it lives in the card.
   Everything here that is about looking, not editing, is in the card too:
   see "Studio and card" in `card.md` for the list, and for what is left out on
@@ -376,6 +376,14 @@ while you edit, a device you just placed must not vanish at fit. The choice is k
 layout and is not an undo step; when it is not Full the toolbar says "Detail: Auto" or "Detail: Minimal". The levels and
 thresholds are in the card's Detail section (`card.md`).
 
+## Camera thumbnail
+
+View, Camera thumbnail draws a small live picture beside each camera icon: On or Off (Off at start), Size (small, medium, large) and
+Position (above, below, left, right of the icon). It is the same picture and the same three choices as the card (`camera_thumb`,
+`camera_thumb_size`, `camera_thumb_pos`; see the card's Camera thumbnail section). The pick is kept in this browser with the view and is not an undo
+step. The picture takes no pointer, so clicking, selecting and dragging the camera work as before. Inside Home Assistant it is the camera's own
+`entity_picture`, refreshed every 10 seconds and paused while the tab is hidden; standalone there is no camera state, so none is drawn.
+
 ## Heat map
 
 View, Heat map fills each room that has a reading by a fixed scale (16 to 26 °C, or 30 to 70 %) and prints its value, as
@@ -420,7 +428,11 @@ Edit, Trace image… opens a small panel at the bottom left of the plan.
    drops it. Each change is one undo step.
 
 Only the editor shows the image. The card never draws it, though Save keeps it
-with the plan (up to 4 MB). File, Export leaves it out unless you tick
+with the plan. Home Assistant takes at most 3.5 MB in one save for the whole
+plan, so Load fits the image into what the rest of the plan leaves (a single
+image is never over 4 MB), lowering its quality if it must. If even that is not
+enough, Load says so and changes nothing: crop the scan or remove another
+floor's image. File, Export leaves it out unless you tick
 **Include trace image**, so a file you hand to an assistant stays small.
 
 ## Starting from photos instead
@@ -440,3 +452,10 @@ anyone (or an LLM) can hand you, it's treated as untrusted: a missing field
 gets a sane default, an out-of-range value gets clamped or wrapped rather
 than crashing the load, and only `validate()` itself is the strict gate that
 decides whether the result is usable.
+
+## Saving in Home Assistant
+
+- **Unsaved work.** Closing the tab with edits that were not saved asks first. Leaving through HA's sidebar does not unload the page, so the editor also keeps an autosave draft in this browser. The next time the panel opens and that draft differs from the stored plan, a bar asks "Restore unsaved draft from 2026-10-21 14:03?". Restore is one undo step; Discard forgets the draft. A draft that fails validation is ignored.
+- **Two tabs.** The stored plan has a revision number. A save carries the revision the page loaded; if someone saved in between, nothing is written and a bar offers Reload (take the stored plan in, one undo step, yours is one Undo away) or Overwrite (save yours over it).
+- **Dark mode.** A change of HA's theme restyles the editor and leaves your edits and undo history alone.
+- **Narrow screens.** The panel shows HA's menu button in a top bar.

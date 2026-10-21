@@ -14,6 +14,7 @@ type V3 = [number, number, number];
 export interface Ray { o: V3; d: V3 }
 export type Pick =
   | { type: "device"; index: number }
+  | { type: "cam"; index: number }
   | { type: "door"; index: number }
   | { type: "unlinked"; index: number }
   | { type: "piece"; index: number }

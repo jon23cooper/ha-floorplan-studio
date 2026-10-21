@@ -70,6 +70,18 @@ for (const [width, height] of [[1440, 900], [1024, 768]] as const) {
       expect((await groundOf(page)).devices).toHaveLength(before + N);
     });
 
+    test("S22.F5: a banner (Plan unlocked) does not cover the top of the Place popup", async ({ page }) => {
+      await selectLiving(page);
+      await clickAt(page, "#rplace");
+      await expect(page.locator("#placePanel")).toBeVisible();
+      await page.evaluate((tag) => (document.querySelector(tag) as any).notify("Plan unlocked"), EDITOR);
+      const banner = page.locator(`${EDITOR} .banner`);
+      await expect(banner).toBeVisible();
+      const a = (await banner.boundingBox())!, b = (await page.locator("#placePanel").boundingBox())!;
+      const apart = a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+      expect(apart, `banner ${JSON.stringify(a)} vs Place popup ${JSON.stringify(b)}`).toBe(true);
+    });
+
     test("S22.3: the Add device popup fits the window", async ({ page }) => {
       await page.locator('details.menu > summary:text-is("Add")').click();
       await clickAt(page, "#addDevBtn");

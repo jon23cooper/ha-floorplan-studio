@@ -1,6 +1,8 @@
 import { alignFloor, floorBelow, floorPlace, floorPose, normaliseTurn, placePoint, poseFromPlace, DETAIL_MODES, parseDetailMode, CAR_SPEC, FURNITURE, MAX_ROOM_SENSORS, DEVICE_TYPES, furnitureForEntity, FLOOR_COLOURS, inside, roomAt, MAX_PALETTE, TEXTURE_IDS, THEMES, contentPoints, findPowerSensor, haFloorIdsForPlanFloor, migrate, parseLayers, placeableDevicesInArea, placedEntities, planPivot, rotateAbout, stairSteps, switchChoicesForLight, typeForEntity, unplacedCatalog, unplacedHaEntities, validate, viewBoxFor } from "../core";
 import { CAR_MODELS, COORD_LIMIT, MAX_CAR_ATTACHED, MAX_VIEWS, MAX_VIEW_ZOOM } from "../core/schema";
 import type { SavedView } from "../core/schema";
+import { camThumbOf } from "../core/camera-thumb";
+import type { CamThumb } from "../core/camera-thumb";
 import type { DetailMode, HeatKind, CatalogEntry, DeviceType, Floor, HaData, LayerId, Layout, Pt, Stairs, SwitchChoice, Theme, Trace } from "../core";
 import type { GroupedChoice } from "./sensor-order";
 import { setRoomList, type RoomSensorField } from "./ops";
@@ -125,6 +127,24 @@ export function restoreLayout(): Layout | null {
   }
 }
 
+/** When the autosave was last written (ISO), kept beside it so the HA panel can say how old a draft is. */
+export const DRAFT_AT_KEY = `${STORAGE_KEY}:at`;
+
+/** The raw autosave, untrusted and unvalidated, with its time; null when there is none. The HA panel validates it before it offers it. */
+export function readDraft(): { raw: unknown; at: string } | null {
+  try {
+    const text = localStorage.getItem(STORAGE_KEY);
+    if (!text) return null;
+    return { raw: JSON.parse(text), at: localStorage.getItem(DRAFT_AT_KEY) ?? "" };
+  } catch {
+    return null;
+  }
+}
+
+export function clearDraft() {
+  try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(DRAFT_AT_KEY); } catch { /* blocked: nothing to clear */ }
+}
+
 /** The room list a device of `type` moves into (S11.2): temperature, humidity and motion devices only. */
 const roomFieldOf = (type: DeviceType | undefined): RoomSensorField | undefined => (type === "temp" ? "temps" : type === "humidity" ? "humidity" : type === "motion" ? "motion" : undefined);
 
@@ -224,6 +244,8 @@ export class EditorState {
   labels = true;
   /** S34.10: the heat map (View, Heat map). View state: kept in the view memory, no undo step, never in the layout. */
   heat: HeatKind = "off";
+  /** S16.3: the camera thumbnail (View, Camera thumbnail): on or off, its size and its side of the icon. View state like `heat`. */
+  cam: CamThumb = camThumbOf({});
   setLabels(on: boolean): void { this.labels = on !== false; }
   /** id of the door drawn open in the preview */
   openDoor: string | null = null;
@@ -250,8 +272,13 @@ export class EditorState {
   private hist: string[] = [];
   private fut: string[] = [];
 
+  /** The layout as it was at the last load or successful save, serialised; `dirty` compares against it. */
+  private savedSig = "";
+  private pendingSig = "";
+
   constructor(layout: Layout = emptyLayout(), floor?: string) {
     this.layout = layout;
+    this.savedSig = JSON.stringify(layout);
     this.floor = floor && hasOwn(layout.floors, floor) ? floor : Object.keys(layout.floors)[0];
   }
 
@@ -265,8 +292,16 @@ export class EditorState {
     this.layout = layout;
     this.floor = floor && hasOwn(layout.floors, floor) ? floor : hasOwn(layout.floors, this.floor) ? this.floor : Object.keys(layout.floors)[0];
     this.sel = null; this.views = {}; this.openDoor = null; this.confirmDelete = false;
-    if (!keepHistory) { this.hist = []; this.fut = []; }
+    if (!keepHistory) { this.hist = []; this.fut = []; this.markSaved(); } // a host load is the saved state; Open and Reset are edits
   }
+
+  /** True when the layout is not the one last loaded or saved: undoing back to it makes it clean again. Serialises, so ask on demand, not per frame. */
+  get dirty(): boolean { return JSON.stringify(this.layout) !== this.savedSig; }
+  /** The layout as it stands now is the saved one. */
+  markSaved() { this.savedSig = JSON.stringify(this.layout); }
+  /** A save was sent: remember what it carried, so an edit made while it is in flight stays dirty. */
+  saveSent() { this.pendingSig = JSON.stringify(this.layout); }
+  saveWritten() { if (this.pendingSig) this.savedSig = this.pendingSig; }
 
   setFloor(name: string) {
     if (!hasOwn(this.layout.floors, name)) return;
@@ -649,6 +684,7 @@ export class EditorState {
     if (this.viewRot) m.rotation = this.viewRot;
     if (this.hidden.length) m.hidden = [...this.hidden];
     if (this.heat !== "off") m.heat = this.heat;
+    if (JSON.stringify(this.cam) !== JSON.stringify(camThumbOf({}))) m.cam = { ...this.cam };
     const deg = (this.layout.rotate ?? 0) + this.viewRot;
     const rot = deg % 360 ? { deg, pivot: planPivot(this.layout) } : undefined;
     const zooms: [string, { zoom: number; focus: Pt }][] = [];
@@ -673,6 +709,7 @@ export class EditorState {
     if (m.rotation !== undefined) this.viewRot = normaliseRotation(m.rotation);
     this.hidden = parseLayers(m.hidden);
     this.heat = m.heat ?? "off";
+    this.cam = camThumbOf({}, m.cam);
     if (m.floor !== undefined && hasOwn(this.layout.floors, m.floor)) { this.floor = m.floor; this.sel = null; }
     this.views = {};
     for (const [key, z] of m.zooms ?? []) {
@@ -1280,6 +1317,7 @@ export class EditorState {
   /** Writes the autosave. S7.11: a trace image can fill the few MB a browser gives a site; the plan is then saved
    *  without its images rather than not at all, and this returns false. Blocked storage also returns false. */
   persist(): boolean {
+    try { localStorage.setItem(DRAFT_AT_KEY, new Date().toISOString()); } catch { /* the draft then has no time */ }
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.layout)); return true; } catch { /* private mode, quota */ }
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.layout, (k, v) => (k === "trace" ? undefined : v))); } catch { /* blocked */ }
     return false;

@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+- The Studio's update banner only trusts a release URL that starts with this repository's GitHub address, so a look-alike URL gets no banner and no link.
+- Studio, safety (review): Reload after a conflict (and Overwrite) now asks the server for the trace images. Before, the reloaded plan had none, and the next Save erased them from the stored plan.
+- Studio, safety (review): a successful Save clears this browser's autosave draft, so the "Restore unsaved draft" bar no longer offers an old plan that another device has since replaced. A draft that only lost its trace images (the autosave drops them when browser storage is full) is no longer offered for that alone, and Restore keeps the stored images.
+- Studio: pressing Save twice before the first reply no longer ends in a false conflict. The second press waits, then saves the newest state against the new revision.
+- 3D: sensor readings use the same display text as the 2D plan (21.5 °C, not 21.456789 °C).
+
+- Card: on a narrow card, the leader line from a small room's name keeps off other rooms and off other names where there is room to do so.
+- Card: a window's lines read at 3:1 or better against the pane in every theme (light and solarized were 2.4 and 2.8). The pane is a lighter tint of the board.
+- Docs: theme gallery images regenerated.
+- Studio, safety: a change of Home Assistant's theme no longer resets the editor (edits, undo, zoom). After a Save the panel also holds what was saved, so a later redraw cannot bring the old plan back.
+- Studio: closing the tab with unsaved edits asks first. When the panel opens and this browser holds an autosave draft that differs from the stored plan, a bar offers "Restore unsaved draft from <time>?" (one undo step) or Discard.
+- Integration: the stored plan has a revision. `floorplan_studio/load` returns `rev`; `floorplan_studio/save` takes an optional `expected_rev`, answers the error `conflict` and writes nothing when it is stale, and returns the new `rev`. The Studio shows Reload and Overwrite on a conflict. A save without `expected_rev` still overwrites. Storage written by older versions reads as revision 0.
+- Studio: on a narrow screen the panel shows HA's menu button.
+
+- Card and Studio: a small live camera picture beside each camera icon, in 2D, 2.5D and 3D. Off by default. Options `camera_thumb`, `camera_thumb_size` (small, medium, large) and `camera_thumb_pos` (above, below, left, right), also in the card's visual editor, the card's View menu and the Studio's View menu. The picture comes from the camera's own `entity_picture` through Home Assistant, refreshes every 10 s, and pauses while the tab is hidden. A tap on it opens the camera's more-info. A picture that does not load is not drawn.
+
+- Card: a failed load shows the integration's own message instead of "install the integration"; a store with nothing saved says "No plan saved yet" and links admins to the Studio. One retry on the next update and when the connection is ready again.
+- Card: after an update, a cached page that cannot read the new plan says "Floorplan Studio was updated. Reload this page."
+- Card: cards on one dashboard share one load, a config change that keeps the source keeps the plan, and the load no longer carries trace images (only the Studio asks for them, and only an admin gets them).
+- Card: a save in the Studio fires `floorplan_studio_updated`, and open cards reload the plan. Only admin sessions can subscribe to it.
+- Release notes on GitHub are now the CHANGELOG entry. `render_readme` (ignored by HACS) is gone from `hacs.json`. Removing the integration no longer fails when the dashboard resource store errors.
+
+- Card: sensor readings, the popup line and the tooltip use Home Assistant's own display text when the frontend offers `formatEntityState`: 21.5 °C, not 21.456789 °C; Heat/Cool, not heat_cool. Studio keeps the raw state.
+- Card form: under kiosk the Rotate buttons box shows what the card does (unticked) and ticking it writes `rotate_switch: true`. View switch and Active list show unticked and disabled under kiosk, which hides them for good.
+- Card: a service call that Home Assistant rejects now shows HA's toast (`hass-notification`, "switch.turn_on: message") instead of failing silently. One helper makes every call the card sends.
+- Card: the popup of a device on a scene, button, script or valve has its button: Activate (`scene.turn_on`), Press (`button.press`), Run (`script.turn_on`), Open or Close by state (`valve.open_valve`, `valve.close_valve`). None asks first; a tap with `tap_action: toggle` still opens the popup rather than acting.
+- Studio: Trace image, Load checks the whole plan against the 3.5 MB save limit, not only the 4 MB per image. The scan is encoded to fit what the other floors leave; if it cannot fit, Load says so with what to do and changes nothing. Before, a 3.8 MB scan loaded and Save then refused.
+
 ## 0.33.3 - 2026-10-20
 
 - Studio, safety (HACS review): the cleanup list in Edit, Home Assistant, lists and removes only what the editor created. The `floorplan-studio` label alone no longer counts: a light, automation or area you labelled yourself is never listed, and Remove checks the item again before it deletes anything. Helpers must come from `switch_as_x` or `group`, automations must have an `fp_` id, areas must be ones this browser created.

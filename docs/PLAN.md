@@ -2379,9 +2379,9 @@ Diego, 2026-10-06. Four items. Each task starts with its failing test (CLAUDE.md
 - [ ] S16.2 Home and away by position. One attached `device_tracker` (or the car's own) decides: `home` draws the car where it is parked on the plan; any other state draws it away, faded to 35 % with the away mark, as a person is (S7.8), and the popup names the zone. A tracker with GPS and no zone state: home when inside the layout's `home` zone radius, otherwise away (assumption: HA's own `home` state is used first, GPS only when it is missing). Acceptance: states `home`, `not_home`, a zone name, `unavailable`, no state, each drawn and tested in 2D, 2.5D and 3D; the car is never moved on the plan by GPS.
   Superseded 2026-10-17 by Sprint 35 (`docs/specs/car-s35.md`): S16.1 and S16.2 were never built; the car is now the
   furniture piece, and the GPS fallback is dropped (Home Assistant resolves zones itself).
-- [ ] S16.3 Camera thumbnail. A small live picture floats beside each camera icon, in 2D, 2.5D and 3D. View menu (studio and card option `camera_thumb`): Off / On, Size (small, medium, large), Position relative to the camera (above, below, left, right). Default off. Source: the camera's `entity_picture` through Home Assistant's own authenticated proxy, refreshed on an interval that the card pauses while the tab is hidden. No third-party request, no stored image, and a failed load draws nothing, not a broken icon (finding 9: no runtime network beyond HA). Acceptance: real-pointer tap on the thumbnail opens the camera's more-info; with the option off no image request is made; the thumbnail stays inside the card; `shots` for both themes (finding 16). Privacy: doc images use the demo camera with a stub picture only.
-- [ ] S16.4 Vacuum path, research first. Roborock, Dreame and Roomba differ: in Home Assistant core none exposes the path as coordinates; the map is an image entity or a camera, and Dreame's custom integration puts a path on its map camera. Task: write down, per integration, which entity or attribute carries position and path, from its docs and a real example state (Diego's HA, read only), and what we can draw. Output: a note in `docs/DECISIONS.md` and a yes or no for S16.5. Not coded before that.
-- [ ] S16.5 Draw the path, if S16.4 finds usable data. A polyline over the plan, in the vacuum's own colour, clipped to the room, new points while it cleans, cleared when it docks; a map calibration (two points) if the data is in the robot's own frame. Spec and acceptance written after S16.4.
+- [x] S16.3 Camera thumbnail. A small live picture floats beside each camera icon, in 2D, 2.5D and 3D. View menu (studio and card option `camera_thumb`): Off / On, Size (small, medium, large), Position relative to the camera (above, below, left, right). Default off. Source: the camera's `entity_picture` through Home Assistant's own authenticated proxy, refreshed on an interval that the card pauses while the tab is hidden. No third-party request, no stored image, and a failed load draws nothing, not a broken icon (finding 9: no runtime network beyond HA). Acceptance: real-pointer tap on the thumbnail opens the camera's more-info; with the option off no image request is made; the thumbnail stays inside the card; `shots` for both themes (finding 16). Privacy: doc images use the demo camera with a stub picture only.
+- [x] S16.4 Vacuum path, research first. Done 2026-10-21: NO, no core integration exposes a path and position is a plain attribute only on Dreame custom (see DECISIONS 2026-10-21). Roborock, Dreame and Roomba differ: in Home Assistant core none exposes the path as coordinates; the map is an image entity or a camera, and Dreame's custom integration puts a path on its map camera. Task: write down, per integration, which entity or attribute carries position and path, from its docs and a real example state (Diego's HA, read only), and what we can draw. Output: a note in `docs/DECISIONS.md` and a yes or no for S16.5. Not coded before that.
+- [x] S16.5 Not built: no usable data (see DECISIONS 2026-10-21). Draw the path, if S16.4 finds usable data. A polyline over the plan, in the vacuum's own colour, clipped to the room, new points while it cleans, cleared when it docks; a map calibration (two points) if the data is in the robot's own frame. Spec and acceptance written after S16.4.
 
 Choices confirmed by Diego, 2026-10-06 (defaults accepted): whether the car keeps its furniture symbol when unlinked [yes, the symbol stays for a plain drawing]; whether thumbnails refresh every 10 s [10 s, configurable].
 
@@ -2650,10 +2650,10 @@ Fixed on `task/s22-fix`: every Fix plan refusal raises the Untick Fix plan banne
 add stairs, texture and furniture sliders); the menu Escape tests fail with the early return removed; All off's title
 warns about a shared relay. Still open, each with its failing test first:
 - [x] S22.F1 `card-3d-floors.spec.ts:86` "20 switches" times out under full-suite parallel load (about 12 s alone, 30 s budget). It predates Sprint 22. Find the cause (finding 13); no retries, no longer timeout. Done: every switch recompiled the 3D shader programs; the view now keeps one material per program (DECISIONS 2026-10-08). 29 s alone before, 4.5 s after.
-- [ ] S22.F2 A lamp whose relay is off and whose bulb is unavailable cannot be turned on from the card. Turn on should call the relay. Test: real tap, stub `callService`, exact call.
-- [ ] S22.F3 The guide test checks control names, not menu paths. Test: each "[Menu], then [Item]" path in the guide opens with real clicks.
-- [ ] S22.F4 A room panel row for a relay-lit lamp shows the light's own state ("off") while the plan draws it on. Test: the row reads on, via the relay.
-- [ ] S22.F5 The "Plan unlocked" toast overlaps the top of the Place popup at 1024x768. Test: the two boxes do not intersect.
+- [x] S22.F2 A lamp whose relay is off and whose bulb is unavailable cannot be turned on from the card. Turn on should call the relay. Test: real tap, stub `callService`, exact call. Done 2026-10-21: 01817a9, the card turns the relay on when the bulb is unavailable.
+- [x] S22.F3 The guide test checks control names, not menu paths. Test: each "[Menu], then [Item]" path in the guide opens with real clicks. Done 2026-10-21: 6bf9ddf, every menu path in the guide is followed with real clicks.
+- [x] S22.F4 A room panel row for a relay-lit lamp shows the light's own state ("off") while the plan draws it on. Test: the row reads on, via the relay. Done 2026-10-18: 9bed911, `relayText` in `src/core/room-info.ts` reads the row as on via the relay.
+- [x] S22.F5 The "Plan unlocked" toast overlaps the top of the Place popup at 1024x768. Test: the two boxes do not intersect. Done 2026-10-21: a732e3d, the overlap already did not happen; a guard test now keeps it so.
 
 ## Sprint 23 (0.21.0): visual foundations
 
@@ -2670,10 +2670,10 @@ Branch `task/s23-visual`. From the visual review (V-ids, review of 2026-10-08). 
 
 ### Follow-ups from the Sprint 23 review
 
-- [ ] S23.F1 Leaders at 375 px with the controls in a column: add each placed leader to the obstacles and prefer spots off
+- [x] S23.F1 Leaders at 375 px with the controls in a column: add each placed leader to the obstacles and prefer spots off
       other rooms' interiors. "Garden pond" crosses the Hall's outer wall and the Garden leader runs through it
       (`render.ts` leader fallback).
-- [ ] S23.F2 Window lines under 3:1 on the new pane in light (2.4) and solarized (2.8). Try the pane as `--fp-bg` mixed
+- [x] S23.F2 Window lines under 3:1 on the new pane in light (2.4) and solarized (2.8). Try the pane as `--fp-bg` mixed
       15 % glass, and check the cut does not read as a hole again.
 - [x] S23.F3 Put `--fp-text-out` in the generic `:host,.fp,[data-theme]` defaults so a nested theme group cannot inherit
       solarized's outdoor ink.
@@ -2681,8 +2681,10 @@ Branch `task/s23-visual`. From the visual review (V-ids, review of 2026-10-08). 
       quote state.
 - [ ] S23.F5 Left by the coders: paint dim in 3D; a heavier dash on a selected zone; 3D walls on HA dark still mix 55 %;
       JSDoc still ships in the card (about 16 KB gzip); `docs/img/themes/*.png` are out of date.
+      Status 2026-10-21: paint dim in 3D and 3D walls on HA dark were done in S28.9, JSDoc in S24.4, the theme PNGs
+      regenerated (`scripts/theme-shots.mjs`). Open: "a heavier dash on a selected zone" is not defined (the Studio
+      already draws a 2 px `.hl` outline on a selected zone; the card has no selection). Needs Diego's call.
 - [x] S23.F6 Door swing arcs removed (Diego, 2026-10-08).
-      JSDoc still ships in the card (about 16 KB gzip; done in S24.4); `docs/img/themes/*.png` are out of date.
 
 ## Sprint 24 (0.22.0): find and navigate
 
@@ -4079,8 +4081,8 @@ Review: one Opus pass on the integrated build, against `docs/WORKFLOW.md`'s chec
 screen or only read back; can a resize snap a turned camera; does a `hass` update or a second card restart a glide; is
 a focused camera ever stored. Fixes with their tests, then the re-check.
 
-- [ ] S32.9 Release 0.30.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
-      ending with the version read back from Home Assistant and 3D tried on the phone.
+- [x] S32.9 Release 0.30.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+      ending with the version read back from Home Assistant and 3D tried on the phone. Done 2026-10-14: tag v0.30.0 (c64d52d), CHANGELOG 0.30.0. The Home Assistant read-back and the phone check are not recorded in the repo.
 
 Dependencies: S32.1, S32.2, S32.3 at once; S32.4 after S32.2; S32.5 after S32.1, S32.3, S32.4; S32.6 after S32.5;
 S32.7 after S32.6; S32.8 after S32.7; S32.9 after the review.
@@ -4224,9 +4226,9 @@ leave a view on a missing floor; does `migrate` keep views through a save and a 
 non-light off without asking; does every table name `fan`, the two copied lists too; does the strategy ever throw on
 a bad layout. Fixes with their tests, then the re-check.
 
-- [ ] S33.12 Release 0.31.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+- [x] S33.12 Release 0.31.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
       ending with the version read back from Home Assistant, a fan tapped on the phone, and a dashboard made from the
-      strategy on Diego's HA, read back.
+      strategy on Diego's HA, read back. Done 2026-10-15: tag v0.31.0 (3b4bc25), CHANGELOG 0.31.0. The Home Assistant read-back and the phone check are not recorded in the repo.
 
 Dependencies: S33.1, S33.3, S33.6, S33.9 at once; S33.2 after S33.1; S33.7 after S33.6; S33.4 after S33.3; S33.5
 after S33.4; S33.8 after S33.4 and S33.6; S33.10 after S33.8 and S33.9; S33.11 after all; S33.12 after the review.
@@ -4386,9 +4388,9 @@ value print `NaN` or disagree with the room's readout; does `heat` omitted chang
 heat rule have a pair that fails without it; are the Studio and the card the same plan in a heat mode. Fixes with their
 tests, then the re-check.
 
-- [ ] S34.12 Release 0.32.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+- [x] S34.12 Release 0.32.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
       ending with the version read back from Home Assistant, a favourite switched from the phone's Overview, and the
-      heat map read on Diego's own floors.
+      heat map read on Diego's own floors. Done 2026-10-17: tag v0.32.0 (36ea843), CHANGELOG 0.32.0. The Home Assistant read-back and the phone check are not recorded in the repo.
 
 Dependencies: S34.1, S34.3, S34.6 at once; S34.2 after S34.1; S34.7 after S34.6; S34.4 after S34.2 and S34.3; S34.5
 after S34.1; S34.8 after S34.4 and S34.7; S34.9 after S34.5; S34.10 after S34.7 (its parity row after S34.8); S34.11
@@ -4554,9 +4556,9 @@ or survive `migrate` and fail `validate`; can a car's colour or name reach a sty
 does any car gesture switch anything, or reach Home Assistant's dialog in kiosk; does every per-type table name `car`
 as C5 says; is the card file within the cap. Fixes with their tests, then the re-check.
 
-- [ ] S35.9 Release 0.33.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
+- [x] S35.9 Release 0.33.0. After the review and Diego's yes on push and tag: `docs/WORKFLOW.md`, Release, every step,
       ending with the version read back from Home Assistant, Diego's car tapped on his phone (more-info opens), held
-      (the chooser lists its entities), and seen away in 2D and 3D.
+      (the chooser lists its entities), and seen away in 2D and 3D. Done 2026-10-18: tag v0.33.0 (7f61f25), CHANGELOG 0.33.0. The Home Assistant read-back and the phone check are not recorded in the repo.
 
 Dependencies: S35.1 at once; S35.2 after S35.1's union; S35.3 at once (its file per the note); S35.4 after S35.2 and
 S35.3; S35.5 after S35.2 and S35.3; S35.6 after S35.3, and after S35.4 if both touch the card file in the same week;

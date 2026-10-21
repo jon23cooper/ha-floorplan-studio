@@ -225,7 +225,8 @@ describe("FloorplanStudioCard", () => {
     await Promise.resolve();
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector("svg")).toBeNull();
-    expect(el.shadowRoot!.textContent).toContain("No layout: install the Floorplan Studio integration or set layout_url");
+    // Task card-load: the integration answered, so "install it" would be wrong; the card says nothing is saved yet.
+    expect(el.shadowRoot!.textContent).toContain("No plan saved yet. Open Floorplan Studio in the sidebar to draw one.");
   });
 
   it("S7.16: a websocket reply whose layout is invalid says why, so the message can be matched to the plan", async () => {

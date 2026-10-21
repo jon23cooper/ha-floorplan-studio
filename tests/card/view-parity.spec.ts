@@ -39,6 +39,8 @@ const PARITY: Record<string, Decision> = {
   detailSub: { card: "yes", item: "detail:auto" },
   // S34.10: the Heat map submenu; the card has the Heat map section of its ⋯ menu (S34.8), three radios `heat:off|temperature|humidity`.
   heatSub: { card: "yes", item: "heat:temperature" },
+  // S16.3: the Camera thumbnail submenu; the card has three sections of its ⋯ menu, `cam:off|on`, `camsize:<size>`, `campos:<pos>` (on a floor with a camera).
+  camSub: { card: "yes", item: "cam:on" },
   tabLayers: { card: "yes", item: "layer:lights" },
   zin: { card: "yes", has: 'button[aria-label="Zoom in"]' },
   zout: { card: "yes", has: 'button[aria-label="Zoom out"]' },

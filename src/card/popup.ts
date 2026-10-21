@@ -25,8 +25,16 @@ const GONE = new Set(["unavailable", "unknown"]);
  * missing or `unavailable` has no button: there is nothing to act on.
  */
 export function popupOp(type: string, entity: string | undefined, state: string | undefined): PopupOp | null {
-  if (!entity || NO_TOGGLE.has(type) || typeof state !== "string" || GONE.has(state)) return null;
+  if (!entity || NO_TOGGLE.has(type) || typeof state !== "string") return null;
   const domain = entity.split(".")[0] ?? "";
+  // G12: a scene and a button have no on/off; their state is the time they were last used, or `unknown` before the first use, so only `unavailable` rules them out.
+  if (state !== "unavailable") {
+    if (domain === "scene") return { label: "Activate", domain, service: "turn_on", confirm: null };
+    if (domain === "button") return { label: "Press", domain, service: "press", confirm: null };
+  }
+  if (GONE.has(state)) return null;
+  if (domain === "script") return { label: "Run", domain, service: "turn_on", confirm: null };
+  if (domain === "valve") return state === "open" ? { label: "Close", domain, service: "close_valve", confirm: null } : { label: "Open", domain, service: "open_valve", confirm: null };
   if (domain === "lock") return state === "locked" ? { label: "Unlock", domain, service: "unlock", confirm: null } : { label: "Lock", domain, service: "lock", confirm: null };
   if (domain === "cover") return state === "open" ? { label: "Close", domain, service: "close_cover", confirm: null } : { label: "Open", domain, service: "open_cover", confirm: null };
   if (!SWITCHABLE.has(domain)) return null;
@@ -46,6 +54,11 @@ export function lampOp(d: Device, states: StateOverlay | undefined): PopupOp | n
     const calls = lampOffCalls(d, states);
     const first = calls[calls.length - 1]!; // the relay's call: presetCalls puts the light's first
     return { label: "Turn off", domain: first.domain, service: "turn_off", confirm: null, calls };
+  }
+  // S22.F2: a bulb with no power reads unavailable; the relay is what turns it on.
+  if (relay && states?.[relay]?.state === "off" && GONE.has(states?.[d.entity]?.state ?? "")) {
+    const domain = relay.split(".")[0] === "switch" ? "switch" : "homeassistant";
+    return { label: "Turn on", domain, service: "turn_on", confirm: null, calls: [{ domain, service: "turn_on", data: { entity_id: [relay] } }] };
   }
   return popupOp(d.type, d.entity, states?.[d.entity]?.state);
 }

@@ -6,6 +6,7 @@ import { normaliseRotation } from "../card/view-state";
 import { MAX_ZOOM, MIN_ZOOM, type Pt } from "../card/viewport";
 import { parseLayers, type LayerId } from "../core/layers";
 import { heatKindOf, type HeatKind } from "../core/heat";
+import { camPickOf, type CamThumb } from "../core/camera-thumb";
 
 export const VIEW_MEMORY_KEY = "floorplan-studio:view";
 
@@ -21,6 +22,8 @@ export interface ViewMemory {
   hidden?: LayerId[];
   /** S34.10: the heat map the viewer chose, `temperature` or `humidity`. Left out when off. */
   heat?: Exclude<HeatKind, "off">;
+  /** S16.3: the camera thumbnail choice, left out while it is the default (off, medium, below). */
+  cam?: Partial<CamThumb>;
 }
 
 const MAX_ZOOMS = 50;
@@ -41,6 +44,8 @@ export function parseViewMemory(raw: unknown): ViewMemory {
   if (isNum(r.rotation)) out.rotation = normaliseRotation(r.rotation);
   const heat = heatKindOf(r.heat).kind;
   if (heat !== "off") out.heat = heat;
+  const cam = camPickOf(r.cam);
+  if (cam) out.cam = cam;
   const hidden = parseLayers(r.hidden);
   if (hidden.length) out.hidden = hidden;
   if (Array.isArray(r.zooms)) {

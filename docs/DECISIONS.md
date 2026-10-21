@@ -2,6 +2,92 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-21 A load that strips fields must never feed a path that can save
+
+The server strips `floor.trace` from `floorplan_studio/load` unless the message says `with_trace: true`. `reloadStored` forgot it, adopted the stripped plan as saved, and the next Save would have erased every trace image. Every Studio load now asks for traces, and a test scans `src/editor` for any load call without it. Same review: Save clears the autosave draft once the server has the plan (a stale draft misled the banner); a draft that only lacks traces the stored plan has is compared with them put back, and Restore keeps them; a second Save before the first reply is held and sent after it, with the new revision. Known limit: a trace removed on purpose and never saved returns with a restored draft, because a draft cannot tell removed from dropped.
+
+## 2026-10-21: S23.F1, S23.F2, S23.F5 leftovers
+
+- **Leaders.** A name that fits nowhere in its room goes outside on a leader. The leader now (1) avoids the inside of other walled rooms (indoor kinds that do not hold its start; gardens, zones, fills and structures are not walled), trying above and below, then the same rows slid sideways and further out; (2) prefers a line off every placed box, then the fewest rooms crossed; (3) is kept as a screen segment, and a name placed later keeps off it (a bounding box would claim a whole diagonal). Limit: the demo's "Garden pond" at 375 px with 40 px of controls has no free side inside the bounds, so its leader still crosses the Hall. In the stress house some leaders in dense floors still cross a room; none crosses a name (was 2). Card size cap 124,650 gz (supersedes 124,100), the search costs about 550. Diego to confirm.
+- **Window pane.** `.win-pane` is `--fp-window` 15 % into `--fp-bg` (was 22 % into `--fp-room-empty`). Line against pane was 2.4 (light, ha light) and 2.8 (solarized); now 3.2 and 3.3, every other theme above 5.6. Looked at in the shots: the pane still reads as glass, not as a hole.
+- **F5.** Paint dim in 3D and the 3D wall share on HA dark were done in S28.9 (tests in `three-palette.test.ts`, `card-3d-colors.spec.ts`). `docs/img/themes/*.png` regenerated. "A heavier dash on a selected zone" is not built: the PLAN line does not say heavier than what or where, and the Studio's selected zone already carries a 2 px solid outline. Needs a design call.
+
+## 2026-10-21 Card size cap 124,100 gz (supersedes 123,800)
+
+The card-gaps work (display precision, call errors, popup buttons) adds about 310 gz. Card is 124,015 gz (`gzip -9`). Cap is 124,100. Diego to confirm. Three parallel branches each raised the cap by hand; from here, one cap decision per merge.
+
+## 2026-10-21: docs pass: 3D and isometric are no longer non-goals
+
+Supersedes the SPEC non-goal "3D, isometric views". 2.5D and 3D ship, so the line said the opposite of the product. SPEC now lists only "rendering photos of the house". Same pass, docs follow code, no behaviour change: SPEC criterion 4 says an open door turns red (`--fp-open-door` is `--fp-dev-contact`, #d64545; orange was the old colour); SPEC Integration says the config flow has one options step (Show in the sidebar); card.md fade text says 120 s, lists all 13 themes, and documents `layout` and `layout_url`; the README validate step says `npm ci` first (the script needs `esbuild`); `prompts/SCHEMA.md` lists the `speaker` symbol and spells out the device types instead of pointing to `docs/schema.md`.
+
+## 2026-10-21 Card size cap 123,800 gz (supersedes 121,580 and 123,000)
+
+The camera thumbnail (cap 123,000) and the card's load work (+665 gz) were built in parallel and each raised the cap alone. Together the card is 123,703 gz (`gzip -9`). The cap is now 123,800. Diego to confirm. The cheaper cuts, if he refuses: drop the stale-page check or the save-event follow in the card.
+
+## 2026-10-21: S16.4 vacuum path research. Verdict: NO for S16.5
+
+Question: can the plan draw a robot's cleaning path from data Home Assistant already holds? Read: official HA docs and core source (`roborock`, `roomba`, `ecovacs`), the Dreame custom integration source (Tasshack/dreame-vacuum), forum and project notes for Valetudo and Xiaomi Cloud Map Extractor, and, read only, the states of the one vacuum on the maintainer's HA (a Roomba j7 through the core integration). No service was called, nothing changed.
+
+| Integration | Position | Path | Map frame / calibration | What we can draw |
+|---|---|---|---|---|
+| Roborock, core | Not a state or attribute. Only the action `roborock.get_vacuum_current_position`, which returns `{x, y}` in the robot's map frame. It refreshes the map over the cloud API; the docs warn of rate limiting. Not available for the Q7 (B01) class. | No. The `image` entity "Map" draws the path into pixels (option "Path"). | Robot frame, units undocumented. No calibration attributes. `get_maps` gives segment ids and room names only. | Nothing live. A poll of the action every few seconds would hit the cloud. The map image could be shown as a picture, not as a path. |
+| Roborock, HACS (RoborockCustomMap, Xiaomi Cloud Map Extractor) | Yes, camera attribute `vacuum_position`, plus `charger`. | Yes, attribute `path` where the extractor is configured. | `calibration_points` (vacuum frame to image pixel), `rooms`, `zones`. Needs the Xiaomi Cloud login or the core map. | Possible, but only for users who installed a third-party camera. Attribute names vary by setup. |
+| Dreame, custom (Tasshack) | Yes, map camera attribute `vacuum_position`, `charger_position`. | Not as an attribute. `MapData.as_dict()` has no path key. The path is drawn into the image, and sits in the raw map JSON only when the camera runs in `map_data_json` mode. | Yes: `calibration_points` (three vacuum points to image pixels), `rotation`, `rooms` per segment id. Robot units. | Position and charger yes, with calibration. Path only in JSON mode. |
+| Roomba / iRobot, core | `position` attribute on the vacuum, the string `"(x, y, theta)"`, only when the robot reports the `pose` capability. Origin at the dock, centimetres (library docs). The j7 on the maintainer's HA has no `position` key. Its attributes are `bin_full`, `bin_present`, `status`, `software_version`. Reports say firmware 3.20+ broke pose on some models. | No. | Dock-relative, no map, no rooms. | A dot for models with pose, and a trail we would have to build by sampling. Not the maintainer's robot. |
+| Ecovacs, core | Action `ecovacs.raw_get_positions` returns charger and robot; no entity. | No. | The `image` entity "Map" is an SVG. No calibration. | Nothing live. |
+| Xiaomi / Valetudo | Valetudo publishes over MQTT. An add-on renders a camera with `vacuum_position`; one forum post, unconfirmed format. The raw map JSON is kept out of HA history on purpose (embedded in the PNG). | Raw map has it, not an attribute. | Per setup. | Not a stable target. |
+
+Verdict: **NO.** No core integration exposes a path. Position is a live state attribute in one place only, the Dreame custom integration (and the Xiaomi extractor camera). Roborock needs a cloud call, Ecovacs a service call, Roomba only some models, and the one robot we can read has none. Drawing a path would mean sampling a position that most users cannot give us, in a frame we calibrate by hand. The one integration that gives all of it (Dreame) cannot be tested here: no device, no real state. A guess at its attribute shapes is the mistake of finding 21. S16.5 is not built.
+
+Reopen when one of these holds: a core integration adds a path or position state; or someone with a Dreame (or an extractor camera) supplies a real state dump.
+
+Minimal design if reopened (Dreame-shaped, not built):
+- Source: one `camera.*` the user names on the vacuum device; read `attributes.vacuum_position` (`{x, y}`), `attributes.calibration_points` (three `{vacuum, map}` pairs) and `attributes.charger_position`.
+- Calibration: map vacuum `(x, y)` to the plan with two plan points the user clicks on the charger and one other known spot; fit scale, rotation and offset. Fall back to the camera's own points only if the layout has none. Store the fit on the device, not in HA.
+- Path: sample `vacuum_position` on each state change while the vacuum state is `cleaning`; drop a point under 5 cm from the last; cap at 2000 points; keep in card memory only, nothing saved.
+- Clear on `docked` or `returning` plus `charging`. Clip to the room polygon. Colour from the device's `--fp-*` variable.
+- Test with a copied real state only (finding 21).
+
+Nothing in `src/` changed. The one real state read is not stored in the repo.
+
+## 2026-10-21: the Studio panel stops losing work (gap audit G1, G2, G6, G8, G13)
+
+- **Revision, not a lock.** The store holds `{rev, layout}`; an older store (the bare layout) reads as rev 0 and is rewritten on the next save. `load` returns `rev`. `save` takes optional `expected_rev`; if it differs from the stored rev the reply is the error `conflict` and nothing is written; otherwise the rev goes up by one and is returned. No `expected_rev` keeps the old last-write-wins, so an older card or script still saves. A lock around check and write keeps two saves with the same rev from both winning. The panel sends no `expected_rev` to an integration that returns no `rev`. The panel offers Reload (stored plan through `validate`, one undo step) and Overwrite (read the latest rev, save again). The existing tests that compared the replies with `{layout: None}` and `{ok: True}` now include `rev`.
+- **Draft banner.** The editor's autosave key (`floorplan-studio:layout`) is one per browser and origin, which is one per HA instance; it was never a per-instance key and still is not. A sibling key `:at` now holds the time of the last autosave. At load, before the editor exists (its first autosave would overwrite the draft), the panel offers the draft if it passes `loadLayout` and differs from the stored plan after the same normalisation. Not done: "newer than the stored plan". The server keeps no save time, so a draft made before a save from another browser is still offered; Discard is one click. A junk draft is ignored.
+- **Dirty** means the layout differs from the last load or successful save (compared serialised, on demand), so undoing back to the saved plan is clean, and an edit made while a save is in flight stays dirty.
+- **Theme.** `haDark` is pushed to the editor in `updated()`, not through the guarded template, and the guard key is a load counter. After a save the panel's `layout` is a copy of what was saved.
+
+## 2026-10-21: S16.3 camera thumbnail (Sonnet)
+
+A small live picture beside each camera icon, in 2D, 2.5D and 3D. Options `camera_thumb` (`on`/`off`, default off; the YAML boolean is read too), `camera_thumb_size` (`small`/`medium`/`large`, default medium), `camera_thumb_pos` (`above`/`below`/`left`/`right`, default below). The same three choices are in the card's config editor, the card's View menu and the Studio's View menu. A viewer pick is stored with the view, not the layout, and is never an undo step.
+
+- Source is the camera's `entity_picture`, drawn only if it is a path on this Home Assistant (`/...`, not `//`, no backslash or control character) or an inline `data:image/` picture. Any other url is a request to a third party, so it draws nothing. `fp_t=<ms>` is added to a path as a cache buster.
+- One draw path: an SVG `<image>` from `renderFloor` in 2D and 2.5D; an `<img>` in the 3D overlay, fed by `liveOf`. A tap uses its own `data-cam` target and opens more-info for the camera directly (not the popup); in kiosk it does nothing. The Studio's picture takes no pointer, so selecting and dragging the camera is unchanged.
+- `ThumbFeed` (core) refreshes every 10 s, pauses while `document.hidden` or while the card is off the page, asks at once when the tab returns. A picture that fails to load (`error` event) is drawn as nothing until the next tick, which clears the failed set and tries again.
+- Card size cap raised from 121,000 to 123,000 gz bytes. The card was 185 bytes under the cap; the feature costs about 2,100 (the url gate, the box maths, the feed, three menu sections, three config rows, view memory). The code is already close to the smallest that does the job, and the 3D overlay part lives in the lazy chunk, which has room. The Studio file is not under this cap.
+- Not done: a per-camera setting, a snapshot-on-tap larger view (the tap opens more-info, which has the live stream).
+
+## 2026-10-21: the card's load (gap audit G3, G4, G5, G7, G14, G17, G18, G20, G21)
+
+- `floorplan_studio/load` takes `with_trace` (default false). Traces are stripped from the reply unless it is true and the user is an admin; a non-admin who asks gets none, without an error. The Studio panel asks. Traces are scanned plans, may carry an address, and the card never draws them.
+- The card shares one in-flight load per connection (a `WeakMap` keyed by `hass.connection`). It is dropped when it settles, not cached: a cache would go stale for a session that cannot hear the update event. Each card copies the reply.
+- `setConfig` keeps the loaded plan when `layout` and `layout_url` are unchanged and no inline `layout` is set.
+- `ws_save` fires `floorplan_studio_updated`; the card subscribes with `subscribeEvents`. HA lets only admins subscribe to a custom event, so non-admin sessions load once. A `floorplan_studio/subscribe` command would fix that; not done, it is a second command for a kiosk case no one has reported.
+- Failure text is the integration's `message`; only `unknown_command` keeps the install hint. Retry is bounded: once on the next `hass`, then on each connection `ready`.
+- "Stale page" means the server version differs from the page's, as in the panel, not strictly newer. A dev build never says it.
+- The empty-store text replaces the install hint for `{ layout: null }` (changes the S7.16 wording).
+- Release notes come from the version's CHANGELOG section (`scripts/release-notes.mjs`), with `--generate-notes` as the fallback. `render_readme` is removed from `hacs.json`: HACS defines it on its manifest class and reads it nowhere, and its docs do not list it.
+- Size: the load work (shared request, error text, retry, empty state, stale page, save event) costs 665 bytes gzipped in the card file, which stood at 120,864 of 121,000. The cap in `tests/card/size-budget.spec.ts` moves from 121,000 to 121,580 (`CARD_GROWTH_LIMIT` 30220 to 30800). It is a coder's change pending Diego's yes: the alternative is to drop the stale-page check or the save-event follow.
+- Removing the integration logs a warning, not a stack trace, when the resource store fails.
+
+## 2026-10-21: card gaps G9 to G12 and G19 (Sonnet)
+
+- Card size cap raised by the minimum, 121,000 to 121,142 gz (`CARD_GROWTH_LIMIT` 30,220 to 30,362). Built at the base (4631937) the card was 120,815; with the five items it is 121,142 (+327, `gzip -9`). **Diego to confirm.** Other branches change the same line; reconcile.
+- G9: core never sees hass. `stateText` and `RenderOpts` take an optional `(entity) => string | undefined`; the card wraps `hass.formatEntityState`. Light brightness and cover position lines still win over it; a non-number temp reading still reads "–". Not done: `room-info.ts` (the room panel's device rows and the Details block) keeps the raw state and unit.
+- G10: the Rotate buttons box follows the card's rule (`kiosk` off, and zoom or View switch on, is the default) and drops the key only when the value equals that default. View switch and Active list cannot be on under kiosk, so they show unticked and disabled; their keys are left alone.
+- G12: no device type is script, scene, button or valve; the popup follows the entity's domain, as for a lock. A scene and a button report `unknown` before first use, so only `unavailable` hides their button. A tap with `tap_action: toggle` still opens the popup for them (not in `TOGGLE_AT_ONCE`), and a Favourites row asks to confirm.
+- G19: Load encodes the scan to fit the room the rest of the plan leaves under `MAX_LAYOUT_BYTES`, instead of only the 4 MB per-image cap. It refuses only when the lowest quality still does not fit. The per-image cap stays 4 MB (the validator is untouched).
+
 ## 2026-10-20: cleanup deletes only what the tool made (HACS review)
 
 Supersedes S4.10, which trusted the `floorplan-studio` label. A label is a name anyone can attach; a user who labelled their own Hue or ZHA light would have lost the whole integration behind a dialog that called it a helper. Now `listLabelled` keeps a labelled entity only if `platform` is `switch_as_x` or `group` (helper) or `automation` with an `fp_` `unique_id`; an area only if this browser recorded its id when `createArea` made it (localStorage `floorplan-studio:areas`, so an area made in another browser is not offered; it can be removed in HA). `removeLabelled` re-lists and refuses a row that is not in the result. Listing no longer calls `ensureLabel`: no label, no writes, empty list. Not done: recording ids in the layout file, which would put HA ids in a shareable file.

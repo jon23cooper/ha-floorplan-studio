@@ -996,6 +996,8 @@ export function createView3D(container: HTMLElement, opts: View3DOptions): View3
       if (disposed || !plan || !picker) return null;
       const r = canvas.getBoundingClientRect();
       if (!(r.width > 0 && r.height > 0) || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+      const cam = overlay.hitCam(clientX - r.left, clientY - r.top); // S16.3: a camera's picture floats over the model and its icon
+      if (cam !== null) return { type: "cam", index: cam };
       const icon = overlay.hit(clientX - r.left, clientY - r.top); // an icon is on top of the model: it is what a tap on it means
       if (icon !== null) return { type: "device", index: icon };
       prepare();

@@ -37,7 +37,7 @@ in `prompts/`, then fixed in the editor.
 
 ## Non-goals
 
-- 3D, isometric views, rendering photos of the house.
+- Rendering photos of the house. (3D and 2.5D isometric views were a non-goal until 2026-10-21; both ship, see `docs/DECISIONS.md`.)
 - Replacing HA's more-info dialogs. The card opens them.
 - Replacing HA's automation editor. The plan creates an automation and opens
   it in HA; HA is where it is finished and where it lives.
@@ -793,6 +793,14 @@ draws it over the plan's bottom left (2D and 2.5D), the Studio in its status bar
 Layers (shown where Detail is; hidden in 3D, in kiosk and with `active_list: false`, where the key still heats), the viewer's pick in
 `StoredView.heat` (`parseStoredView` drops junk), `heat_map` in `_viewStorageKey`. Studio: View, `#heatSub`, `ViewMemory.heat`.
 
+**Camera thumbnail (S16.3).** Card keys `camera_thumb` (`on`/`off`, default off; a YAML boolean counts), `camera_thumb_size` (`small`, `medium`,
+`large`; default medium) and `camera_thumb_pos` (`above`, `below`, `left`, `right`; default below), read by `camThumbOf` (`src/core/camera-thumb.ts`). A
+camera device's picture is its state's `entity_picture`, taken by `thumbUrl` only as a path on this Home Assistant or an inline image, with `fp_t` as a
+cache buster; an unavailable camera or a failed load draws nothing. `renderFloor` draws it (`RenderOpts.camThumb`, an SVG `<image>` in `g.fp-cam-thumb`),
+3D draws an `<img class="fp3-cam">` in the overlay from `LiveDevice.thumb`. A tap opens more-info of the camera. `ThumbFeed` refreshes every 10 s and pauses
+while the tab is hidden. Card: ⋯ menu sections `cam:`, `camsize:`, `campos:` and the three rows of the visual editor; the viewer's pick in `StoredView.cam`.
+Studio: View, `#camSub`, `ViewMemory.cam`, `EditorState.cam`.
+
 **Favourites.** Card key `favourites` (alias `favorites`; `favouritesOf` in `src/card/favourites.ts`): entity ids, trimmed,
 repeats dropped, at most `MAX_FAVOURITES` (24), junk dropped with one `console.warn` per card, never a throw. `favouriteRefs`
 resolves each to the first device (then linked piece) in layout order on a floor the card shows; one not on the plan has no
@@ -1089,7 +1097,7 @@ Cmd-K or Ctrl-K anywhere, `/` outside a text field.
 
 ## Integration
 
-- Domain `floorplan_studio`. Config flow, no options.
+- Domain `floorplan_studio`. Config flow with one options step: **Show in the sidebar** (on by default).
 - Websocket: `floorplan_studio/load` → layout; `floorplan_studio/save`
   (layout) → ok. Stored in `.storage/floorplan_studio.layout`.
 - Registers the editor panel (`/floorplan-studio`) and serves the card JS as a
@@ -1116,7 +1124,7 @@ assistant.
 3. In a fresh HA (dev container), install via HACS, open the panel, load the
    demo, move a light, save, reload: the position persists.
 4. The card shows the demo; toggling a demo light changes its icon within one
-   state update; a demo door with a contact sensor turns orange when the sensor
+   state update; a demo door with a contact sensor turns red (`--fp-open-door`) when the sensor
    is `on`.
 5. Motion fade: with `fade: 10`, a motion `on` shows red and is grey again
    after 10 s without a new trigger.

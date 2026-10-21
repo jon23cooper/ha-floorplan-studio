@@ -131,7 +131,7 @@ the rest are fixed palettes.
 
 Every room keeps its own paint (colour or texture) in every theme — only the
 grid, walls and device icons change. `blueprint`, `slate`, `terminal`,
-`coffee`, `a-team`, `space`, `cyberpunk` and `carpenter-brut` are all built
+`coffee`, `a-team`, `space`, `cyberpunk`, `carpenter-brut` and `beach-house` are all built
 from the same four-role system (base, foreground, line, accent) in
 [`src/core/theme-roles.ts`](src/core/theme-roles.ts) — pick four colours and
 get a whole theme, no ~50 hexes to hand-tune. See
@@ -181,7 +181,7 @@ It works from a **skill** and a **schema**, two files any assistant can follow (
 
 **How to load them into your assistant, step by step: [`prompts/README.md`](prompts/README.md).**
 
-To check what an assistant gave you, run `node scripts/validate-layout.mjs layout.json` from a clone of this repository (Node 20 or later). It prints `ok`, or one line per problem: metres written as centimetres, a room outside the walls, a door on no wall.
+To check what an assistant gave you, run `npm ci` once in a clone of this repository (Node 20 or later; the check needs `esbuild`, which `npm ci` installs), then `node scripts/validate-layout.mjs layout.json`. It prints `ok`, or one line per problem: metres written as centimetres, a room outside the walls, a door on no wall.
 
 ## Let an assistant place your devices too
 
