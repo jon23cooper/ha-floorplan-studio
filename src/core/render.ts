@@ -488,7 +488,7 @@ ${THEME_EXTRAS}
 .door-sym.k-window,.door-sym.k-slit,.door-sym.k-fullwindow{stroke:var(--fp-window)} .door-sym.open,.door-sym.alarm,.door-sym.cover-open{stroke:var(--fp-open-door)}
 /* S1 (Opus review of S23): a window's pane fills the whole cut, so the outer half of the gap on an outer wall is glass, not the
    board; opaque, a glass tint mixed into the bare room. Its jambs are window hairlines, red with the state like the symbol. */
-.win-pane{fill:color-mix(in srgb,var(--fp-window) 22%,var(--fp-room-empty));stroke:none;pointer-events:none} .win-pane.open,.win-pane.alarm{fill:color-mix(in srgb,var(--fp-open-door) 22%,var(--fp-room-empty))}
+.win-pane{fill:color-mix(in srgb,var(--fp-window) 15%,var(--fp-bg));stroke:none;pointer-events:none} .win-pane.open,.win-pane.alarm{fill:color-mix(in srgb,var(--fp-open-door) 15%,var(--fp-bg))}
 .win-jamb{fill:none;stroke:var(--fp-window);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none} .win-jamb.open,.win-jamb.alarm,.win-jamb.cover-open{stroke:var(--fp-open-door)}
 .dev.unbound path{stroke:var(--fp-warn);stroke-width:1.5;stroke-dasharray:3 2} .dev path{fill:var(--fp-idle);fill-opacity:.7}
 /* S23.4 (V10): an on glyph is ink on its solid disc, 4.5:1 in every theme. g.dev.on path (0,2,2) on purpose: it must beat
@@ -641,6 +641,17 @@ const OPENING_EXTRA = WALL_HALO_EXTRA + 2;
  *  its localStorage entry off a hash of the card's own config, the same idea as the mask and pattern ids below. */
 export { tag }; // lives in fmt.ts now, so solids.ts can mint a clip id without importing this file
 type Box = [number, number, number, number];
+/** Does the segment p-q touch the box (Liang-Barsky clip)? A leader is a thin line: its bounding box would claim a whole diagonal of space. */
+const segHitsBox = (p: Pt, q: Pt, [x, y, w, h]: Box): boolean => {
+  let t0 = 0, t1 = 1;
+  const dx = q[0] - p[0], dy = q[1] - p[1];
+  for (const [d, lo] of [[-dx, p[0] - x], [dx, x + w - p[0]], [-dy, p[1] - y], [dy, y + h - p[1]]] as const) {
+    if (d === 0) { if (lo < 0) return false; continue; }
+    const t = lo / d;
+    if (d < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
+  }
+  return true;
+};
 const meets = (a: Box, b: Box) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
 
 /** `p` turned clockwise by `deg` degrees about `pivot` (y points down, so this is the direction SVG's rotate() turns). */
@@ -1516,6 +1527,8 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
   // none free it keeps its first one regardless, so nothing is ever dropped (a name longer than its room, say).
   const placed: Box[] = [], words = new Set<Box>(); // `words`: the boxes in `placed` that are text (a tag may cover an icon, never a text)
   const toScreen = (p: Pt): Pt => (turn ? rotateAbout(p, turn.deg, turn.pivot) : p);
+  // S23.F1: the leaders placed so far, as screen segments. A name placed later keeps off them.
+  const lines: [Pt, Pt][] = [], onLine = (b: Box) => lines.some(([p, q]) => segHitsBox(p, q, b));
   const cs = Math.cos((planDeg * Math.PI) / 180), sn = Math.sin((planDeg * Math.PI) / 180);
   /** The plan point that shows `dx` right of and `dy` below `a` on the screen: the screen vector turned back into the plan. */
   const screenOff = (a: Pt, dx: number, dy: number): Pt => (planDeg ? [a[0] + dx * cs + dy * sn, a[1] - dx * sn + dy * cs] : [a[0] + dx, a[1] + dy]);
@@ -1630,7 +1643,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
         const c = screenOff(a, dx * kt, dy * kt);
         if (!fits(c, size)) continue;
         const box = textBox(c, size, len);
-        if (!placed.some((q) => meets(box, q))) { placed.push(box); words.add(box); return { at: c, size }; }
+        if (!placed.some((q) => meets(box, q)) && !onLine(box)) { placed.push(box); words.add(box); return { at: c, size }; }
         if ((!best.tag || size > best.tag.size) && ![...words].some((q) => meets(box, q))) best.tag = { at: c, size, tag: true };
       }
       return null;
@@ -1658,7 +1671,7 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
         spots.sort((a, b) => Math.hypot(a[0] - ax, a[1] - ay) - Math.hypot(b[0] - ax, b[1] - ay));
         for (const sp of spots) {
           const c = fromScreen(sp), box = textBox(c, size, len);
-          if (!inB(box) || placed.some((q) => meets(box, q)) || !ring(box).every((p) => bare(fromScreen(p)))) continue;
+          if (!inB(box) || placed.some((q) => meets(box, q)) || onLine(box) || !ring(box).every((p) => bare(fromScreen(p)))) continue;
           placed.push(box); words.add(box);
           return { at: c, size };
         }
@@ -1682,11 +1695,43 @@ export function renderFloor(f: Floor, o: RenderOpts): string {
     };
     const above = intoB(screenOff(from, 0, Math.min(...ys) - GAP * kt - 0.25 * size - ay)), below = intoB(screenOff(from, 0, Math.max(...ys) + GAP * kt + 0.75 * size - ay));
     // The leader is one more thing that must not run across another text: its own thin box counts too.
-    const leaderBox = (c: Pt): Box => { const [x, y] = toScreen(from), [cx, cy] = toScreen(c); return [Math.min(x, cx) - k / 2, Math.min(y, cy), Math.abs(cx - x) + k, Math.abs(cy - y)]; };
-    const free = (c: Pt) => !placed.some((q) => meets(textBox(c, size, len), q));
-    const at = [below, above].find((c) => free(c) && !placed.some((q) => meets(leaderBox(c), q))) ?? [below, above].find(free) ?? below;
+    // Where the line ends: the edge of the text box nearest the start (the draw below uses the same rule).
+    const tip = (c: Pt): Pt => screenOff(c, 0, toScreen(c)[1] > toScreen(from)[1] ? -0.75 * size - 0.5 * kt : 0.25 * size + 0.5 * kt);
+    const free = (c: Pt) => { const b = textBox(c, size, len); return !placed.some((q) => meets(b, q)) && !onLine(b); };
+    // S23.F1: a leader should not run through another room's inside (it would cross that room's wall). The rooms that count
+    // are the indoor ones that do not hold the leader's start; a garden, a zone or a fill is not walled. `across` is the
+    // number of 8-unit steps of the line, and the spot itself, that lie in such a room.
+    const walled = f.rooms.filter((q) => q !== r && !OUTDOOR.has(q.kind) && q.kind !== "zone" && q.kind !== "fill" && q.kind !== "structure" && Array.isArray(q.pts) && q.pts.length > 2 && !inPoly(from, q.pts)).map((q) => q.pts);
+    const across = (c: Pt) => {
+      const e = tip(c), n = Math.ceil(Math.hypot(e[0] - from[0], e[1] - from[1]) / 8);
+      let hits = 0;
+      for (let i = 1; i <= n; i++) { const p: Pt = [from[0] + (e[0] - from[0]) * i / n, from[1] + (e[1] - from[1]) * i / n]; if (walled.some((q) => inPoly(p, q))) hits++; }
+      return hits;
+    };
+    const cands = [below, above], clearOf = (c: Pt) => { const a = toScreen(from), e = toScreen(tip(c)); return !placed.some((q) => segHitsBox(a, e, q)); };
+    // Only when above and below both cross a room: the same two rows slid sideways in 12k steps and moved further out in
+    // 12k steps, nearest the leader's start first. Bounds clamp them, so a room under the controls still finds a spot.
+    const wide = (): Pt[] => {
+      const [fx, fy] = toScreen(from), st = 12 * kt, out: Pt[] = [];
+      for (let j = -12; j <= 12; j++) for (let m = 0; m <= 8; m++) if (j || m) for (const row of cands) { const [, ry] = toScreen(row); out.push(intoB(fromScreen([fx + j * st, ry + (row === below ? m : -m) * st]))); }
+      return out.sort((a, b) => { const [ax, ay] = toScreen(a), [bx, by] = toScreen(b); return Math.hypot(ax - fx, ay - fy) - Math.hypot(bx - fx, by - fy); });
+    };
+    const pick = (list: Pt[], ok: (c: Pt) => boolean) => list.find((c) => free(c) && ok(c));
+    // Off every room and off every text; else the sideways spots; else off every text and across the fewest rooms; else
+    // the first free row, as before. A leader over a text is worse than one over a room.
+    let at = pick(cands, (c) => across(c) === 0 && clearOf(c));
+    if (!at) {
+      const w = wide();
+      at = pick(w, (c) => across(c) === 0 && clearOf(c));
+      if (!at) {
+        const open = [...cands, ...w].filter((c) => free(c) && clearOf(c)).map((c, n) => ({ c, n, room: across(c) }));
+        at = open.sort((x, y) => x.room - y.room || x.n - y.n)[0]?.c ?? pick(cands, () => true);
+      }
+    }
+    at ??= below;
     const box = textBox(at, size, len);
-    placed.push(box); words.add(box);
+    // The leader joins the obstacles, so a name placed later does not sit on it (S23.F1).
+    placed.push(box); words.add(box); lines.push([toScreen(from), toScreen(tip(at))]);
     return { at, size, from };
   };
   const nameAt: Label[] = [], zoneAt: Label[] = [];

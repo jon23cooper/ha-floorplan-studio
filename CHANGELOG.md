@@ -7,6 +7,9 @@
 - Studio: pressing Save twice before the first reply no longer ends in a false conflict. The second press waits, then saves the newest state against the new revision.
 - 3D: sensor readings use the same display text as the 2D plan (21.5 °C, not 21.456789 °C).
 
+- Card: on a narrow card, the leader line from a small room's name keeps off other rooms and off other names where there is room to do so.
+- Card: a window's lines read at 3:1 or better against the pane in every theme (light and solarized were 2.4 and 2.8). The pane is a lighter tint of the board.
+- Docs: theme gallery images regenerated.
 - Studio, safety: a change of Home Assistant's theme no longer resets the editor (edits, undo, zoom). After a Save the panel also holds what was saved, so a later redraw cannot bring the old plan back.
 - Studio: closing the tab with unsaved edits asks first. When the panel opens and this browser holds an autosave draft that differs from the stored plan, a bar offers "Restore unsaved draft from <time>?" (one undo step) or Discard.
 - Integration: the stored plan has a revision. `floorplan_studio/load` returns `rev`; `floorplan_studio/save` takes an optional `expected_rev`, answers the error `conflict` and writes nothing when it is stale, and returns the new `rev`. The Studio shows Reload and Overwrite on a conflict. A save without `expected_rev` still overwrites. Storage written by older versions reads as revision 0.
