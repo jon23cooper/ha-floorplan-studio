@@ -1090,6 +1090,29 @@ test("a click in the living room outside the zone selects the living room", asyn
   await expect(page.locator("#ra")).toHaveValue("living");
 });
 
+// S36.5 (S23.F5), Opus CSS pair (finding 10): the selection outline is drawn in the editor overlay, so the browser
+// resolves it from the editor's own stylesheet. A selected zone's is dashed and 3 px; a selected room's stays solid, 2 px.
+const outlineStyle = (page: Page) =>
+  page.locator("svg .hl").evaluate((el) => { const c = getComputedStyle(el); return { dash: c.strokeDasharray, width: c.strokeWidth, tag: el.tagName }; });
+
+test("S36.5 CSS pair: a selected zone's outline is dashed and 3 px; a selected room's is solid and 2 px", async ({ page }) => {
+  await clickCm(page, 440, 60);
+  await expect(page.locator("#rk")).toHaveValue("zone");
+  await expect(page.locator("svg .hl")).toHaveCount(1);
+  expect(await outlineStyle(page)).toEqual({ dash: "6px, 4px", width: "3px", tag: "polygon" });
+  await clickCm(page, 200, 150);
+  await expect(page.locator("#rk")).toHaveValue("room");
+  await expect(page.locator("svg .hl")).toHaveCount(1);
+  expect(await outlineStyle(page)).toEqual({ dash: "none", width: "2px", tag: "polygon" });
+});
+
+test("S36.5: the dashed outline is the overlay's only; the plan's own zone is untouched (one draw path)", async ({ page }) => {
+  await clickCm(page, 440, 60);
+  await expect(page.locator("svg .hl")).toHaveCount(1);
+  expect(await page.locator("svg .hl.hl-zone").count()).toBe(1);
+  expect(await page.locator('svg polygon[data-r]:not(.hl)').evaluateAll((els) => els.filter((e) => e.classList.contains("hl-zone")).length)).toBe(0);
+});
+
 test("a device icon inside a zone still selects the device, not the zone", async ({ page }) => {
   const g = await groundOf(page);
   const zone = g.rooms.find((r) => r.kind === "zone")!;
