@@ -24,6 +24,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@mdi/js": "^7.4.47",
     "@playwright/test": "^1.48.0",
     "@types/node": "^20.19.43",

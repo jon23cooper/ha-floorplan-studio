@@ -2,6 +2,13 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-22: axe-core as a dev dependency; the accessibility pass (G23)
+
+- **Dependency.** `@axe-core/playwright` (devDependency only; nothing ships in the card or the Studio). Reason: a rule engine finds contrast and naming faults a hand check misses, and it ran as a Playwright test like the rest. Alternative was a hand checklist; rejected because it does not repeat.
+- **Scope.** `tests/a11y/axe.spec.ts` scans `floorplan-studio-card` (light and dark; default, room picked, popup open) and `floorplan-studio-editor` (default, room selected, every top menu, Help) and expects zero violations. It is scoped to our elements: the harness page has no title, lang or main, which the Home Assistant page supplies. Not covered: keyboard order, focus return, screen-reader speech, the 3D view.
+- **Found and fixed.** Hover/focus grey `--fp-idle` under light text (2.9:1) on five card controls, now 12 % ink into `--fp-bg`. "Lights off" had the name "Turn off all lights in X" (label-in-name); it is now "Lights off in X" (four tests updated). Studio `#zreset` showed "0" and was named "Reset view"; now "Reset view, 0". `.kbd` hint opacity .7 to .85 (3.9:1 to above 4.5:1).
+- **Room panel text.** Device rows, sensor rows and Details State take the card's `formatState` (supersedes the "Not done: room-info.ts" note under G9). core still never sees hass.
+
 ## 2026-10-21 A load that strips fields must never feed a path that can save
 
 The server strips `floor.trace` from `floorplan_studio/load` unless the message says `with_trace: true`. `reloadStored` forgot it, adopted the stripped plan as saved, and the next Save would have erased every trace image. Every Studio load now asks for traces, and a test scans `src/editor` for any load call without it. Same review: Save clears the autosave draft once the server has the plan (a stale draft misled the banner); a draft that only lacks traces the stored plan has is compared with them put back, and Restore keeps them; a second Save before the first reply is held and sent after it, with the new revision. Known limit: a trace removed on purpose and never saved returns with a restored draft, because a draft cannot tell removed from dropped.

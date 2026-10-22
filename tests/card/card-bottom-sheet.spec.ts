@@ -262,7 +262,7 @@ test.describe("S31.8 the phone bottom sheet", () => {
     await bootTouch(page, phone);
     await tapPlan(page, `svg polygon[data-r="${roomIndex("ground", "Kitchen")}"]`);
     await settled(page);
-    const b = await boxOf(page, { role: "button", name: /^Turn off all lights in Kitchen$/ }), s = await sheet(page);
+    const b = await boxOf(page, { role: "button", name: /^Lights off in Kitchen$/ }), s = await sheet(page);
     expect(b, "the button exists").not.toBeNull();
     expect(b!.y + b!.height, "inside the half sheet").toBeLessThanOrEqual(s.y + s.height);
     expect(b!.y).toBeGreaterThanOrEqual(s.y);
