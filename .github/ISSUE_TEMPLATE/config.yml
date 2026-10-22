@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and show your plan
+    url: https://community.home-assistant.io/t/1026512
+    about: Ask how to do something, or share a plan you drew, on the Home Assistant community forum.

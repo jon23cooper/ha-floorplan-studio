@@ -1,0 +1,56 @@
+name: Bug report
+description: Something does not work as it should.
+labels: ["bug"]
+body:
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.10.1"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Floorplan Studio version
+      description: The card and the integration share one version. Find it in HACS.
+      placeholder: "0.34.0"
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      description: For example Safari on an iPhone 15, or Chrome on a Windows laptop. Say if it is the Home Assistant app.
+    validations:
+      required: true
+  - type: textarea
+    id: did
+    attributes:
+      label: What you did
+      description: The steps, in order. Say whether it was the card, the Studio, or both.
+    validations:
+      required: true
+  - type: textarea
+    id: saw
+    attributes:
+      label: What you saw
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Drag an image into this box. Hide anything private first.
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors
+      description: Open the browser's developer tools, go to Console, and paste any red lines here.
+      render: text

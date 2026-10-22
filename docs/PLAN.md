@@ -4606,7 +4606,7 @@ feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>`
       `getComputedStyle` pair: a selected zone's outline has a dash array; a selected room's has none.
 - [ ] S36.6 Verify S26.26 and S27.17. The screenshots both boxes ask for, from today's build, looked at; the two exit
       tests walked once by script. Then tick both with the date.
-- [ ] S36.7 Issue templates: bug, a layout that fails to load, feature request; a `config.yml` pointing questions to
+- [x] S36.7 Issue templates: bug, a layout that fails to load, feature request; a `config.yml` pointing questions to
       the forum thread.
 - [ ] S36.8 README and media, after S36.2. First line: the floor plan with a real editor. Hero: the demo home in 3D.
       Then the phone sheet, the Studio, the 13 themes, a new `demo.gif` from the demo home. Every image regenerated
