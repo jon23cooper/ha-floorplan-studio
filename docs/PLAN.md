@@ -4590,7 +4590,7 @@ The spec's Q1 to Q9, in one line each.
 Branch `task/s36-phase-a`. From `docs/REVIEW-2026-10-22.md` and Diego's answers (DECISIONS, 2026-10-22). No new
 feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>` in their own worktrees and ports.
 
-- [ ] S36.1 Decisions, this plan, the phase B backlog (Sprint 37), worktree clean-up. Coordinator.
+- [x] S36.1 Decisions, this plan, the phase B backlog (Sprint 37), worktree clean-up. Coordinator.
 - [ ] S36.2 Demo home. `demo/home.json`: a basement and two floors above it, furnished, stairs that line up across
       the three floors, a garden, a car, a vacuum, every device type the card styles. Passes `validate`; looks right in
       2D, 2.5D and 3D in blueprint, light and ha. File › Load demo and the standalone editor load it; `demo/layout.json`
@@ -4611,7 +4611,7 @@ feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>`
 - [ ] S36.8 README and media, after S36.2. First line: the floor plan with a real editor. Hero: the demo home in 3D.
       Then the phone sheet, the Studio, the 13 themes, a new `demo.gif` from the demo home. Every image regenerated
       from `home.json`; the "from before 0.29" notes go.
-- [ ] S36.9 Forum and Reddit drafts in `docs/ANNOUNCE.md` for Diego to post. Coordinator. Posting is Diego's.
+- [x] S36.9 Forum and Reddit drafts in `docs/ANNOUNCE.md` for Diego to post. Coordinator. Posting is Diego's.
 - [ ] S36.10 Integrate, full suite, Opus review, release 0.35.0 on a Friday after Diego's yes.
 
 Not in this sprint: GitHub Discussions (a repository setting, Diego's yes), the remote branches.
