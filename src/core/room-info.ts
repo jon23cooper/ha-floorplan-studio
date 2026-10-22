@@ -73,10 +73,8 @@ export function roomAreaM2(pts: unknown): number | null {
 function stateText(state: StateOverlay | undefined, entity: string, format?: (entity: string) => string | undefined): string {
   const s = stateOf(state, entity);
   if (!s) return NO_STATE;
-  const t = format?.(entity); // the card's formatter already catches what HA throws
-  if (t) return t;
   const unit = typeof s.attributes?.unit_of_measurement === "string" ? s.attributes.unit_of_measurement : "";
-  return unit ? `${s.state} ${unit}` : s.state;
+  return format?.(entity) || (unit ? `${s.state} ${unit}` : s.state); // the card's formatter already catches what HA throws
 }
 
 /** ISO date and 24-hour time in the viewer's zone ("2026-10-04 19:40:08"); "unknown" for anything that is not a date. */

@@ -425,11 +425,9 @@ export class FloorplanStudioCard extends LitElement {
     .fp-active-group-label:first-child { margin-top: 0; }
     /* S14.6: a category header is a button (keyboard, aria-expanded); it keeps the label's look. */
     button.fp-cat { display: flex; align-items: center; gap: 4px; width: 100%; min-height: 28px; text-align: left; border: none; background: transparent; padding: 0 2px; cursor: pointer; border-radius: 4px; }
-    button.fp-cat:hover, button.fp-cat:focus-visible { background: color-mix(in srgb, var(--fp-ink) 12%, var(--fp-bg)); }
     .fp-cat-name { flex: 1; min-width: 0; }
     .fp-cat-chev { flex: 0 0 10px; }
     .fp-active-row { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: none; background: transparent; color: inherit; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); padding: 4px 2px; cursor: pointer; border-radius: 4px; }
-    .fp-active-row:hover, .fp-active-row:focus-visible { background: color-mix(in srgb, var(--fp-ink) 12%, var(--fp-bg)); }
     .fp-active-row svg { width: 16px; height: 16px; flex: 0 0 16px; fill: var(--fp-active-row-color, var(--fp-ink)); }
     .fp-active-empty { margin: 4px 2px; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-text); }
     /* S11.3/S11.4: the room section and the details under a row. Same card chrome and tokens as the list above. */
@@ -458,7 +456,6 @@ export class FloorplanStudioCard extends LitElement {
     .fp-rail-open { position: relative; width: 36px; height: 36px; border: 1px solid var(--fp-idle); border-radius: 8px; background: var(--fp-bg); color: var(--fp-ink); font: 14px/1 var(--fp-font, system-ui, sans-serif); cursor: pointer; }
     .fp-rail-count { position: absolute; top: -6px; right: -6px; min-width: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 999px; background: var(--fp-warn); color: var(--fp-on-light); font: 600 11px/16px var(--fp-font, system-ui, sans-serif); text-align: center; }
     .fp-back { flex: 0 0 auto; border: none; background: transparent; color: inherit; font: inherit; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
-    .fp-back:hover, .fp-back:focus-visible { background: color-mix(in srgb, var(--fp-ink) 12%, var(--fp-bg)); }
     .fp-item { display: flex; flex-wrap: wrap; align-items: center; }
     .fp-item .fp-active-row { flex: 1 1 0; width: auto; min-width: 0; }
     .fp-row-state { margin-left: auto; padding-left: 6px; flex: 0 0 auto; white-space: nowrap; font-size: 11px; color: var(--fp-text); overflow-wrap: anywhere; text-align: right; }
@@ -527,8 +524,13 @@ export class FloorplanStudioCard extends LitElement {
     .fp-room-head { display: flex; align-items: center; gap: 6px; font: 600 13px/1.3 var(--fp-font, system-ui, sans-serif); }
     .fp-room-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
     .fp-room-clear { flex: 0 0 24px; width: 24px; height: 24px; border: none; background: transparent; color: inherit; font: 14px/1 var(--fp-font, system-ui, sans-serif); border-radius: 4px; cursor: pointer; }
-    .fp-room-clear:hover, .fp-room-clear:focus-visible { background: color-mix(in srgb, var(--fp-ink) 12%, var(--fp-bg)); }
     /* S20.1: the same look as a scene button, with classes of its own so the Scenes section's tests and counts stay about scenes. */
+    /* one hover grey for the panel rows and buttons: ink 12 % into bg keeps text above 4.5:1 in every theme (G23) */
+    button.fp-cat:is(:hover, :focus-visible),
+    .fp-active-row:is(:hover, :focus-visible),
+    .fp-back:is(:hover, :focus-visible),
+    .fp-room-clear:is(:hover, :focus-visible),
+    .fp-show-all:is(:hover, :focus-visible) { background: color-mix(in srgb, var(--fp-ink) 12%, transparent); }
     .fp-alloff-row { margin: 2px 0 6px; display: flex; flex-wrap: wrap; gap: 6px; }
     .fp-alloff, .fp-floor-off { min-height: 32px; padding: 0 10px; font: 12px/1.2 var(--fp-font, system-ui, sans-serif); color: var(--fp-ink); background: var(--fp-bg); border: 1px solid var(--fp-idle); border-radius: 8px; cursor: pointer; }
     .fp-alloff:hover, .fp-alloff:focus-visible, .fp-floor-off:hover, .fp-floor-off:focus-visible { border-color: var(--fp-primary); }
@@ -543,7 +545,6 @@ export class FloorplanStudioCard extends LitElement {
     .fp-room-facts { margin: 4px 0 6px; font: 12px/1.4 var(--fp-font, system-ui, sans-serif); }
     .fp-filter { display: flex; align-items: center; gap: 6px; font: 600 10px/1.6 var(--fp-font, system-ui, sans-serif); color: var(--fp-text); text-transform: uppercase; letter-spacing: 0.04em; }
     .fp-show-all { margin-left: auto; border: 1px solid var(--fp-idle); background: transparent; color: var(--fp-ink); font: 11px/1.4 var(--fp-font, system-ui, sans-serif); text-transform: none; letter-spacing: 0; border-radius: 4px; padding: 1px 6px; cursor: pointer; }
-    .fp-show-all:hover, .fp-show-all:focus-visible { background: color-mix(in srgb, var(--fp-ink) 12%, var(--fp-bg)); }
   `, POPUP_CSS, SCENES_CSS, TOUCH_CSS];
 
   private _config: FloorplanStudioCardConfig = {};
