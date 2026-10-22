@@ -2,6 +2,28 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-22: after the review, phase A (Diego)
+
+Answers to the decisions in `docs/REVIEW-2026-10-22.md`.
+
+1. **Positioning.** "The floor plan with a real editor" goes first, in the README's first line and the forum title.
+   The attention summary is the second line.
+2. **Feature stop.** No new feature until phase A (Sprint 36: be seen) is done. Phase B is written down as a backlog
+   (Sprint 37), not started.
+3. **Cadence.** One release a week, tagged on Friday, with a changelog paragraph a user can read. Supersedes tagging
+   per sprint or per fix.
+4. **Translations** (phase B): Italian, Spanish, Portuguese, French, German, Dutch, Chinese, for the card's own
+   strings, keyed on `hass.language`.
+5. **Themes.** All 13 stay, and all 13 stay on the README.
+6. **Demo home.** A new demo with a basement and two floors above it, furnished, `demo/home.json`. It is what File ›
+   Load demo puts in and what the README shows. `demo/layout.json` stays as the test fixture: 153 test files pin its
+   coordinates.
+7. **Open items, closed.** Card size cap: 124,650 gz is confirmed; it does not rise in Sprint 36, and room for the
+   card picker hook is made by moving 3D-only code out of the card into the lazy chunk. S19.E5 was done as S21.1.
+   S23.F5 "a heavier dash on a selected zone" is defined in S36.5. S26.26 and S27.17 are verified in S36.6. Old
+   worktrees and the 21 merged local branches are removed; `origin/task/S6.5-card-dashboard-install` and
+   `origin/task/disc-alpha` are left on GitHub (deleting a pushed branch needs its own yes).
+
 ## 2026-10-22: axe-core as a dev dependency; the accessibility pass (G23)
 
 - **Dependency.** `@axe-core/playwright` (devDependency only; nothing ships in the card or the Studio). Reason: a rule engine finds contrast and naming faults a hand check misses, and it ran as a Playwright test like the rest. Alternative was a hand checklist; rejected because it does not repeat.

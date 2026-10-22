@@ -2590,7 +2590,7 @@ Each task: one outcome, one failing test first, one commit. Branch `task/s19-cle
 - [x] S19.E2 A stale tooltip goes when its target changes or leaves.
 - [x] S19.E3 The card honours `layout.colors` as the editor does.
 - [x] S19.E4 `temp` joins `NO_TOGGLE`.
-- [ ] S19.E5 Camera cone clip. Skipped: the cone markup is pinned by regexes in tests/core/render.test.ts, a CSS `url(#id)` clip does not cross the shadow DOM, and it was not asked for as a fix. Needs a decision.
+- [x] S19.E5 Camera cone clip. Done as S21.1 (2026-10-22 note). Was skipped here: the cone markup is pinned by regexes in tests/core/render.test.ts, a CSS `url(#id)` clip does not cross the shadow DOM, and it was not asked for as a fix. Needs a decision.
 - [x] S19.E6 Remove unused scene writers (`addScene`, `renameScene`, `addSceneItem`, `removeSceneItem`, `setSceneItem`); their tests now go through `saveScene`.
 Not in this sprint: car in 3D/2D, old worktree clean-up.
 
@@ -4584,3 +4584,48 @@ The spec's Q1 to Q9, in one line each.
    Attention.
 8. **Body colour.** Diego: user-selected (any hex, palette offered, default theme furniture colour); tyres black, glass black.
 9. **Default model.** Default: sedan; existing car pieces lose the old box.
+
+## Sprint 36: phase A, be seen
+
+Branch `task/s36-phase-a`. From `docs/REVIEW-2026-10-22.md` and Diego's answers (DECISIONS, 2026-10-22). No new
+feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>` in their own worktrees and ports.
+
+- [ ] S36.1 Decisions, this plan, the phase B backlog (Sprint 37), worktree clean-up. Coordinator.
+- [ ] S36.2 Demo home. `demo/home.json`: a basement and two floors above it, furnished, stairs that line up across
+      the three floors, a garden, a car, a vacuum, every device type the card styles. Passes `validate`; looks right in
+      2D, 2.5D and 3D in blueprint, light and ha. File › Load demo and the standalone editor load it; `demo/layout.json`
+      stays the test fixture. Test: the shipped demo validates, has three floors, and every `DEVICE_TYPES` member the
+      demo claims to show is on it; Load demo puts in `home.json`, not the fixture.
+- [ ] S36.3 Card picker hook. The `window.customCards` entry implements `getEntitySuggestion` so the Home Assistant
+      2026.6 card picker lists the card under Community with a preview. Shape copied from the HA frontend source, and
+      the test says where. No cap rise: needs S36.4's room.
+- [ ] S36.4 Room in the card. Code that only the 3D view runs moves from the card file into the lazy 3D chunk. No
+      behaviour change; the full suite is the test. Report `gzip -9` of card and chunk before and after.
+- [ ] S36.5 A selected zone in the Studio (S23.F5). Its selection outline is dashed and heavier (3 px, dash 6 4)
+      where a selected room's is solid 2 px, so a selected zone still reads as a zone. Overlay only (finding 8).
+      `getComputedStyle` pair: a selected zone's outline has a dash array; a selected room's has none.
+- [ ] S36.6 Verify S26.26 and S27.17. The screenshots both boxes ask for, from today's build, looked at; the two exit
+      tests walked once by script. Then tick both with the date.
+- [ ] S36.7 Issue templates: bug, a layout that fails to load, feature request; a `config.yml` pointing questions to
+      the forum thread.
+- [ ] S36.8 README and media, after S36.2. First line: the floor plan with a real editor. Hero: the demo home in 3D.
+      Then the phone sheet, the Studio, the 13 themes, a new `demo.gif` from the demo home. Every image regenerated
+      from `home.json`; the "from before 0.29" notes go.
+- [ ] S36.9 Forum and Reddit drafts in `docs/ANNOUNCE.md` for Diego to post. Coordinator. Posting is Diego's.
+- [ ] S36.10 Integrate, full suite, Opus review, release 0.35.0 on a Friday after Diego's yes.
+
+Not in this sprint: GitHub Discussions (a repository setting, Diego's yes), the remote branches.
+
+## Sprint 37: phase B, the first five minutes (backlog, not started)
+
+From the review's plan B. Starts after Sprint 36 ships. Each item is a design question for Diego before it is a task.
+
+- [ ] S37.1 Studio first run: three doors on a blank plan, Load the demo, Start from your Home Assistant areas, Blank.
+- [ ] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
+      edge; the user drags corners after.
+- [ ] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
+- [ ] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
+- [ ] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
+      2026-10-22). Open: zh-Hans and zh-Hant, pt and pt-BR, Polish.
+- [ ] S37.6 2D icons on at the card's default size; dots only when the plan is small.
+- Later (plan C): vacuum position and trail; sun on the 3D house; a 24 h history replay.
