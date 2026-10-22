@@ -4596,7 +4596,7 @@ feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>`
       2D, 2.5D and 3D in blueprint, light and ha. File › Load demo and the standalone editor load it; `demo/layout.json`
       stays the test fixture. Test: the shipped demo validates, has three floors, and every `DEVICE_TYPES` member the
       demo claims to show is on it; Load demo puts in `home.json`, not the fixture.
-- [ ] S36.3 Card picker hook. The `window.customCards` entry implements `getEntitySuggestion` so the Home Assistant
+- [x] S36.3 Card picker hook (2026-10-22, `task/s36-picker`; +130 gz, the size test waits for S36.4). The `window.customCards` entry implements `getEntitySuggestion` so the Home Assistant
       2026.6 card picker lists the card under Community with a preview. Shape copied from the HA frontend source, and
       the test says where. No cap rise: needs S36.4's room.
 - [ ] S36.4 Room in the card. Code that only the 3D view runs moves from the card file into the lazy 3D chunk. No

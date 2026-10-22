@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Card: Home Assistant 2026.6's "By entity" card picker now lists Floorplan Studio under Community, with a preview, when you pick an entity a plan can draw.
 - Card: the room panel's device and sensor rows, and the Details State line, print Home Assistant's own state text (precision, translated state), as the plan and the popup already did.
 - Accessibility: the hover and focus background of the card's panel rows and buttons no longer drops light text to 2.9:1 contrast. "Lights off" and the Studio's reset-view button now carry their visible text in their accessible name, so voice control can say it. The Studio's shortcut hints meet 4.5:1.
 
