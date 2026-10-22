@@ -368,3 +368,27 @@ describe("allOffTitle (Sprint 22 review): All off says when a shared relay reach
     expect(allOffTitle({ ground: f, bad: { devices: 5 } as unknown as Floor }, "ground", roomSummary(f, 0, state, {})!)).toBe(ALL_OFF_TITLE);
   });
 });
+
+// Polish: the panel prints the same text the plan does. HA's formatter (precision, translated state) is optional and
+// comes from the card; the shape is `(entity) => string | undefined`, as RenderOpts.formatState (G9).
+describe("room panel state text uses the formatter", () => {
+  const fmt = (e: string) => ({ "switch.fan": "Running", "sensor.t1": "21.0 °C", "light.lamp": "" })[e as string];
+  it("prints the formatted text on device rows, falls back to raw when it returns nothing, and never asks for an unknown entity", () => {
+    const asked: string[] = [];
+    const s = roomSummary(floor(DEVICES), 0, STATE, { formatState: (e) => { asked.push(e); return fmt(e); } })!;
+    const row = (e: string) => s.devices.find((d) => d.entity === e)!.state;
+    expect(row("switch.fan")).toBe("Running");
+    expect(row("light.lamp")).toBe("on"); // formatter gave "": raw wins
+    expect(row("light.floor")).toBe("off"); // formatter gave undefined: raw wins
+    expect(asked).not.toContain("climate.trv"); // no state, no call
+    expect(s.devices.find((d) => d.entity === "climate.rad")!.state).toBe("no state");
+  });
+  it("formats sensor rows and the Details State row", () => {
+    const s = roomSummary(floor(DEVICES), 0, STATE, { formatState: fmt })!;
+    expect(s.sensors.find((r) => r.entity === "sensor.t1")!.state).toBe("21.0 °C");
+    expect(s.sensors.find((r) => r.entity === "sensor.t2")!.state).toBe("22.4 °C"); // raw
+    const rows = deviceInfo("switch.fan", { states: STATE }, fmt);
+    expect(rows.find((r) => r.label === "State")!.value).toBe("Running");
+    expect(deviceInfo("switch.fan", { states: STATE }).find((r) => r.label === "State")!.value).toBe("on");
+  });
+});

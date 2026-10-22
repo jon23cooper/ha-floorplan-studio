@@ -2499,7 +2499,7 @@ export class FloorplanStudioCard extends LitElement {
     };
     return popupTemplate({
       subject: s, text: this._subjectText(s), op, confirming: p.confirming, kiosk: this._kiosk(), caps, fan,
-      info: this._kiosk() || !(s.entity ?? s.entities[0]) ? [] : deviceInfo((s.entity ?? s.entities[0])!, { ...this._hass, states: this._stateForRender() }),
+      info: this._kiosk() || !(s.entity ?? s.entities[0]) ? [] : deviceInfo((s.entity ?? s.entities[0])!, { ...this._hass, states: this._stateForRender() }, this._format),
       doorLabel: s.door?.cover ? (this._coverService(s.door) === "close_cover" ? "Close" : "Open") : null,
       level: { b: caps?.brightness ? level("b") : null, s: fan ? level("s") : null, t: caps?.temp ? level("t") : null, h: caps?.hue ? level("h") : null },
       act: () => this._popupAct(),
@@ -3374,7 +3374,7 @@ export class FloorplanStudioCard extends LitElement {
   private _activePanel() {
     if (!this._activeListVisible() || !this._layout) return null;
     const state = this._stateForRender();
-    const opts = { plugWatts: plugThreshold(this._config.plug_watts), powerLinks: this._powerLinks() };
+    const opts = { plugWatts: plugThreshold(this._config.plug_watts), powerLinks: this._powerLinks(), formatState: this._format };
     const at = this._picked(), floor = this._floor();
     const floorKey = this._pickedFloorKey(), shown = this._floorKey();
     // S20.2: the panel's one subject is the picked room, else the selected floor, summed over its rooms by the same builder.

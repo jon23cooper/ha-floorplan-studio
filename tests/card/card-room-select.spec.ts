@@ -264,6 +264,22 @@ test.describe("the room section and the filtered list", () => {
   });
 });
 
+test.describe("room panel uses the host's state text", () => {
+  test("device rows and sensor rows print hass.formatEntityState", async ({ page }) => {
+    await boot(page, 1280);
+    await card(page).evaluate((el, states) => {
+      const e = el as unknown as { hass: Record<string, unknown>; updateComplete: Promise<unknown> };
+      e.hass = { ...e.hass, states, formatEntityState: (s: { state: string }) => `FMT<${s.state}>` };
+      return e.updateComplete;
+    }, STATES());
+    await click(page, await floorPoint(page, 0));
+    const text = await room(page).innerText();
+    expect(text).toContain("FMT<on>"); // the Living light row
+    expect(text).toContain("FMT<21>"); // a temperature sensor row
+    expect(text).not.toContain("21 °C");
+  });
+});
+
 test.describe("device details", () => {
   // S24.7 (A3): the ▸ chevron on each row went; the details it unfolded are in the row's popup, under Details.
   const row = (page: Page, where: string) => card(page).locator(`css=${where} .fp-active-row`, { hasText: "Living light" }).first();

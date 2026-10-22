@@ -70,9 +70,11 @@ export function roomAreaM2(pts: unknown): number | null {
 }
 
 /** "state unit", the way the panel prints it; `no state` when the entity is unknown to Home Assistant. */
-function stateText(state: StateOverlay | undefined, entity: string): string {
+function stateText(state: StateOverlay | undefined, entity: string, format?: (entity: string) => string | undefined): string {
   const s = stateOf(state, entity);
   if (!s) return NO_STATE;
+  const t = format?.(entity); // the card's formatter already catches what HA throws
+  if (t) return t;
   const unit = typeof s.attributes?.unit_of_measurement === "string" ? s.attributes.unit_of_measurement : "";
   return unit ? `${s.state} ${unit}` : s.state;
 }
@@ -180,7 +182,7 @@ function summarise(f: Floor, rooms: Room[], member: (roomAt: number) => boolean,
     // point would put it in the wrong room, so a person never has a row here.
     if (!c || d.type === "person" || typeof d.entity !== "string" || !d.entity || !member(roomAt(f, c))) return;
     const on = classOf(d, { scale: 1, state, ...opts }) === "on";
-    devices.push({ index: i, entity: d.entity, name: nameFor(d, state), type: d.type, state: relayText(d, state) ?? stateText(state, d.entity), on, colorVar: on ? colorVarFor(d, state) : "--fp-ink" });
+    devices.push({ index: i, entity: d.entity, name: nameFor(d, state), type: d.type, state: relayText(d, state) ?? stateText(state, d.entity, opts.formatState), on, colorVar: on ? colorVarFor(d, state) : "--fp-ink" });
     for (const e of entitiesOfDevice(d)) entities.add(e);
     if (d.type === "light" && on) {
       lightsOn.push(nameFor(d, state));
@@ -196,7 +198,7 @@ function summarise(f: Floor, rooms: Room[], member: (roomAt: number) => boolean,
     const d = pieceDevice(m);
     if (!d || !finite([m.x, m.y]) || !member(roomAt(f, [m.x, m.y])) || devices.some((r) => r.entity === d.entity)) return;
     const on = pieceOn({ scale: 1, state, ...opts }, m, plugs);
-    devices.push({ index: i, piece: true, entity: d.entity, name: nameFor(d, state), type: d.type, state: stateText(state, d.entity), on, colorVar: on ? colorVarFor(d, state) : "--fp-ink" });
+    devices.push({ index: i, piece: true, entity: d.entity, name: nameFor(d, state), type: d.type, state: stateText(state, d.entity, opts.formatState), on, colorVar: on ? colorVarFor(d, state) : "--fp-ink" });
     entities.add(d.entity);
   });
 
@@ -206,7 +208,7 @@ function summarise(f: Floor, rooms: Room[], member: (roomAt: number) => boolean,
       entities.add(e);
       if (devices.some((d) => d.entity === e)) continue; // it has an icon on the plan: that row already lists it
       const friendly = stateOf(state, e)?.attributes?.friendly_name;
-      sensors.push({ entity: e, name: typeof friendly === "string" && friendly ? friendly : e, kind, state: stateText(state, e) });
+      sensors.push({ entity: e, name: typeof friendly === "string" && friendly ? friendly : e, kind, state: stateText(state, e, opts.formatState) });
     }
   }
 
@@ -259,7 +261,7 @@ const own = <T>(map: Record<string, T> | undefined, key: string): T | undefined 
   key && map && typeof map === "object" && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
 const text = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 
-export function deviceInfo(entity: string, hass: InfoHass): InfoRow[] {
+export function deviceInfo(entity: string, hass: InfoHass, format?: (entity: string) => string | undefined): InfoRow[] {
   const reg = own(hass.entities, entity);
   const device = own(hass.devices, text(reg?.device_id));
   const areaId = text(reg?.area_id) || text(device?.area_id);
@@ -272,7 +274,7 @@ export function deviceInfo(entity: string, hass: InfoHass): InfoRow[] {
   }
   add("Area", text(own(hass.areas, areaId)?.name));
   rows.push({ label: "Entity", value: entity });
-  rows.push({ label: "State", value: stateText(hass.states, entity) });
+  rows.push({ label: "State", value: stateText(hass.states, entity, format) });
   rows.push({ label: "Last changed", value: formatChanged(stateOf(hass.states, entity)?.last_changed) });
   return rows;
 }
