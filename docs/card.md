@@ -23,6 +23,8 @@ floor there is nothing to switch, so it just draws that. Either way: the
 `blueprint` theme, motion fading over 120 seconds, `room_glow` off, darker
 after sunset.
 
+In Home Assistant 2026.6 and later, the dashboard's card picker (Add card, By entity) lists the card under Community when you pick a light, switch, sensor, climate, cover, camera, fan, lock, media player, person, vacuum, siren or alarm entity, with a live preview of your plan; the suggestion is the config above.
+
 The editor itself can write this for you: File → Install code opens a panel
 with a whole dashboard, matching your plan as it currently stands — theme,
 floors — ready to paste. See "A premade dashboard" below.

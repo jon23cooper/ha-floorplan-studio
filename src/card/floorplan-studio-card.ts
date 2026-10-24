@@ -230,7 +230,7 @@ const ZOOM_LEVEL_MIN = 1;
 
 declare global {
   interface Window {
-    customCards?: { type: string; name: string; description: string }[];
+    customCards?: { type: string; name: string; description: string; getEntitySuggestion?: (hass: unknown, entityId: string) => { config: { type: string } } | null }[];
   }
 }
 
@@ -4125,6 +4125,8 @@ if (typeof window !== "undefined") {
       type: "floorplan-studio-card",
       name: "Floorplan Studio",
       description: "Draw your home and use it as a live dashboard.",
+      // S36.3: HA 2026.6's "By entity" picker lists the card under Community for an entity a plan can draw (docs/DECISIONS.md, 2026-10-22).
+      getEntitySuggestion: (_hass, id) => (/^(light|switch|sensor|binary_sensor|climate|cover|camera|fan|lock|media_player|person|device_tracker|vacuum|siren|alarm_control_panel)\./.test(id) ? { config: { type: "custom:floorplan-studio-card" } } : null),
     });
 }
 defineElement("floorplan-studio-card", FloorplanStudioCard, CARD_VERSION);
