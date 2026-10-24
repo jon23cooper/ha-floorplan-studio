@@ -4599,7 +4599,7 @@ feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>`
 - [ ] S36.3 Card picker hook. The `window.customCards` entry implements `getEntitySuggestion` so the Home Assistant
       2026.6 card picker lists the card under Community with a preview. Shape copied from the HA frontend source, and
       the test says where. No cap rise: needs S36.4's room.
-- [ ] S36.4 Room in the card. Code that only the 3D view runs moves from the card file into the lazy 3D chunk. No
+- [x] S36.4 Room in the card (2026-10-22: card 124,646 -> 122,835 gz, chunk 159,207 -> 162,094). Code that only the 3D view runs moves from the card file into the lazy 3D chunk. No
       behaviour change; the full suite is the test. Report `gzip -9` of card and chunk before and after.
 - [x] S36.5 A selected zone in the Studio (S23.F5). Its selection outline is dashed and heavier (3 px, dash 6 4)
       where a selected room's is solid 2 px, so a selected zone still reads as a zone. Overlay only (finding 8).
