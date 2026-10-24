@@ -3,7 +3,6 @@ import {
   HEADER_H,
   PEEK_H,
   cardHeight,
-  coverOf,
   frameMode,
   nextOnHandleTap,
   sheetStops,
@@ -12,6 +11,7 @@ import {
   snapSheet,
 } from "../../src/card/frame";
 import type { SheetStop } from "../../src/card/frame";
+import { coverOf } from "../../src/card/three/cover"; // S36.4: moved from frame.ts into the 3D chunk
 
 // S31.2: the card frame's maths. Pure numbers, no DOM. The reasoning for the phone minimum and the snap rule sits in
 // the comment block at the top of src/card/frame.ts. Velocity is px/ms of the sheet's HEIGHT: positive grows it.
