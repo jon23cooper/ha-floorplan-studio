@@ -4613,6 +4613,7 @@ feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>`
       from `home.json`; the "from before 0.29" notes go.
 - [x] S36.9 Forum and Reddit drafts in `docs/ANNOUNCE.md` for Diego to post. Coordinator. Posting is Diego's.
 - [ ] S36.10 Integrate, full suite, Opus review, release 0.35.0 on a Friday after Diego's yes.
+  - 2026-10-24: integrated on `task/s36-phase-a`; Opus review found no defects (lint 0, unit 0, Playwright 2503 passed, 1 skipped). Nits fixed: a guard that the 3D chunk imports nothing from the card, the CHANGELOG opening paragraph, no "preview" claim for the picker. Open: the release itself.
 
 Not in this sprint: GitHub Discussions (a repository setting, Diego's yes), the remote branches.
 

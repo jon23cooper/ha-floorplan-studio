@@ -2,9 +2,11 @@
 
 ## Unreleased
 
+A demo home to start from: File > Load demo in the Studio now opens a furnished house with a basement and two floors. The README and every picture are rebuilt from it. Home Assistant 2026.6's card picker offers the card when you pick an entity it can draw. Smaller things: a selected zone has a dashed outline, the room panel prints Home Assistant's own state text, and hover contrast is fixed.
+
 - Docs: README and every image rebuilt from the demo home (hero in 3D, phone sheet, Studio, a grid of all 13 themes, a new demo GIF); the pictures of a real house and the "from before 0.29" notes are gone.
 - Studio: a selected zone is outlined with a heavier dashed line (3 px, dash 6 4); a selected room keeps the solid 2 px outline.
-- Card: Home Assistant 2026.6's "By entity" card picker now lists Floorplan Studio under Community, with a preview, when you pick an entity a plan can draw.
+- Card: Home Assistant 2026.6's "By entity" card picker now lists Floorplan Studio under Community when you pick an entity a plan can draw.
 - Demo: a furnished three-level demo home (basement, ground, first; about 10 x 8 m, aligned stairs, every device type, a car on the drive, a vacuum). File > Load demo in the Studio offers it, with a pleasant evening's states in `demo/home-states.json`.
 - Card: the room panel's device and sensor rows, and the Details State line, print Home Assistant's own state text (precision, translated state), as the plan and the popup already did.
 - Accessibility: the hover and focus background of the card's panel rows and buttons no longer drops light text to 2.9:1 contrast. "Lights off" and the Studio's reset-view button now carry their visible text in their accessible name, so voice control can say it. The Studio's shortcut hints meet 4.5:1.

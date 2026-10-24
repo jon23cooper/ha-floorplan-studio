@@ -58,6 +58,15 @@ test("the 3D chunk is at most 200 KB gzipped, and it is the only chunk", () => {
   expect(size, `chunk is ${size} gzip`).toBeLessThanOrEqual(CHUNK_LIMIT);
 });
 
+// S36 review nit 1: the chunk gets the card's helpers through `DEPS_3D`, never by import. A value import from the card file
+// would make the chunk load the card a second time, and the "only chunk" test above would not notice.
+test("the 3D chunk imports nothing from the card", () => {
+  const chunk = readdirSync("dist").find((f) => /^floorplan-studio-3d-.*\.js$/.test(f));
+  const src = readFileSync(`dist/${chunk}`, "utf8");
+  expect(src).not.toMatch(/\bfrom\s*["'][^"']*floorplan-studio-card/);
+  expect(src).not.toMatch(/\bimport\s*\(\s*["'][^"']*floorplan-studio-card/);
+});
+
 test("the card file imports no three.js and no scene or live builder (they belong to the chunk)", () => {
   const src = readFileSync("dist/floorplan-studio-card.js", "utf8");
   expect(src).not.toContain("WebGLRenderer");
