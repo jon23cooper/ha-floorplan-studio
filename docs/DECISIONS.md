@@ -2,6 +2,14 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-22: S36.4 room in the card, the 3D glue moves to the chunk
+
+No behaviour change, no cap change (`CARD_GROWTH_LIMIT` stays; cap 124,650 gz). The card's glue to the 3D view (`_sync3d`'s body, `_sync3dBelow`, `_bind3d` with its hover and double-tap code, `_pick3d`, `_apply3dFrame`, `_holdFocus`) and `coverOf` ran only after someone picked 3D, yet shipped in the card. They are now `src/card/three/host.ts` and `three/cover.ts`; the card calls them through `lib3d` (the chunk's entry is `host.ts`). The card is passed as `h`, typed with `import type`; the underscore members the glue reads lost `private`. Four fields went (`_view3dFloor`, `_view3dAround`, `_view3dBelow`, `_pick3dCache`): the chunk keeps them in a WeakMap keyed by the view. What the 2D plan also ships (`sceneDeps`, `floorsBelow`, `bindDeviceActions`, ...) still reaches the chunk as `DEPS_3D`: the chunk may not import card code. `host.ts` holds copies of the double-tap numbers; `tests/card/three-host.test.ts` holds them equal. `frame.test.ts` imports `coverOf` from its new path, nothing else in the tests changed.
+
+`gzip -9` on stdin (the size test's figure; with a file name it reads 25 more): card 124,646 -> 122,835 (-1,811), chunk 159,207 -> 162,094 (cap 233,000).
+
+Not moved: the `three-deps.ts` object (about 350 gz) and `textureTile`, because the 2D plan shares the modules they name and a shared module cannot be imported by the chunk; the camera memory and `parseStoredView`, which run before 3D loads; the Floors below menu rows and `.fp-3d` CSS (a few hundred bytes, and the menu and the card's static styles are built before the chunk is there).
+
 ## 2026-10-22: after the review, phase A (Diego)
 
 Answers to the decisions in `docs/REVIEW-2026-10-22.md`.
