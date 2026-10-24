@@ -3020,9 +3020,9 @@ Wave 4, in order on `task/s26-edit` (each touches the host):
 - [x] S26.25 Exit test and docs. On the stress layout with 20 lights and a switch in one room: Shift+drag over the
       lights (1), Controlled by (2), the switch (3); all 20 bound; one Undo unbinds all 20. `docs/editor.md`,
       `docs/SPEC.md`, guide, CHANGELOG, DECISIONS (multi-select, Lock, Inspector modes, status bar, typed length, snap).
-- [ ] S26.26 Verify: `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its own line; new tests
+- [x] S26.26 Verify: `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its own line; new tests
       `--repeat-each=10`; `npm run shots` looked at; screenshots of the Inspector modes, the marquee, a context menu and
-      the status bar at 1280 and 1024, dark and light; the exit test walked by hand once.
+      the status bar at 1280 and 1024, dark and light; the exit test walked by hand once. Verified 2026-10-22 (S36.6): suites green, 77 screenshots looked at, exit tests walked.
 
 Review (one Opus pass on the integrated build) then fixes with their tests; exit test: bind 20 lights in 3 actions, one
 undo step.
@@ -3214,9 +3214,9 @@ Wave 3, in order on `task/s27-floors`:
       Both motion paths are the S27.12 and S27.15 tests. Docs: `docs/SPEC.md` (offset, Align, ghost, floors below,
       switch), `docs/specs/real-3d.md` (criterion I and 8 superseded, why), `docs/card.md` (keys `ghost_floor`,
       `floors_below`, the parity table), `docs/editor.md`, guide, CHANGELOG, DECISIONS.
-- [ ] S27.17 Verify: `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its own line; new tests
+- [x] S27.17 Verify: `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its own line; new tests
       `--repeat-each=10`; `npm run shots` looked at, ghost on and off; screenshots of the Align tab, the Floors menu,
-      the card's ghost and 3D ghost and solid at 1280 and 1024, dark and light; the exit test walked by hand once.
+      the card's ghost and 3D ghost and solid at 1280 and 1024, dark and light; the exit test walked by hand once. Verified 2026-10-22 (S36.6): suites green, 77 screenshots looked at, exit tests walked.
 
 Review (one Opus pass on the integrated build) then fixes with their tests; exit test: a misaligned floor aligns within
 2 cm; both motion paths tested.
@@ -4604,7 +4604,7 @@ feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>`
 - [x] S36.5 A selected zone in the Studio (S23.F5). Its selection outline is dashed and heavier (3 px, dash 6 4)
       where a selected room's is solid 2 px, so a selected zone still reads as a zone. Overlay only (finding 8).
       `getComputedStyle` pair: a selected zone's outline has a dash array; a selected room's has none.
-- [ ] S36.6 Verify S26.26 and S27.17. The screenshots both boxes ask for, from today's build, looked at; the two exit
+- [x] S36.6 Verify S26.26 and S27.17. The screenshots both boxes ask for, from today's build, looked at; the two exit
       tests walked once by script. Then tick both with the date.
 - [x] S36.7 Issue templates: bug, a layout that fails to load, feature request; a `config.yml` pointing questions to
       the forum thread.
