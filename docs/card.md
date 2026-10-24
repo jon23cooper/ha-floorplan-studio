@@ -608,7 +608,7 @@ zoom and turn for the whole card) move to the floor they were saved on.
   dropped field by field, and a browser that blocks storage just forgets.
 - It is per browser, not per Home Assistant user, and not synced.
 
-![The demo turned 45 degrees (image from before 0.29: the look controls were a toolbar and a stack over the plan, they are now in the header's ⋯ menu).](img/card-rotated-45.png)
+![The demo turned 45 degrees.](img/card-rotated-45.png)
 
 ## Saved views
 

@@ -1,27 +1,41 @@
-# ha-floorplan-studio
+# Floorplan Studio
 
-Draw your home inside Home Assistant, attach your devices, use it as a live
-dashboard. No external drawing tool, no YAML per element.
+The floor plan with a real editor. Draw your home in 2D, 2.5D or 3D inside
+Home Assistant, attach your devices, and use it as a live dashboard. No
+external drawing tool, no YAML per element.
+
+What is wrong comes first (an open window, an armed alarm), then what is on.
 
 Installable through HACS. Needs Home Assistant 2025.6 or later. Releases are
-in [`CHANGELOG.md`](CHANGELOG.md). I run it on my own Home
-Assistant every day.
+in [`CHANGELOG.md`](CHANGELOG.md). MIT licence.
 
-![The demo house as a live card: lights come on, a door opens, the plan zooms, switches floor and darkens at dusk; then the editor, dragging a device.](docs/img/demo.gif)
+![The demo home in 3D, ground floor on an evening: cutaway walls, lit lamps, a car on the drive.](docs/img/card-3d.png)
 
-| The card, live | On a phone (375 px) | The editor |
-|---|---|---|
-| ![The card: the demo ground floor, two lights and the hall motion sensor on.](docs/img/card-overview.png) | ![The same card at phone width (image from before 0.29, which gave the phone a bottom sheet).](docs/img/card-phone.png) | ![The editor with the demo house loaded.](docs/img/editor-overview.png) |
+## On a phone
 
-| The card in 3D | The editor, a room selected |
-|---|---|
-| ![The demo house in the 3D view: cutaway walls, lamps casting light, image from before 0.29.](docs/img/card-3d.png) | ![The editor with a room selected: Delete under the name, the temperature, humidity and motion sensor pickers each in a framed box.](docs/img/editor-room-panel.png) |
+A bottom sheet you drag. The house stays above it.
 
-A real house, on the card in 2.5D, three themes (room and device names blurred):
+<img src="docs/img/card-phone.png" alt="The card on a phone: the demo home in 3D with the Overview sheet half open." width="320">
 
-| Home Assistant theme | Cyberpunk theme | Space theme, first floor |
-|---|---|---|
-| ![The card in 2.5D on a real ground floor, Home Assistant theme.](docs/img/card-house-ground-ha.png) | ![The same floor in the Cyberpunk theme.](docs/img/card-house-ground-cyberpunk.png) | ![The first floor in the Space theme.](docs/img/card-house-first-space.png) |
+## The Studio
+
+The editor is a panel in Home Assistant. Draw floors, rooms, walls, doors and
+furniture, pick an area for a room and an entity for a device. File, Load demo
+gives you the furnished three-level home shown here.
+
+![The Studio with the demo home loaded.](docs/img/editor-overview.png)
+
+![The Studio with a room selected: name, sensor pickers, paint.](docs/img/editor-room-panel.png)
+
+## Thirteen themes
+
+One key, `theme:`. Every plan below is the same ground floor.
+
+![The demo ground floor in each of the thirteen themes.](docs/img/themes.png)
+
+## See it move
+
+![The demo home as a live card: lights come on, the plan zooms, switches floor, turns 2.5D and 3D, darkens at dusk; then the Studio, dragging a device.](docs/img/demo.gif)
 
 ## What you get
 
@@ -43,7 +57,7 @@ A real house, on the card in 2.5D, three themes (room and device names blurred):
   zoom, position, rotation, 2D or 2.5D and theme in their browser, and Reset
   view in the ⋯ menu returns to the card's config.
 
-  ![The card turned 45 degrees, image from before 0.29, when the look controls were a toolbar over the plan.](docs/img/card-rotated-45.png)
+  ![The card turned 45 degrees.](docs/img/card-rotated-45.png)
 
   ![The card in 2.5D.](docs/img/card-2-5d.png)
 - A Lovelace card: lights, switches, sensors, cameras, thermostats, doors,
@@ -107,27 +121,9 @@ A real house, on the card in 2.5D, three themes (room and device names blurred):
 
 Thirteen built-in themes, picked from the card's Edit-card form or written as
 `theme:` in YAML. `ha` follows your Home Assistant dashboard's own theme;
-the rest are fixed palettes.
-
-| `blueprint` (default) | `midnight` | `light` |
-|---|---|---|
-| ![Blueprint theme: dark blue plan, terminal-green grid, orange accents.](docs/img/themes/blueprint.png) | ![Midnight theme: blueprint's original dark palette.](docs/img/themes/midnight.png) | ![Light theme: paper-and-ink plan.](docs/img/themes/light.png) |
-
-| `slate` | `terminal` | `solarized` |
-|---|---|---|
-| ![Slate theme: light neutral grey plan, burnt-orange accents.](docs/img/themes/slate.png) | ![Terminal theme: near-black plan, terminal-green text, amber accents.](docs/img/themes/terminal.png) | ![Solarized theme: the real Solarized dark palette, each device kept in its own hue.](docs/img/themes/solarized.png) |
-
-| `ha` | `coffee` | `a-team` |
-|---|---|---|
-| ![Home Assistant theme: colours taken from your own dashboard theme.](docs/img/themes/ha.png) | ![Coffee theme: espresso-brown plan, cream text, caramel-orange accents.](docs/img/themes/coffee.png) | ![A-Team theme: near-black plan, cherry-red grid, gold accents.](docs/img/themes/a-team.png) |
-
-| `space` | `cyberpunk` | `carpenter-brut` |
-|---|---|---|
-| ![Space theme: near-black navy plan, cyan grid, violet accents.](docs/img/themes/space.png) | ![Cyberpunk theme: near-black violet plan, cyan text, magenta grid, acid-yellow accents.](docs/img/themes/cyberpunk.png) | ![Carpenter Brut theme: near-black maroon plan, crimson grid, hot-pink accents.](docs/img/themes/carpenter-brut.png) |
-
-| `beach-house` |
-|---|
-| ![Beach House theme: sand-coloured plan, sea-teal grid, palm-green accents.](docs/img/themes/beach-house.png) |
+the rest are fixed palettes. `blueprint` is the default. The grid at the top
+of this page shows all thirteen: blueprint, midnight, light, slate, terminal,
+solarized, ha, coffee, a-team, space, cyberpunk, carpenter-brut, beach-house.
 
 Every room keeps its own paint (colour or texture) in every theme — only the
 grid, walls and device icons change. `blueprint`, `slate`, `terminal`,
