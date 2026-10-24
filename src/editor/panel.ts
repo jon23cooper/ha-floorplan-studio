@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, unsafeCSS } from "lit";
 import { guard } from "lit/directives/guard.js";
 import type { Layout } from "../core";
-import demo from "../../demo/layout.json";
+import demo from "../../demo/home.json";
 import "./editor-app";
 import { haData } from "./hass-pickers";
 import { makeWriter } from "./hass-write";

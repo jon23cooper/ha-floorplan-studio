@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import demo from "../../demo/layout.json";
+import home from "../../demo/home.json";
 import type { Layout } from "../../src/core/schema";
 import { FloorplanStudioPanel } from "../../src/editor/panel";
 import type { FloorplanStudioEditor } from "../../src/editor/editor-app";
@@ -147,7 +148,10 @@ describe("<floorplan-studio-panel>", () => {
 
   it("the editor is given the demo home, so File, Load demo works on an empty plan", async () => {
     const el = await mount(stubHass(() => ({ layout: null })));
-    expect(editorOf(el)!.demo?.floors.ground.rooms.length).toBe(L.floors.ground.rooms.length);
+    // S36.2: Load demo puts in the home (three levels), not the fixture the other tests here pin.
+    const given = editorOf(el)!.demo!;
+    expect(Object.keys(given.floors)).toEqual(["basement", "ground", "first"]);
+    expect(given.floors.ground.rooms.length).toBe((home as unknown as Layout).floors.ground.rooms.length);
   });
 
   it("shows live device state on the plan: a device wears its .on class, and turning it off in HA fades it back", async () => {

@@ -10,6 +10,8 @@ import { openLabels, pickFurniture, pickUnlinked } from "./menu-helpers";
 // real top element decides what is hit (icons, handles, walls), as for a user.
 
 const demo = JSON.parse(readFileSync("demo/layout.json", "utf8")) as Layout;
+/** S36.2: what File > Load demo puts in. The fixture above is only what the standalone page opens with. */
+const home = JSON.parse(readFileSync("demo/home.json", "utf8")) as Layout;
 const manifest = JSON.parse(readFileSync("custom_components/floorplan_studio/manifest.json", "utf8")) as { version: string };
 const EDITOR = "floorplan-studio-editor";
 const layoutOf = (page: Page) => page.evaluate((tag) => JSON.parse(JSON.stringify((document.querySelector(tag) as any).layout)) as Layout, EDITOR);
@@ -361,9 +363,25 @@ test("after Reset, Load demo loads the demo without asking, and is off again", a
   page.once("dialog", (d) => { asked = true; void d.dismiss(); });
   await page.locator("#loaddemo").click();
   expect(asked).toBe(false);
-  expect(await layoutOf(page)).toEqual(demo);
+  expect(await layoutOf(page)).toEqual(home);
   await menu(page, "File");
   await expect(page.locator("#loaddemo")).toBeDisabled();
+});
+
+test("Load demo puts in the demo home, not the test fixture: a basement under two floors, each with a tab", async ({ page }) => {
+  expect(await layoutOf(page)).toEqual(demo); // the standalone page opens on the fixture, which is not the home
+  page.once("dialog", (d) => d.accept());
+  await menu(page, "File");
+  await page.locator("#reset").click();
+  await menu(page, "File");
+  await page.locator("#loaddemo").click();
+  const loaded = await layoutOf(page);
+  expect(loaded).not.toEqual(demo);
+  expect(Object.keys(loaded.floors)).toEqual(["basement", "ground", "first"]);
+  await expect(page.locator(".chip[data-f]")).toHaveText(["Basement", "Ground", "First"]);
+  await page.locator('.chip[data-f="basement"]').click();
+  await expect(page.locator(`${EDITOR} svg polygon[data-r]`).first()).toBeVisible();
+  expect(await page.locator(`${EDITOR} svg polygon[data-r]`).count()).toBe(home.floors.basement.rooms.length);
 });
 
 test("break it: Reset cancelled keeps the plan and Load demo stays off", async ({ page }) => {

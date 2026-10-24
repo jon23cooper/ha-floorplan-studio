@@ -2,6 +2,12 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-24: the demo home is a Load demo target only
+
+`demo/home.json` is what File > Load demo loads (panel and standalone). The standalone still starts on
+`demo/layout.json`: 150+ test files pin that fixture, and a first look at a small plan is quicker than a full house.
+Supersedes nothing.
+
 ## 2026-10-22: S36.4 room in the card, the 3D glue moves to the chunk
 
 No behaviour change, no cap change (`CARD_GROWTH_LIMIT` stays; cap 124,650 gz). The card's glue to the 3D view (`_sync3d`'s body, `_sync3dBelow`, `_bind3d` with its hover and double-tap code, `_pick3d`, `_apply3dFrame`, `_holdFocus`) and `coverOf` ran only after someone picked 3D, yet shipped in the card. They are now `src/card/three/host.ts` and `three/cover.ts`; the card calls them through `lib3d` (the chunk's entry is `host.ts`). The card is passed as `h`, typed with `import type`; the underscore members the glue reads lost `private`. Four fields went (`_view3dFloor`, `_view3dAround`, `_view3dBelow`, `_pick3dCache`): the chunk keeps them in a WeakMap keyed by the view. What the 2D plan also ships (`sceneDeps`, `floorsBelow`, `bindDeviceActions`, ...) still reaches the chunk as `DEPS_3D`: the chunk may not import card code. `host.ts` holds copies of the double-tap numbers; `tests/card/three-host.test.ts` holds them equal. `frame.test.ts` imports `coverOf` from its new path, nothing else in the tests changed.

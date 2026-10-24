@@ -4591,7 +4591,7 @@ Branch `task/s36-phase-a`. From `docs/REVIEW-2026-10-22.md` and Diego's answers 
 feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>` in their own worktrees and ports.
 
 - [x] S36.1 Decisions, this plan, the phase B backlog (Sprint 37), worktree clean-up. Coordinator.
-- [ ] S36.2 Demo home. `demo/home.json`: a basement and two floors above it, furnished, stairs that line up across
+- [x] S36.2 Demo home (2026-10-22). `demo/home.json`: a basement and two floors above it, furnished, stairs that line up across
       the three floors, a garden, a car, a vacuum, every device type the card styles. Passes `validate`; looks right in
       2D, 2.5D and 3D in blueprint, light and ha. File › Load demo and the standalone editor load it; `demo/layout.json`
       stays the test fixture. Test: the shipped demo validates, has three floors, and every `DEVICE_TYPES` member the
