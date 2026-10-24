@@ -23,6 +23,8 @@ floor there is nothing to switch, so it just draws that. Either way: the
 `blueprint` theme, motion fading over 120 seconds, `room_glow` off, darker
 after sunset.
 
+In Home Assistant 2026.6 and later, the dashboard's card picker (Add card, By entity) lists the card under Community when you pick a light, switch, sensor, climate, cover, camera, fan, lock, media player, person, vacuum, siren or alarm entity, with a live preview of your plan; the suggestion is the config above.
+
 The editor itself can write this for you: File → Install code opens a panel
 with a whole dashboard, matching your plan as it currently stands — theme,
 floors — ready to paste. See "A premade dashboard" below.
@@ -606,7 +608,7 @@ zoom and turn for the whole card) move to the floor they were saved on.
   dropped field by field, and a browser that blocks storage just forgets.
 - It is per browser, not per Home Assistant user, and not synced.
 
-![The demo turned 45 degrees (image from before 0.29: the look controls were a toolbar and a stack over the plan, they are now in the header's ⋯ menu).](img/card-rotated-45.png)
+![The demo turned 45 degrees.](img/card-rotated-45.png)
 
 ## Saved views
 

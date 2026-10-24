@@ -2,6 +2,56 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-24: the demo home is a Load demo target only
+
+`demo/home.json` is what File > Load demo loads (panel and standalone). The standalone still starts on
+`demo/layout.json`: 150+ test files pin that fixture, and a first look at a small plan is quicker than a full house.
+Supersedes nothing.
+
+## 2026-10-22: S36.4 room in the card, the 3D glue moves to the chunk
+
+No behaviour change, no cap change (`CARD_GROWTH_LIMIT` stays; cap 124,650 gz). The card's glue to the 3D view (`_sync3d`'s body, `_sync3dBelow`, `_bind3d` with its hover and double-tap code, `_pick3d`, `_apply3dFrame`, `_holdFocus`) and `coverOf` ran only after someone picked 3D, yet shipped in the card. They are now `src/card/three/host.ts` and `three/cover.ts`; the card calls them through `lib3d` (the chunk's entry is `host.ts`). The card is passed as `h`, typed with `import type`; the underscore members the glue reads lost `private`. Four fields went (`_view3dFloor`, `_view3dAround`, `_view3dBelow`, `_pick3dCache`): the chunk keeps them in a WeakMap keyed by the view. What the 2D plan also ships (`sceneDeps`, `floorsBelow`, `bindDeviceActions`, ...) still reaches the chunk as `DEPS_3D`: the chunk may not import card code. `host.ts` holds copies of the double-tap numbers; `tests/card/three-host.test.ts` holds them equal. `frame.test.ts` imports `coverOf` from its new path, nothing else in the tests changed.
+
+`gzip -9` on stdin (the size test's figure; with a file name it reads 25 more): card 124,646 -> 122,835 (-1,811), chunk 159,207 -> 162,094 (cap 233,000).
+
+Not moved: the `three-deps.ts` object (about 350 gz) and `textureTile`, because the 2D plan shares the modules they name and a shared module cannot be imported by the chunk; the camera memory and `parseStoredView`, which run before 3D loads; the Floors below menu rows and `.fp-3d` CSS (a few hundred bytes, and the menu and the card's static styles are built before the chunk is there).
+
+## 2026-10-22: S36.3, the card picker hook
+
+- **The API** (read in `home-assistant/frontend`, tags 20260624.2 (June 2026 release line) and 20260930.4; commit b08f5bc, #52228). `src/data/lovelace_custom_cards.ts`: `CustomCardEntry.getEntitySuggestion?(hass, entityId) => { label?, config } | { label?, config }[] | null`. `src/panels/lovelace/card-suggestions/index.ts`: `generateCardSuggestions` runs it only for an entity that exists in `hass.states`, inside try/catch (a throw is logged, not shown), `null` declines, and the results fill the "Community" row. `hui-suggestion-card.ts` titles the tile with `getCustomCardEntry(<type without "custom:">)?.name` (so `config.type` must be `custom:floorplan-studio-card`, matching our entry's `type`) and renders `<hui-card .config preview>`. `hui-suggestion-picker.ts` keys tiles by `JSON.stringify(config)`. `preview`, `documentationURL`: not read by this picker; `preview` is read only by the older "Browse cards" list (`hui-card-picker.ts`, `showElement: ccard.preview`), which this task does not touch.
+- **The rule.** The picker is per entity; the card is per home. It suggests `{ config: { type: "custom:floorplan-studio-card" } }`, no label, for an entity whose domain a plan can draw (light, switch, sensor, binary_sensor, climate, cover, camera, fan, lock, media_player, person, device_tracker, vacuum, siren, alarm_control_panel: the domains of `TYPE_RULES` and `typeForEntity` in `src/core/ha.ts`), and `null` for the rest (`update`, `input_boolean`, `weather`, `automation`...). Why this: the card cannot know synchronously whether this entity is on the saved plan (the plan loads over the websocket after the card mounts), so "only entities on my plan" would need a cache and bytes we do not have; a plain config previews the whole plan and needs no entity, and if no plan is saved the preview is the "No plan saved yet" line. Not chosen: no suggestion at all (the card would stay out of the row, the point of the task); `favourites: [entity]` (changes the Overview for a pick that only meant "show me the card"); the integration's own `update.*` entity (a user picking the update entity wants the update tile, not a floor plan).
+- **Cost.** +130 bytes gz in the card file. On its own it takes the card 126 bytes over the cap (124,650; the base was 124,646 on stdin). The cap does not rise: S36.4 moves 3D-only code to the lazy chunk first.
+- **Not verified:** the picker drawing the tile. That needs a real Home Assistant 2026.6 dashboard in edit mode. The test calls the entry with the shapes copied from the frontend source and mounts the suggested config in the card.
+
+## 2026-10-22: after the review, phase A (Diego)
+
+Answers to the decisions in `docs/REVIEW-2026-10-22.md`.
+
+1. **Positioning.** "The floor plan with a real editor" goes first, in the README's first line and the forum title.
+   The attention summary is the second line.
+2. **Feature stop.** No new feature until phase A (Sprint 36: be seen) is done. Phase B is written down as a backlog
+   (Sprint 37), not started.
+3. **Cadence.** One release a week, tagged on Friday, with a changelog paragraph a user can read. Supersedes tagging
+   per sprint or per fix.
+4. **Translations** (phase B): Italian, Spanish, Portuguese, French, German, Dutch, Chinese, for the card's own
+   strings, keyed on `hass.language`.
+5. **Themes.** All 13 stay, and all 13 stay on the README.
+6. **Demo home.** A new demo with a basement and two floors above it, furnished, `demo/home.json`. It is what File ›
+   Load demo puts in and what the README shows. `demo/layout.json` stays as the test fixture: 153 test files pin its
+   coordinates.
+7. **Open items, closed.** Card size cap: 124,650 gz is confirmed; it does not rise in Sprint 36, and room for the
+   card picker hook is made by moving 3D-only code out of the card into the lazy chunk. S19.E5 was done as S21.1.
+   S23.F5 "a heavier dash on a selected zone" is defined in S36.5. S26.26 and S27.17 are verified in S36.6. Old
+   worktrees and the 21 merged local branches are removed; `origin/task/S6.5-card-dashboard-install` and
+   `origin/task/disc-alpha` are left on GitHub (deleting a pushed branch needs its own yes).
+
+## 2026-10-22: axe-core as a dev dependency; the accessibility pass (G23)
+
+- **Dependency.** `@axe-core/playwright` (devDependency only; nothing ships in the card or the Studio). Reason: a rule engine finds contrast and naming faults a hand check misses, and it ran as a Playwright test like the rest. Alternative was a hand checklist; rejected because it does not repeat.
+- **Scope.** `tests/a11y/axe.spec.ts` scans `floorplan-studio-card` (light and dark; default, room picked, popup open) and `floorplan-studio-editor` (default, room selected, every top menu, Help) and expects zero violations. It is scoped to our elements: the harness page has no title, lang or main, which the Home Assistant page supplies. Not covered: keyboard order, focus return, screen-reader speech, the 3D view.
+- **Found and fixed.** Hover/focus grey `--fp-idle` under light text (2.9:1) on five card controls, now 12 % ink into `--fp-bg`. "Lights off" had the name "Turn off all lights in X" (label-in-name); it is now "Lights off in X" (four tests updated). Studio `#zreset` showed "0" and was named "Reset view"; now "Reset view, 0". `.kbd` hint opacity .7 to .85 (3.9:1 to above 4.5:1).
+- **Room panel text.** Device rows, sensor rows and Details State take the card's `formatState` (supersedes the "Not done: room-info.ts" note under G9). core still never sees hass.
+
 ## 2026-10-21 A load that strips fields must never feed a path that can save
 
 The server strips `floor.trace` from `floorplan_studio/load` unless the message says `with_trace: true`. `reloadStored` forgot it, adopted the stripped plan as saved, and the next Save would have erased every trace image. Every Studio load now asks for traces, and a test scans `src/editor` for any load call without it. Same review: Save clears the autosave draft once the server has the plan (a stale draft misled the banner); a draft that only lacks traces the stored plan has is compared with them put back, and Restore keeps them; a second Save before the first reply is held and sent after it, with the new revision. Known limit: a trace removed on purpose and never saved returns with a restored draft, because a draft cannot tell removed from dropped.

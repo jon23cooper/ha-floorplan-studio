@@ -56,7 +56,7 @@ export const toolbarCss = css`
        edge; in the bar the button is as wide as its label and the key follows it. */
     .keyed{display:inline-flex;align-items:baseline;gap:10px}
     .box .keyed{display:flex}
-    .kbd{margin-left:auto;padding-left:6px;font:600 .8em ui-monospace,monospace;opacity:.7;white-space:nowrap}
+    .kbd{margin-left:auto;padding-left:6px;font:600 .8em ui-monospace,monospace;opacity:.85;white-space:nowrap}
     .viewform{display:flex;flex-direction:column;gap:4px;padding-left:20px}
     .viewform input{width:100%;box-sizing:border-box}
     .layers-note{font-size:.85em;max-width:16em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

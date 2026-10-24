@@ -1,0 +1,44 @@
+name: A layout that fails to load or save
+description: Your plan will not open in the Studio or the card, or the Studio refuses to save it.
+labels: ["layout"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Floorplan Studio version
+      placeholder: "0.34.0"
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: The exact error text
+      description: Copy it as shown. Do not retype it.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: layout
+    attributes:
+      label: The layout JSON
+      description: Paste it, or drag the file into this box. Remove anything private first, such as entity names you would rather not share. A cut-down layout that still fails is best.
+      render: json
+    validations:
+      required: true
+  - type: dropdown
+    id: made
+    attributes:
+      label: How the layout was made
+      options:
+        - In the Studio
+        - By an LLM
+        - By hand
+        - A mix of these
+        - I do not know
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: What you were doing when it failed.

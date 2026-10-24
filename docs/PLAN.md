@@ -2590,7 +2590,7 @@ Each task: one outcome, one failing test first, one commit. Branch `task/s19-cle
 - [x] S19.E2 A stale tooltip goes when its target changes or leaves.
 - [x] S19.E3 The card honours `layout.colors` as the editor does.
 - [x] S19.E4 `temp` joins `NO_TOGGLE`.
-- [ ] S19.E5 Camera cone clip. Skipped: the cone markup is pinned by regexes in tests/core/render.test.ts, a CSS `url(#id)` clip does not cross the shadow DOM, and it was not asked for as a fix. Needs a decision.
+- [x] S19.E5 Camera cone clip. Done as S21.1 (2026-10-22 note). Was skipped here: the cone markup is pinned by regexes in tests/core/render.test.ts, a CSS `url(#id)` clip does not cross the shadow DOM, and it was not asked for as a fix. Needs a decision.
 - [x] S19.E6 Remove unused scene writers (`addScene`, `renameScene`, `addSceneItem`, `removeSceneItem`, `setSceneItem`); their tests now go through `saveScene`.
 Not in this sprint: car in 3D/2D, old worktree clean-up.
 
@@ -2679,7 +2679,7 @@ Branch `task/s23-visual`. From the visual review (V-ids, review of 2026-10-08). 
       solarized's outdoor ink.
 - [x] S23.F4 `strip-css-comments.mjs`: inside `url(`, skip a leading quoted string first, so `url("a)b")` cannot flip the
       quote state.
-- [ ] S23.F5 Left by the coders: paint dim in 3D; a heavier dash on a selected zone; 3D walls on HA dark still mix 55 %;
+- [x] S23.F5 (done as S36.5, 2026-10-22) Left by the coders: paint dim in 3D; a heavier dash on a selected zone; 3D walls on HA dark still mix 55 %;
       JSDoc still ships in the card (about 16 KB gzip); `docs/img/themes/*.png` are out of date.
       Status 2026-10-21: paint dim in 3D and 3D walls on HA dark were done in S28.9, JSDoc in S24.4, the theme PNGs
       regenerated (`scripts/theme-shots.mjs`). Open: "a heavier dash on a selected zone" is not defined (the Studio
@@ -3020,9 +3020,9 @@ Wave 4, in order on `task/s26-edit` (each touches the host):
 - [x] S26.25 Exit test and docs. On the stress layout with 20 lights and a switch in one room: Shift+drag over the
       lights (1), Controlled by (2), the switch (3); all 20 bound; one Undo unbinds all 20. `docs/editor.md`,
       `docs/SPEC.md`, guide, CHANGELOG, DECISIONS (multi-select, Lock, Inspector modes, status bar, typed length, snap).
-- [ ] S26.26 Verify: `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its own line; new tests
+- [x] S26.26 Verify: `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its own line; new tests
       `--repeat-each=10`; `npm run shots` looked at; screenshots of the Inspector modes, the marquee, a context menu and
-      the status bar at 1280 and 1024, dark and light; the exit test walked by hand once.
+      the status bar at 1280 and 1024, dark and light; the exit test walked by hand once. Verified 2026-10-22 (S36.6): suites green, 77 screenshots looked at, exit tests walked.
 
 Review (one Opus pass on the integrated build) then fixes with their tests; exit test: bind 20 lights in 3 actions, one
 undo step.
@@ -3214,9 +3214,9 @@ Wave 3, in order on `task/s27-floors`:
       Both motion paths are the S27.12 and S27.15 tests. Docs: `docs/SPEC.md` (offset, Align, ghost, floors below,
       switch), `docs/specs/real-3d.md` (criterion I and 8 superseded, why), `docs/card.md` (keys `ghost_floor`,
       `floors_below`, the parity table), `docs/editor.md`, guide, CHANGELOG, DECISIONS.
-- [ ] S27.17 Verify: `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its own line; new tests
+- [x] S27.17 Verify: `npm run lint`, `npm test`, `npx playwright test`, each bare with `$?` on its own line; new tests
       `--repeat-each=10`; `npm run shots` looked at, ghost on and off; screenshots of the Align tab, the Floors menu,
-      the card's ghost and 3D ghost and solid at 1280 and 1024, dark and light; the exit test walked by hand once.
+      the card's ghost and 3D ghost and solid at 1280 and 1024, dark and light; the exit test walked by hand once. Verified 2026-10-22 (S36.6): suites green, 77 screenshots looked at, exit tests walked.
 
 Review (one Opus pass on the integrated build) then fixes with their tests; exit test: a misaligned floor aligns within
 2 cm; both motion paths tested.
@@ -4584,3 +4584,53 @@ The spec's Q1 to Q9, in one line each.
    Attention.
 8. **Body colour.** Diego: user-selected (any hex, palette offered, default theme furniture colour); tyres black, glass black.
 9. **Default model.** Default: sedan; existing car pieces lose the old box.
+
+## Sprint 36: phase A, be seen
+
+Branch `task/s36-phase-a`. From `docs/REVIEW-2026-10-22.md` and Diego's answers (DECISIONS, 2026-10-22). No new
+feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>` in their own worktrees and ports.
+
+- [x] S36.1 Decisions, this plan, the phase B backlog (Sprint 37), worktree clean-up. Coordinator.
+- [x] S36.2 Demo home (2026-10-22). `demo/home.json`: a basement and two floors above it, furnished, stairs that line up across
+      the three floors, a garden, a car, a vacuum, every device type the card styles. Passes `validate`; looks right in
+      2D, 2.5D and 3D in blueprint, light and ha. File › Load demo and the standalone editor load it; `demo/layout.json`
+      stays the test fixture. Test: the shipped demo validates, has three floors, and every `DEVICE_TYPES` member the
+      demo claims to show is on it; Load demo puts in `home.json`, not the fixture.
+- [x] S36.3 Card picker hook (2026-10-22, `task/s36-picker`; +130 gz, the size test waits for S36.4). The `window.customCards` entry implements `getEntitySuggestion` so the Home Assistant
+      2026.6 card picker lists the card under Community with a preview. Shape copied from the HA frontend source, and
+      the test says where. No cap rise: needs S36.4's room.
+- [x] S36.4 Room in the card (2026-10-22: card 124,646 -> 122,835 gz, chunk 159,207 -> 162,094). Code that only the 3D view runs moves from the card file into the lazy 3D chunk. No
+      behaviour change; the full suite is the test. Report `gzip -9` of card and chunk before and after.
+- [x] S36.5 A selected zone in the Studio (S23.F5). Its selection outline is dashed and heavier (3 px, dash 6 4)
+      where a selected room's is solid 2 px, so a selected zone still reads as a zone. Overlay only (finding 8).
+      `getComputedStyle` pair: a selected zone's outline has a dash array; a selected room's has none.
+- [x] S36.6 Verify S26.26 and S27.17. The screenshots both boxes ask for, from today's build, looked at; the two exit
+      tests walked once by script. Then tick both with the date.
+- [x] S36.7 Issue templates: bug, a layout that fails to load, feature request; a `config.yml` pointing questions to
+      the forum thread.
+- [x] S36.8 (2026-10-24) README and media, after S36.2. First line: the floor plan with a real editor. Hero: the demo home in 3D.
+      Then the phone sheet, the Studio, the 13 themes, a new `demo.gif` from the demo home. Every image regenerated
+      from `home.json`; the "from before 0.29" notes go.
+- [x] S36.9 Forum and Reddit drafts in `docs/ANNOUNCE.md` for Diego to post. Coordinator. Posting is Diego's.
+- [ ] S36.10 Integrate, full suite, Opus review, release 0.35.0 on a Friday after Diego's yes.
+  - 2026-10-24: integrated on `task/s36-phase-a`; Opus review found no defects (lint 0, unit 0, Playwright 2503 passed, 1 skipped). Nits fixed: a guard that the 3D chunk imports nothing from the card, the CHANGELOG opening paragraph, no "preview" claim for the picker. Open: the release itself.
+
+Not in this sprint: GitHub Discussions (a repository setting, Diego's yes), the remote branches.
+
+## Sprint 37: phase B, the first five minutes (backlog, not started)
+
+From the review's plan B. Starts after Sprint 36 ships. Each item is a design question for Diego before it is a task.
+
+- [ ] S37.1 Studio first run: three doors on a blank plan, Load the demo, Start from your Home Assistant areas, Blank.
+- [ ] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
+      edge; the user drags corners after.
+- [ ] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
+- [ ] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
+- [ ] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
+      2026-10-22). Open: zh-Hans and zh-Hant, pt and pt-BR, Polish.
+- [ ] S37.6 2D icons on at the card's default size; dots only when the plan is small.
+- [ ] S37.7 Small layout defects from the S36.6 walk (2026-10-24): the "Plan unlocked" toast covers "Add floor"; wall
+      handle dots hide part of the length labels; at 1024 wide the toolbar wraps and the toast sits on the search box;
+      the light Studio sits on the standalone page's dark body; at 1024 the card's zoom buttons cover the ghost
+      outline; the Align aside cuts off its angle-step row at 800 px high.
+- Later (plan C): vacuum position and trail; sun on the 3D house; a 24 h history replay.

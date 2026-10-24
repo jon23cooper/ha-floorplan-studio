@@ -23,14 +23,13 @@ import { INSTALL_HINT, NOTHING_SAVED, STALE_PAGE, loadErrorText, loadShared, pag
 import { MAX_ZOOM, MIN_ZOOM, clamp, panBy, pinch, pinnedView, sameView, zoomAt, type Pt, type View } from "./viewport";
 import { PAN_STEP, isSearchChord, planKeyFor, type ViewKey } from "./view-keys";
 import { firstFocus, nextInDirection, type FocusDir } from "./plan-focus";
-import { HEADER_H, PEEK_H, cardHeight, coverOf, frameMode, nextOnHandleTap, sheetStops, sideOpenByDefault, sideWidth, snapSheet, type FrameMode, type SheetStop, type Stops } from "./frame";
+import { HEADER_H, PEEK_H, cardHeight, frameMode, nextOnHandleTap, sheetStops, sideOpenByDefault, sideWidth, snapSheet, type FrameMode, type SheetStop, type Stops } from "./frame";
 // S24.8: registers <fp-search>, the search box the Studio uses too.
 import "./search-box";
 // S31.6: <fp-menu>, the header's ⋯: everything about how the plan looks.
 import "./more-menu";
 import type { MenuItem, MenuSection } from "./more-menu";
 import type { View3D } from "./three/view3d";
-import type { Pick as Pick3D } from "./three/pick";
 import { liveDeps, sceneDeps, textureDeps } from "../core/three-deps";
 import { BELOW_LABELS, BELOW_MODES, HEAT_LABELS, belowModeOf, type BelowMode, ROTATION_STEP, easeInOut, normaliseRotation, parseStoredView, shortestDelta, viewAround, type FloorView, type StoredView } from "./view-state";
 
@@ -183,8 +182,8 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 /** Below this card width the Active list starts folded: it would cover the plan. */
 const ACTIVE_FOLD_BELOW_PX = 480;
 /** Two taps closer than this in time and space are a double-tap. */
-const DOUBLE_TAP_MS = 350;
-const DOUBLE_TAP_PX = 24;
+export const DOUBLE_TAP_MS = 350;
+export const DOUBLE_TAP_PX = 24;
 /** One click of a zoom button. */
 const BUTTON_ZOOM = 1.5;
 /** The words the side panel says for a room and for a floor (S20.2): the same panel, one subject. */
@@ -192,7 +191,7 @@ interface Scope { unnamed: string; clear: string; noDevices: string; nothingOn: 
 const ROOM_SCOPE: Scope = { unnamed: "Unnamed room", clear: "Clear the room selection", noDevices: "No devices in this room", nothingOn: "Nothing on in this room", activeHere: "Active in this room", onlyHere: "This room only" };
 const FLOOR_SCOPE: Scope = { unnamed: "Unnamed floor", clear: "Clear the floor selection", noDevices: "No devices on this floor", nothingOn: "Nothing is on, on this floor", activeHere: "Active on this floor", onlyHere: "This floor only" };
 /** What a double tap restores: the room or floor pick as it stood before the first tap changed it. */
-interface PickMemo { pick: { floor: string; id: string } | null; floor: string | null; filter: boolean }
+export interface PickMemo { pick: { floor: string; id: string } | null; floor: string | null; filter: boolean }
 /** The Scenes section starts folded, so its fold set entry means "opened by the user" (the other groups start open and the entry means folded). */
 const SCENES_OPEN = "r:scenes:open";
 /** S24.7: the Overview's Unavailable row starts folded, like Scenes: its entry means "opened". */
@@ -231,11 +230,11 @@ const ZOOM_LEVEL_MIN = 1;
 
 declare global {
   interface Window {
-    customCards?: { type: string; name: string; description: string }[];
+    customCards?: { type: string; name: string; description: string; getEntitySuggestion?: (hass: unknown, entityId: string) => { config: { type: string } } | null }[];
   }
 }
 
-type Lib3d = typeof import("./three/view3d");
+type Lib3d = typeof import("./three/host");
 /** The 3D module, once loaded: one for the page, shared by every card. It is a chunk of its own beside this file (three.js,
  * about 170 KB gzipped) and is fetched by `import()` the first time anyone picks 3D, never with the card. Its URL is
  * resolved from this module's own URL, so it works wherever Home Assistant serves the card from. */
@@ -251,11 +250,14 @@ const loadLib3d = (): Promise<Lib3d> => {
     const n = lib3dTries++;
     const load: Promise<Lib3d> = n > 0 && /^floorplan-studio-3d-.+\.js$/.test(CHUNK_FILE)
       ? import(/* @vite-ignore */ `${import.meta.url.split(/[?#]/)[0].replace(/[^/]*$/, "")}${CHUNK_FILE}?r=${n}`) // not `new URL(.., import.meta.url)`: Vite reads that as an asset and rewrites it
-      : import("./three/view3d");
+      : import("./three/host");
     lib3dLoading = load.then((m) => (lib3d = m), (err) => { lib3dLoading = null; throw err; }); // a failed load may be tried again
   }
   return lib3dLoading;
 };
+
+/** What the 3D chunk takes from code the 2D plan also ships (S36.4). The chunk may not import it: it would import the card. */
+const DEPS_3D = { scene: sceneDeps, live: liveDeps, texture: textureDeps.texture, floorsAroundKey, floorsBelow, floorElevation, floorPlace, plugThreshold, bindDeviceActions };
 
 /** The card that has focus (or has something inside it focused), whatever shadow roots it sits in. */
 let focusedCard: FloorplanStudioCard | null = null;
@@ -309,7 +311,7 @@ let focusedCard: FloorplanStudioCard | null = null;
  * puts its centre in the middle of that part. Measured, not computed from plan coordinates, so a turned plan, a letterboxed
  * plan and any zoom give the same answer; the box that is wanted is the stop's height, not the animating one, so it is right
  * at once. A thing already in view stays where it is. In 3D there is nothing to pan: the camera frames the house in what the
- * sheet leaves (`_apply3dFrame`).
+ * sheet leaves (`apply3dFrame`, in the 3D chunk).
  */
 /** `custom:floorplan-studio-card`: renders one floor of the layout, live from `hass`. */
 /** The scale and the control strip the plan is DRAWN with are snapped DOWN to steps (1 % of scale, 0.5 % of the plan's width; down, so a name's 11 px floor is never missed), and
@@ -323,6 +325,7 @@ const qstrip = (s: number, w: number): number => { const u = w * 0.005; return u
 /** S33 review: the entity domains `tap_action: toggle` may operate without the popup. A plain on/off of a light, a switch, an input_boolean or a fan. Lock, cover and siren open the popup: a stray tap never unlocks a door, moves a garage door or sounds a siren. Climate, humidifier, water_heater, automation, remote, media_player and group do too: their on/off is not a lamp's. */
 const TOGGLE_AT_ONCE = new Set(["light", "switch", "input_boolean", "fan"]);
 
+// S36.4: the underscore members that are not `private` are the ones the 3D glue in `three/host.ts` (the lazy chunk) reads.
 export class FloorplanStudioCard extends LitElement {
   static styles = [unsafeCSS(FLOORPLAN_CSS), css`
     /* S8.2: height 100% on both, matching Home Assistant's own cards (thermostat, map). In an "auto" grid row
@@ -425,11 +428,9 @@ export class FloorplanStudioCard extends LitElement {
     .fp-active-group-label:first-child { margin-top: 0; }
     /* S14.6: a category header is a button (keyboard, aria-expanded); it keeps the label's look. */
     button.fp-cat { display: flex; align-items: center; gap: 4px; width: 100%; min-height: 28px; text-align: left; border: none; background: transparent; padding: 0 2px; cursor: pointer; border-radius: 4px; }
-    button.fp-cat:hover, button.fp-cat:focus-visible { background: var(--fp-idle); }
     .fp-cat-name { flex: 1; min-width: 0; }
     .fp-cat-chev { flex: 0 0 10px; }
     .fp-active-row { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: none; background: transparent; color: inherit; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); padding: 4px 2px; cursor: pointer; border-radius: 4px; }
-    .fp-active-row:hover, .fp-active-row:focus-visible { background: var(--fp-idle); }
     .fp-active-row svg { width: 16px; height: 16px; flex: 0 0 16px; fill: var(--fp-active-row-color, var(--fp-ink)); }
     .fp-active-empty { margin: 4px 2px; font: 12px/1.3 var(--fp-font, system-ui, sans-serif); color: var(--fp-text); }
     /* S11.3/S11.4: the room section and the details under a row. Same card chrome and tokens as the list above. */
@@ -458,7 +459,6 @@ export class FloorplanStudioCard extends LitElement {
     .fp-rail-open { position: relative; width: 36px; height: 36px; border: 1px solid var(--fp-idle); border-radius: 8px; background: var(--fp-bg); color: var(--fp-ink); font: 14px/1 var(--fp-font, system-ui, sans-serif); cursor: pointer; }
     .fp-rail-count { position: absolute; top: -6px; right: -6px; min-width: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 999px; background: var(--fp-warn); color: var(--fp-on-light); font: 600 11px/16px var(--fp-font, system-ui, sans-serif); text-align: center; }
     .fp-back { flex: 0 0 auto; border: none; background: transparent; color: inherit; font: inherit; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
-    .fp-back:hover, .fp-back:focus-visible { background: var(--fp-idle); }
     .fp-item { display: flex; flex-wrap: wrap; align-items: center; }
     .fp-item .fp-active-row { flex: 1 1 0; width: auto; min-width: 0; }
     .fp-row-state { margin-left: auto; padding-left: 6px; flex: 0 0 auto; white-space: nowrap; font-size: 11px; color: var(--fp-text); overflow-wrap: anywhere; text-align: right; }
@@ -527,8 +527,13 @@ export class FloorplanStudioCard extends LitElement {
     .fp-room-head { display: flex; align-items: center; gap: 6px; font: 600 13px/1.3 var(--fp-font, system-ui, sans-serif); }
     .fp-room-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
     .fp-room-clear { flex: 0 0 24px; width: 24px; height: 24px; border: none; background: transparent; color: inherit; font: 14px/1 var(--fp-font, system-ui, sans-serif); border-radius: 4px; cursor: pointer; }
-    .fp-room-clear:hover, .fp-room-clear:focus-visible { background: var(--fp-idle); }
     /* S20.1: the same look as a scene button, with classes of its own so the Scenes section's tests and counts stay about scenes. */
+    /* one hover grey for the panel rows and buttons: ink 12 % into bg keeps text above 4.5:1 in every theme (G23) */
+    button.fp-cat:is(:hover, :focus-visible),
+    .fp-active-row:is(:hover, :focus-visible),
+    .fp-back:is(:hover, :focus-visible),
+    .fp-room-clear:is(:hover, :focus-visible),
+    .fp-show-all:is(:hover, :focus-visible) { background: color-mix(in srgb, var(--fp-ink) 12%, transparent); }
     .fp-alloff-row { margin: 2px 0 6px; display: flex; flex-wrap: wrap; gap: 6px; }
     .fp-alloff, .fp-floor-off { min-height: 32px; padding: 0 10px; font: 12px/1.2 var(--fp-font, system-ui, sans-serif); color: var(--fp-ink); background: var(--fp-bg); border: 1px solid var(--fp-idle); border-radius: 8px; cursor: pointer; }
     .fp-alloff:hover, .fp-alloff:focus-visible, .fp-floor-off:hover, .fp-floor-off:focus-visible { border-color: var(--fp-primary); }
@@ -543,12 +548,11 @@ export class FloorplanStudioCard extends LitElement {
     .fp-room-facts { margin: 4px 0 6px; font: 12px/1.4 var(--fp-font, system-ui, sans-serif); }
     .fp-filter { display: flex; align-items: center; gap: 6px; font: 600 10px/1.6 var(--fp-font, system-ui, sans-serif); color: var(--fp-text); text-transform: uppercase; letter-spacing: 0.04em; }
     .fp-show-all { margin-left: auto; border: 1px solid var(--fp-idle); background: transparent; color: var(--fp-ink); font: 11px/1.4 var(--fp-font, system-ui, sans-serif); text-transform: none; letter-spacing: 0; border-radius: 4px; padding: 1px 6px; cursor: pointer; }
-    .fp-show-all:hover, .fp-show-all:focus-visible { background: var(--fp-idle); }
   `, POPUP_CSS, SCENES_CSS, TOUCH_CSS];
 
-  private _config: FloorplanStudioCardConfig = {};
+  _config: FloorplanStudioCardConfig = {};
   private _hass?: Hass;
-  private _layout: Layout | null = null;
+  _layout: Layout | null = null;
   private _error: string | null = null;
   private _urlRequested = false;
   private _wsRequested = false;
@@ -609,7 +613,7 @@ export class FloorplanStudioCard extends LitElement {
   /** S25.5: the device indices of the stack fanned out into a ring, on the floor `_spiderFloor`; null when folded. */
   private _spider: number[] | null = null;
   private _spiderFloor: string | null = null;
-  private _popup: { s: PopupSubject; x: number; y: number; opener: Element | null; confirming: boolean; draft: { kind: SliderKind; value: number; from: number | null } | null } | null = null;
+  _popup: { s: PopupSubject; x: number; y: number; opener: Element | null; confirming: boolean; draft: { kind: SliderKind; value: number; from: number | null } | null } | null = null;
   private _popupFocusKey: string | null = null;
   private _popupReturn: Element | null = null;
   /** S14.2: the hover tooltip (mouse only). `_tipKey` is who it shows, `_tipHost` the card's box read once when it appears, `_tipTitle` a plan `<title>` held back so the browser's own tooltip does not double ours. */
@@ -625,16 +629,12 @@ export class FloorplanStudioCard extends LitElement {
   /** S7.4: the zoomed viewBox, or `null` for fit. Card state: reset by `setConfig` and a floor change, never by `hass`. */
   private _view: View | null = null;
   /** S12.3: the live 3D view, the floor and stair context it was built for, and why 3D cannot run (`null` while it can). */
-  private _view3d: View3D | null = null;
-  private _view3dFloor: unknown = null;
-  private _view3dAround = "";  // JSON of `FloorsAround`, to compare
+  _view3d: View3D | null = null;
   /** S27.15: the direction the next render's plan root fades in from, set by `_selectFloor` and consumed by `updated`. */
   private _switchDir: "up" | "down" | null = null;
-  /** S27.14: what the view was last given as floors below (mode, the floor objects, their elevations and shifts), to compare. */
-  private _view3dBelow: { mode: BelowMode; floors: unknown[]; nums: string } | null = null;
-  private _fallback3d: string | null = null;
+  _fallback3d: string | null = null;
   /** The fallback came from a lost graphics context: the card tries 3D once more when it is attached or shown again. */
-  private _retry3d = false;
+  _retry3d = false;
   /** How many 3D renderers are alive in this page: a test hook (a lifecycle test reads that it returns to 0). */
   static get liveRenderers(): number { return lib3d?.liveRenderers() ?? 0; }
 
@@ -668,15 +668,15 @@ export class FloorplanStudioCard extends LitElement {
   /** S14.4: what the viewer left each floor looking like (2D zoom and spot, the turn, the 3D camera), by floor key. Kept
    * in memory too, so a floor remembers even when storage is blocked. `_memFloor` is the floor the live view state
    * (`_view`, `_pickedRot`, the camera) belongs to; `null` until the first render knows the floor. */
-  private _floorViews = new Map<string, FloorView>();
+  _floorViews = new Map<string, FloorView>();
   private _memFloor: string | null = null;
   /** The floor key the 3D view's scene was built for, and whether the person moved its camera on that floor. */
-  private _view3dKey: string | null = null;
-  private _camMoved = false;
+  _view3dKey: string | null = null;
+  _camMoved = false;
   /** S32.7: the room the 3D view was last told to frame. A canvas tap's pick waits out the double-tap window before it reaches the view (`_focusHold`), so a double tap never moves the camera. */
-  private _focus3d: number | null = null;
-  private _focusHold = false;
-  private _focusTimer: ReturnType<typeof setTimeout> | null = null;
+  _focus3d: number | null = null;
+  _focusHold = false;
+  _focusTimer: ReturnType<typeof setTimeout> | null = null;
   /** The debounce timer for pan and zoom saves; non-null means there is something unsaved. */
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
   /** The fit box of the floor on show, from the last render; the zoom handlers clamp against it. */
@@ -696,9 +696,9 @@ export class FloorplanStudioCard extends LitElement {
   private _favAsk: string | null = null;
   /** S31.5: what the card's width gives it (frame.ts). Measured in `render()` and by the ResizeObserver; 0 wide (not laid
    * out) keeps the last answer. */
-  private _frame: FrameMode = "bottom";
+  _frame: FrameMode = "bottom";
   /** S31.8: the bottom sheet's stop. Not remembered: a cold card is at peek, and `setConfig` puts it back. */
-  private _sheetStop: SheetStop = "peek";
+  _sheetStop: SheetStop = "peek";
   /** S31.8: a drag in flight. `h` is the sheet's height now, `trail` the last heights with their times (for the fling). */
   private _sheetDrag: { id: number; y0: number; h0: number; h: number; moved: boolean; stops: Stops; trail: { t: number; h: number }[] } | null = null;
   /** S31.8: a drag just ended on the handle; the click the browser sends after it is not a tap. */
@@ -712,14 +712,14 @@ export class FloorplanStudioCard extends LitElement {
   private _activeResizeObserver: ResizeObserver | null = null;
   /** S11.3: the room the person tapped, by floor key and room id (not index, so a reloaded layout keeps it), or null.
    *  Card chrome state, not a layout field: nothing here is saved, and a `hass` update leaves it alone. */
-  private _pickedRoom: { floor: string; id: string } | null = null;
+  _pickedRoom: { floor: string; id: string } | null = null;
   /** S20.2: the floor key whose pill was pressed, or null. Like `_pickedRoom` it is card chrome, and it excludes it: a room
    *  pick clears the floor and a floor pick clears the room, so the one panel always has one subject. */
-  private _pickedFloor: string | null = null;
+  _pickedFloor: string | null = null;
   /** S14.7: the scene button (`custom:<id>`) that waits for its confirm, because it turns a switch off. */
   private _sceneAsk: string | null = null;
   /** Whether the Active list is cut to the picked room's entities (the default on a pick); "Show all" turns it off. */
-  private _roomFilter = true;
+  _roomFilter = true;
   /** S24.7 (F3): the Overview lists every floor, not only the one shown. Kept with the panel's other view memory. */
   private _overviewAll = false;
   /** S24.7: the thing a row tap went to, ringed on the plan for `PULSE_MS`; null when none. */
@@ -737,7 +737,6 @@ export class FloorplanStudioCard extends LitElement {
   private _unbind3d: (() => void) | null = null;
   private _unbindHover: (() => void) | null = null;
   private _unbindSpider: (() => void) | null = null;
-  private _pick3dCache: { stamp: number; x: number; y: number; pick: Pick3D | null } | null = null;
 
   /** `localStorage` key for this card's panel state. Opus review finding 7: the seed used to be the layout's own
    * content (`layout_url`, or the inline `layout` verbatim), which meant two cards in websocket mode — no
@@ -884,7 +883,7 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** Pan and zoom come in bursts: write once they have been still for a moment. */
-  private _scheduleSave(): void {
+  _scheduleSave(): void {
     if (this._saveTimer !== null) globalThis.clearTimeout(this._saveTimer);
     this._saveTimer = globalThis.setTimeout(() => this._saveViewNow(), SAVE_DEBOUNCE_MS);
   }
@@ -1290,18 +1289,18 @@ export class FloorplanStudioCard extends LitElement {
   /** The states the render reads. A motion sensor's own `last_changed` is the moment it went off, so it is also the moment its
    * fade starts (2026-10-06: the card used to remember when it went on, which ended a long motion's fade before it began). */
   /** G9: HA's display text for an entity (precision, translated state), or undefined when the frontend has no formatter or it throws. */
-  private _format = (entity: string): string | undefined => {
+  _format = (entity: string): string | undefined => {
     const h = this._hass, st = h?.states?.[entity];
     if (!h?.formatEntityState || !st) return undefined;
     try { return h.formatEntityState(st) || undefined; } catch { return undefined; }
   };
 
-  private _stateForRender(): Hass["states"] | undefined {
+  _stateForRender(): Hass["states"] | undefined {
     return this._hass?.states;
   }
 
   /** S14.8: the draw range plugs are tinted over, from the two card options (untrusted: junk is the default range). */
-  private _plugHeat(): [number, number] {
+  _plugHeat(): [number, number] {
     return heatRange([this._config.plug_heat_from ?? HEAT_FROM, this._config.plug_heat_to ?? HEAT_TO]);
   }
 
@@ -1310,7 +1309,7 @@ export class FloorplanStudioCard extends LitElement {
    * on the plug's own HA device (`hass.entities` gives the device, the sensor's state its class). An explicit
    * `power` is never overridden (the renderer reads it first), and two candidates link nothing (`findPowerSensor`).
    */
-  private _powerLinks(): Record<string, string> | undefined {
+  _powerLinks(): Record<string, string> | undefined {
     const reg = this._hass?.entities, states = this._hass?.states;
     if (!this._layout || !reg || !states) return undefined;
     const plugs = Object.values(this._layout.floors).flatMap((f) => f.devices).filter((d) => d.type === "plug" && !d.power && d.entity);
@@ -1505,7 +1504,7 @@ export class FloorplanStudioCard extends LitElement {
 
   /** The turn the plan is drawn at: the layout's own rotate plus the user's. Turned into the `{ deg, pivot }`
    * renderFloor and viewBoxFor take, or `undefined` for none. Shared so getCardSize sees the same box render() draws. */
-  private _rotate(): { deg: number; pivot: [number, number] } | undefined {
+  _rotate(): { deg: number; pivot: [number, number] } | undefined {
     if (!this._layout) return undefined;
     const deg = (this._layout.rotate ?? 0) + this._userAngle();
     return deg % 360 ? { deg, pivot: planPivot(this._layout) } : undefined;
@@ -1585,24 +1584,24 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** The card's theme: the Theme select's pick, else `config.theme`, blueprint when there is none or it is not a theme. The OS and Home Assistant's dark mode no longer pick it: only `theme: ha` follows Home Assistant. */
-  private _theme(): Theme {
+  _theme(): Theme {
     if (this._pickedTheme) return this._pickedTheme;
     const t = this._config.theme;
     return isTheme(t) ? t : "blueprint";
   }
 
   /** Whether the names and values show: the toggle's pick, else `config.labels` (only a real `false` hides). */
-  private _labels(): boolean {
+  _labels(): boolean {
     return this._pickedLabels ?? this._config.labels !== false;
   }
 
   /** Whether every device's name shows: the toggle's pick, else `config.names` (only a real `true` shows them). */
-  private _names(): boolean {
+  _names(): boolean {
     return this._pickedNames ?? this._config.names === true;
   }
 
   /** Home Assistant's dark mode, used only by `theme: ha` to choose the dark set for what its CSS variables do not cover. */
-  private _haDark(): boolean {
+  _haDark(): boolean {
     return this._hass?.themes?.darkMode === true;
   }
 
@@ -1636,7 +1635,7 @@ export class FloorplanStudioCard extends LitElement {
    * switched to another entry in that same list) when there is one, else `config.floor` when it names a real
    * floor, else the layout's first floor. Untrusted config: an unknown floor key never throws, it just falls
    * back (CLAUDE.md finding 1). */
-  private _floorKey(): string | null {
+  _floorKey(): string | null {
     if (!this._layout) return null;
     const keys = Object.keys(this._layout.floors);
     if (!keys.length) return null;
@@ -1649,7 +1648,7 @@ export class FloorplanStudioCard extends LitElement {
     return want && this._layout.floors[want] ? want : keys[0]!;
   }
 
-  private _floor(): Floor | null {
+  _floor(): Floor | null {
     const key = this._floorKey();
     return key && this._layout ? this._layout.floors[key] : null;
   }
@@ -1834,7 +1833,7 @@ export class FloorplanStudioCard extends LitElement {
     const host3 = this.shadowRoot?.querySelector<HTMLElement>(".fp-3d") ?? null;
     if (host3 !== this._actions3d) {
       this._unbind3d?.();
-      this._unbind3d = host3 ? this._bind3d(host3) : null;
+      this._unbind3d = host3 && lib3d ? lib3d.bind3d(this, host3, DEPS_3D) : null;
       this._actions3d = host3;
     }
 
@@ -1903,18 +1902,15 @@ export class FloorplanStudioCard extends LitElement {
     return this._viewPick() === "3d" && lib3d !== null && this._fallback3d === null && this._floor() !== null;
   }
 
-  private _dispose3d(): void {
+  _dispose3d(): void {
     if (this._view3d && this._camMoved) this._saveViewNow(); // the camera is read from the view: before it goes
     this._view3d?.dispose();
     this._view3d = null;
-    this._view3dFloor = null;
     this._view3dKey = null;
-    this._view3dBelow = null;
   }
 
-  /** Brings the 3D view in line with what the card shows, after every render: loads the module on the first need, makes the
-   * view once its container is on screen, and ends it when the pick moves away. It never throws; every failure is the
-   * one line and the 2D plan. */
+  /** Brings the 3D view in line with what the card shows, after every render: loads the module on the first need and ends the
+   * view when the pick moves away. The rest (S36.4) is `sync3d` in the 3D chunk. It never throws; every failure is the one line and the 2D plan. */
   private _sync3d(): void {
     const f = this._floor();
     if (this._viewPick() !== "3d" || !f) { this._dispose3d(); return; }
@@ -1923,185 +1919,11 @@ export class FloorplanStudioCard extends LitElement {
       loadLib3d().then(() => this.requestUpdate(), () => { this._fallback3d = "3D view unavailable: its code did not load. Showing 2D."; this.requestUpdate(); });
       return;
     }
-    const host = this.shadowRoot?.querySelector<HTMLElement>(".fp-3d") ?? null;
-    if (!host) return;
-    if (!this._view3d) {
-      try {
-        this._view3d = lib3d.createView3D(host, {
-          turnDeg: this._rotate()?.deg ?? 0,
-          onCamera: () => { this._camMoved = true; this._scheduleSave(); },
-          deps: { scene: sceneDeps, live: liveDeps, texture: textureDeps.texture },
-          onFail: (why, retry) => { this._retry3d = retry === true; this._fallback3d = `3D view unavailable: ${why}. Showing 2D.`; this._dispose3d(); this.requestUpdate(); },
-        });
-      } catch (err) {
-        this._fallback3d = err instanceof lib3d.NoWebGL ? "3D view unavailable: this browser has no WebGL. Showing 2D." : "3D view unavailable: it could not start. Showing 2D.";
-        this.requestUpdate();
-        return;
-      }
-      this._view3dFloor = null;
-      this._view3dBelow = null;
-    }
-    // A theme change (or Home Assistant's dark mode) re-reads the colours; a new floor, or one the layout reload replaced, rebuilds the scene.
-    this._view3d.setTheme(`${this._theme()}|${this._haDark()}`);
-    this._view3d.setWalls(this._walls());
-    const around = floorsAroundKey(this._layout!, this._floorKey()!), aroundKey = JSON.stringify(around);
-    // The selected floor is the one the camera frames. The floors below are the view's own meshes (S27.7), given after `setFloor`.
-    if (f !== this._view3dFloor || aroundKey !== this._view3dAround) {
-      this._view3dFloor = f;
-      this._view3dAround = aroundKey;
-      this._view3d.setFloor(f, around);
-      const key = this._floorKey()!;
-      if (key !== this._view3dKey) { // S14.4: another floor (or a new view) brings the camera its floor was left with
-        this._view3dKey = key;
-        const cam = this._floorViews.get(key)?.cam;
-        this._camMoved = cam !== undefined;
-        if (cam) this._view3d.setCamera(cam);
-      }
-    }
-    this._sync3dBelow();
-    // The live state, decided by the plan's own rules (core/live.ts); the view changes its parts in place, and does nothing when it is the same as the last.
-    const now = Date.now();
-    this._view3d.setLive(f, { scale: 1, state: this._stateForRender(), formatState: this._format, now, fade: this._config.fade, plugWatts: plugThreshold(this._config.plug_watts), plugHeat: this._plugHeat(), powerLinks: this._powerLinks(), roomGlow: this._config.room_glow, night: this._night(), labels: this._labels(), showNames: this._names(), camThumb: this._camOpts(), around: floorsAroundKey(this._layout!, this._floorKey()!) }, now);
-    this._view3d.setRing(this._picked());
-    this._apply3dFrame();
-  }
-
-  /** S27.14: gives the view the floors below the shown one: each lower floor at its elevation relative to this one (negative) and its
-   * `floorPlace` (shift and turn). Only when something changed (the view rebuilds its meshes on every call), and always after `setFloor`. */
-  private _sync3dBelow(): void {
-    const layout = this._layout, key = this._floorKey(), view = this._view3d;
-    if (!layout || !key || !view) return;
-    const mode = this._below();
-    const keys = mode === "off" ? [] : floorsBelow(layout, key), here = floorElevation(layout, key);
-    const entries = keys.map((k) => { const p = floorPlace(layout, k, key); return { floor: layout.floors[k], elevation: floorElevation(layout, k) - here, shift: p.shift, turn: p.turn }; });
-    const nums = JSON.stringify(entries.map((e) => [e.elevation, e.shift, e.turn]));
-    const last = this._view3dBelow;
-    if (last && last.mode === mode && last.nums === nums && last.floors.length === entries.length && entries.every((e, i) => e.floor === last.floors[i])) return;
-    if (!last && mode === "off") { this._view3dBelow = { mode, floors: [], nums }; return; } // nothing was ever given: nothing to take away
-    this._view3dBelow = { mode, floors: entries.map((e) => e.floor), nums };
-    view.setBelow(entries, mode);
-  }
-
-  /** What the 3D view has under a pointer event, read once per event: the gesture code and the room tap both ask. */
-  private _pick3d(e: PointerEvent): Pick3D | null {
-    const c = this._pick3dCache;
-    if (c && c.stamp === e.timeStamp && c.x === e.clientX && c.y === e.clientY) return c.pick;
-    const pick = this._view3d?.pick(e.clientX, e.clientY) ?? null;
-    this._pick3dCache = { stamp: e.timeStamp, x: e.clientX, y: e.clientY, pick };
-    return pick;
-  }
-
-  /** S12.4: taps in 3D mean what they mean in 2D. A device, a door or window and an unlinked appliance go to the same
-   *  gesture code as the plan's (`bindDeviceActions`, told what is under the pointer by a ray instead of the DOM):
-   *  tap toggles, hold opens more-info, `NO_TOGGLE` types do not toggle. Any other tap picks the room under it, or clears.
-   *  A drag (the view says so), a pinch and a double tap pick nothing; a double tap puts the pick back as it was. */
-  private _bind3d(host: HTMLElement): () => void {
-    const svgEl = (tag: string, attr: string, v: number, linked = false): Element => {
-      const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
-      el.setAttribute(attr, String(v));
-      if (linked) el.setAttribute("data-linked", "");
-      return el;
-    };
-    const unbindGestures = bindDeviceActions(host, this, (i) => this._floor()?.devices[i], (i) => this._floor()?.doors[i], {
-      longPress: !this._kiosk(),
-      openVacuumDialog: (d) => this._openVacuumDialog(d),
-      openChooser: (title, entities, line) => this._openChooserDialog(title, entities, line),
-      openPopup: (t, at, from) => this._openPopup(t, at, from),
-      getUnlinked: (i) => this._floor()?.unlinked[i],
-      getPiece: (i) => this._floor()?.furniture?.[i],
-      ...this._tapOpts(),
-      resolve: (e) => {
-        if (e.pointerType === "mouse" && e.button !== 0) return null;
-        const p = this._pick3d(e);
-        return !p ? null : p.type === "cam" ? svgEl("g", "data-cam", p.index) : p.type === "device" ? svgEl("g", "data-x", p.index) : p.type === "door" ? svgEl("line", "data-d", p.index) : p.type === "unlinked" ? svgEl("g", "data-u", p.index) : p.type === "piece" ? svgEl("g", "data-f", p.index, true) : null;
-      },
-    });
-    let start: { x: number; y: number } | null = null, pointers = 0;
-    let last: { t: number; x: number; y: number; before: PickMemo } | null = null;
-    const onDown = (e: PointerEvent) => {
-      if (e.isPrimary) pointers = 0;
-      pointers++;
-      if (pointers > 1) { start = null; last = null; return; }
-      start = e.pointerType === "mouse" && e.button !== 0 ? null : { x: e.clientX, y: e.clientY };
-    };
-    const onUp = (e: PointerEvent) => {
-      pointers = Math.max(0, pointers - 1);
-      const s = start;
-      start = null;
-      if (!s || this._view3d?.dragged !== false || Math.hypot(e.clientX - s.x, e.clientY - s.y) > TAP_SLOP_PX) { if (s && this._view3d?.dragged) this._closePopup(); last = null; return; }
-      const p = this._pick3d({ clientX: s.x, clientY: s.y, timeStamp: -1 } as PointerEvent);
-      if (p && (p.type === "device" || p.type === "cam" || p.type === "door" || p.type === "unlinked" || p.type === "piece")) { last = null; return; } // its own thing, never a pick
-      this._closePopup(); // a tap on anything else is an outside tap
-      const now = performance.now();
-      if (last && now - last.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DOUBLE_TAP_PX) {
-        this._releaseFocus();
-        this._restorePick(last.before);
-        last = null;
-        return;
-      }
-      last = { t: now, x: e.clientX, y: e.clientY, before: { pick: this._pickedRoom, floor: this._pickedFloor, filter: this._roomFilter } };
-      if (!this._activeListVisible()) return;
-      const room = p?.type === "room" ? p.index : null;
-      this._pickRoom(room !== null && this._picked() !== room ? room : null);
-      this._holdFocus();
-    };
-    const onCancel = () => { pointers = 0; start = null; };
-    // S14.2: hover (mouse only). The pointer's position is two numbers and the pick runs once a frame, whatever the pointer does in between.
-    let hx = 0, hy = 0, hraf = 0;
-    const hoverFrame = () => {
-      hraf = 0;
-      const p = this._view3d?.pick(hx, hy);
-      const t = p && !this._popup ? (p.type === "device" ? this._targetOf("x", p.index) : p.type === "door" ? this._targetOf("d", p.index) : p.type === "unlinked" ? this._targetOf("u", p.index) : p.type === "piece" ? this._targetOf("f", p.index) : null) : null;
-      if (t) this._showTip(t, hx, hy, null);
-      else this._hideTip();
-    };
-    const onHoverMove = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse" || e.buttons) { this._hideTip(); return; }
-      hx = e.clientX; hy = e.clientY;
-      if (!hraf) hraf = requestAnimationFrame(hoverFrame);
-    };
-    const onHoverEnd = () => this._hideTip();
-    host.addEventListener("pointermove", onHoverMove);
-    host.addEventListener("pointerleave", onHoverEnd);
-    host.addEventListener("pointerdown", onHoverEnd);
-    host.addEventListener("wheel", onHoverEnd, { passive: true });
-    host.addEventListener("pointerdown", onDown);
-    host.addEventListener("pointerup", onUp);
-    host.addEventListener("pointercancel", onCancel);
-    return () => {
-      if (hraf) cancelAnimationFrame(hraf);
-      host.removeEventListener("pointermove", onHoverMove);
-      host.removeEventListener("pointerleave", onHoverEnd);
-      host.removeEventListener("pointerdown", onHoverEnd);
-      host.removeEventListener("wheel", onHoverEnd);
-      this._hideTip();
-      unbindGestures();
-      host.removeEventListener("pointerdown", onDown);
-      host.removeEventListener("pointerup", onUp);
-      host.removeEventListener("pointercancel", onCancel);
-    };
-  }
-
-  /** The bottom sheet lies over the lower part of the 3D stage; the camera frames the house in the rest (`coverOf`, F1 of the framing
-   * spec). Side and kiosk cover nothing. Costs a layout read, so it runs after a render and a resize, not per frame. The room is the
-   * picked one (F3), held back while a canvas tap waits out the double-tap window. */
-  private _apply3dFrame(): void {
-    const view = this._view3d, host = this.shadowRoot?.querySelector<HTMLElement>(".fp-3d"), stops = this._stopsNow();
-    if (!view || !host) return;
-    const cover = stops ? coverOf(host.getBoundingClientRect(), this.getBoundingClientRect(), this._frame, stops, this._sheetStop) : { top: 0, right: 0, bottom: 0, left: 0 };
-    if (!this._focusHold) this._focus3d = this._picked();
-    view.setFrame({ cover, room: this._focus3d });
-  }
-
-  /** A canvas tap's room pick reaches the 3D view only when the double-tap window has closed and the pick stands; the ring and the sheet change at once. */
-  private _holdFocus(): void {
-    this._releaseFocus();
-    this._focusHold = true;
-    this._focusTimer = globalThis.setTimeout(() => { this._focusTimer = null; this._focusHold = false; this._apply3dFrame(); }, DOUBLE_TAP_MS);
+    lib3d.sync3d(this, DEPS_3D);
   }
 
   /** Ends the wait: a second tap, another way of picking, a new config or a disconnect. Says nothing to the view. */
-  private _releaseFocus(): void {
+  _releaseFocus(): void {
     if (this._focusTimer !== null) globalThis.clearTimeout(this._focusTimer);
     this._focusTimer = null;
     this._focusHold = false;
@@ -2132,7 +1954,7 @@ export class FloorplanStudioCard extends LitElement {
    * S7.10: opens the vacuum dialog for `d`, unless a dialog (this one or the cover one) is already open — the
    * same "ignore a second tap while open" rule as `_openCoverDialog`.
    */
-  private _openVacuumDialog(d: Device): void {
+  _openVacuumDialog(d: Device): void {
     if (this._dialogOpen()) return;
     this._vacuumDialog = d;
     this.requestUpdate();
@@ -2150,7 +1972,7 @@ export class FloorplanStudioCard extends LitElement {
    * this checks anyway rather than trusting that, so a future caller mistake shows an empty, if odd, dialog rather
    * than a crash.
    */
-  private _openChooserDialog(title: string, entities: string[], line?: () => string): void {
+  _openChooserDialog(title: string, entities: string[], line?: () => string): void {
     if (this._dialogOpen()) return;
     this._chooserDialog = { title, entities, ...(line ? { line } : {}) };
     this.requestUpdate();
@@ -2174,7 +1996,7 @@ export class FloorplanStudioCard extends LitElement {
   };
 
   /** What index `i` of the shown floor is, as the gesture code names it. */
-  private _targetOf(kind: "x" | "d" | "u" | "f", i: number): TapTarget | null {
+  _targetOf(kind: "x" | "d" | "u" | "f", i: number): TapTarget | null {
     const f = this._floor();
     if (!f || !Number.isFinite(i)) return null;
     if (kind === "x") { const device = f.devices[i]; return device ? { device, index: i } : null; }
@@ -2312,7 +2134,7 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** S16.3: what `renderFloor` and the 3D view are given, or `undefined` while the option is off (then no picture is asked for). */
-  private _camOpts() {
+  _camOpts() {
     const t = this._camThumb();
     return t.on ? { ...t, bust: this._cam.bust, failed: this._cam.failed } : undefined;
   }
@@ -2354,7 +2176,7 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** S33.4: the card-wide tap and hold actions for the device icons of the plan and the 3D view. Read afresh per press, so `setConfig` needs no rebind. */
-  private _tapOpts() {
+  _tapOpts() {
     return {
       tapAction: () => tapActionOf(this._config.tap_action).action,
       holdAction: () => holdActionOf(this._config.hold_action).action,
@@ -2377,7 +2199,7 @@ export class FloorplanStudioCard extends LitElement {
     this._runOp(s, op);
   }
 
-  private _openPopup(t: TapTarget, at: { x: number; y: number }, from: Element | null): void {
+  _openPopup(t: TapTarget, at: { x: number; y: number }, from: Element | null): void {
     const s = this._subjectOf(t);
     if (!s) return;
     this._openSubject(s, at, from);
@@ -2399,7 +2221,7 @@ export class FloorplanStudioCard extends LitElement {
     this.requestUpdate();
   }
 
-  private _closePopup(): void {
+  _closePopup(): void {
     if (!this._popup) return;
     this._popupReturn = this._popup.opener;
     this._popup = null;
@@ -2499,7 +2321,7 @@ export class FloorplanStudioCard extends LitElement {
     };
     return popupTemplate({
       subject: s, text: this._subjectText(s), op, confirming: p.confirming, kiosk: this._kiosk(), caps, fan,
-      info: this._kiosk() || !(s.entity ?? s.entities[0]) ? [] : deviceInfo((s.entity ?? s.entities[0])!, { ...this._hass, states: this._stateForRender() }),
+      info: this._kiosk() || !(s.entity ?? s.entities[0]) ? [] : deviceInfo((s.entity ?? s.entities[0])!, { ...this._hass, states: this._stateForRender() }, this._format),
       doorLabel: s.door?.cover ? (this._coverService(s.door) === "close_cover" ? "Close" : "Open") : null,
       level: { b: caps?.brightness ? level("b") : null, s: fan ? level("s") : null, t: caps?.temp ? level("t") : null, h: caps?.hue ? level("h") : null },
       act: () => this._popupAct(),
@@ -2622,7 +2444,7 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** Shows (or moves) the tooltip for `t` at the client point (x, y). The text is worked out when the target changes, not on every move. `el` is the plan's element, which gets `aria-describedby`. */
-  private _showTip(t: TapTarget, x: number, y: number, el: Element | null): void {
+  _showTip(t: TapTarget, x: number, y: number, el: Element | null): void {
     const tip = this.shadowRoot?.querySelector<HTMLElement>(".fp-tip");
     const s = tip ? this._subjectOf(t) : null;
     if (!tip || !s) { this._hideTip(); return; }
@@ -2673,7 +2495,7 @@ export class FloorplanStudioCard extends LitElement {
     }
   }
 
-  private _hideTip = (): void => {
+  _hideTip = (): void => {
     if (this._tipKey === null) return;
     this._tipKey = null;
     this._tipTarget = null;
@@ -2977,7 +2799,7 @@ export class FloorplanStudioCard extends LitElement {
 
   /** S9.5: hidden under `kiosk` (a wall tablet shows only the plan) and under `active_list: false`. Untrusted
    *  config: anything other than the literal `false` counts as the default, shown. */
-  private _activeListVisible(): boolean {
+  _activeListVisible(): boolean {
     return this._config.active_list !== false && !this._kiosk();
   }
 
@@ -2991,7 +2813,7 @@ export class FloorplanStudioCard extends LitElement {
   /** After each render and resize: the 3D camera frames the house in what the side panel leaves. (The floating panel and its
    * dock are gone: the side sheet is a grid cell and the bottom sheet sits below the house.) */
   private _positionActivePanel(): void {
-    this._apply3dFrame();
+    lib3d?.apply3dFrame(this);
   }
 
   /** S31.5: what the card's width gives it, from `frame.ts`: the side sheet from 640 px, the old floating panel under it, no
@@ -3084,7 +2906,7 @@ export class FloorplanStudioCard extends LitElement {
 
   /** S11.3: the index of the picked room on the shown floor, or null: none picked, a room of another floor, or one the
    *  layout no longer has (a reload keeps the id, so it survives an edit that moves the index). */
-  private _picked(): number | null {
+  _picked(): number | null {
     const p = this._pickedRoom, f = this._floor();
     if (!p || !f || this._floorKey() !== p.floor) return null;
     const i = f.rooms.findIndex((r) => r.id === p.id);
@@ -3092,7 +2914,7 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** Picks the room at floor index `i` of the shown floor, or clears with `null`. A new pick turns the filter back on. */
-  private _pickRoom(i: number | null): void {
+  _pickRoom(i: number | null): void {
     this._releaseFocus(); // a row, a search result, Back: the camera follows at once (a canvas tap holds it again after this call)
     const room = i === null ? undefined : this._floor()?.rooms[i];
     const key = this._floorKey();
@@ -3133,7 +2955,7 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** What a double tap restores: the pick as it was before its first tap, which `_tapRoom` already changed. */
-  private _restorePick(before: PickMemo): void {
+  _restorePick(before: PickMemo): void {
     this._pickedRoom = before.pick;
     this._pickedFloor = before.floor;
     this._roomFilter = before.filter;
@@ -3239,7 +3061,7 @@ export class FloorplanStudioCard extends LitElement {
         ${this._frame === "side" ? nothing : html`<button type="button" class="fp-room-clear" aria-label=${scope.clear} @click=${() => this._pickRoom(null)}>×</button>`}
       </div>
       <dl class="fp-room-facts">${facts.filter(([, v]) => v).map(([k, v]) => html`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl>
-      ${s.offEntities.length || scope === FLOOR_SCOPE ? html`<div class="fp-alloff-row">${s.offEntities.length ? html`<button type="button" class="fp-alloff" aria-label=${`Turn off all lights in ${s.name || scope.unnamed}`} title=${this._layout ? allOffTitle(this._layout.floors, this._floorKey() ?? "", s) : ALL_OFF_TITLE} @click=${() => this._allOff(s.offEntities)}>Lights off</button>` : nothing}${scope === FLOOR_SCOPE ? this._floorOffButton() : nothing}</div>` : nothing}
+      ${s.offEntities.length || scope === FLOOR_SCOPE ? html`<div class="fp-alloff-row">${s.offEntities.length ? html`<button type="button" class="fp-alloff" aria-label=${`Lights off in ${s.name || scope.unnamed}`} title=${this._layout ? allOffTitle(this._layout.floors, this._floorKey() ?? "", s) : ALL_OFF_TITLE} @click=${() => this._allOff(s.offEntities)}>Lights off</button>` : nothing}${scope === FLOOR_SCOPE ? this._floorOffButton() : nothing}</div>` : nothing}
       ${this._scenesBlock()}
       ${active}
       <div class="fp-active-group-label">Devices</div>
@@ -3374,7 +3196,7 @@ export class FloorplanStudioCard extends LitElement {
   private _activePanel() {
     if (!this._activeListVisible() || !this._layout) return null;
     const state = this._stateForRender();
-    const opts = { plugWatts: plugThreshold(this._config.plug_watts), powerLinks: this._powerLinks() };
+    const opts = { plugWatts: plugThreshold(this._config.plug_watts), powerLinks: this._powerLinks(), formatState: this._format };
     const at = this._picked(), floor = this._floor();
     const floorKey = this._pickedFloorKey(), shown = this._floorKey();
     // S20.2: the panel's one subject is the picked room, else the selected floor, summed over its rooms by the same builder.
@@ -3531,7 +3353,7 @@ export class FloorplanStudioCard extends LitElement {
   };
 
   /** The three stops for the card's height now, in px, or null when the card is not laid out. */
-  private _stopsNow(): Stops | null {
+  _stopsNow(): Stops | null {
     const h = this.getBoundingClientRect().height;
     return h > 0 ? sheetStops(h, HEADER_H) : null;
   }
@@ -3713,7 +3535,7 @@ export class FloorplanStudioCard extends LitElement {
 
   /** S7.6: whether the plan is drawn at night. `on`/`off` force it; anything else is `auto`: the sun entity (config
    * `sun`, default `sun.sun`) is `below_horizon`, or `on` for a binary sensor. Missing or `unavailable` is day. */
-  private _night(): boolean {
+  _night(): boolean {
     const mode = this._config.night;
     if (mode === "on") return true;
     if (mode === "off") return false;
@@ -3835,12 +3657,12 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** The wall heights on show: the select's pick, else `config.walls`, else cut. Config is untrusted, so junk is cut. */
-  private _walls(): WallsMode {
+  _walls(): WallsMode {
     return this._pickedWalls ?? wallsModeOf(this._config.walls);
   }
 
   /** S27.14: the floors below in 3D: this viewer's pick, else `config.floors_below`, else off. Junk is off. */
-  private _below(): BelowMode {
+  _below(): BelowMode {
     return this._pickedBelow ?? belowModeOf(this._config.floors_below);
   }
 
@@ -3892,7 +3714,7 @@ export class FloorplanStudioCard extends LitElement {
   }
 
   /** S7.5: `config.kiosk`, `false` unless it is exactly `true` — `setConfig` already refuses anything else. */
-  private _kiosk(): boolean {
+  _kiosk(): boolean {
     return this._config.kiosk === true;
   }
 
@@ -4303,6 +4125,8 @@ if (typeof window !== "undefined") {
       type: "floorplan-studio-card",
       name: "Floorplan Studio",
       description: "Draw your home and use it as a live dashboard.",
+      // S36.3: HA 2026.6's "By entity" picker lists the card under Community for an entity a plan can draw (docs/DECISIONS.md, 2026-10-22).
+      getEntitySuggestion: (_hass, id) => (/^(light|switch|sensor|binary_sensor|climate|cover|camera|fan|lock|media_player|person|device_tracker|vacuum|siren|alarm_control_panel)\./.test(id) ? { config: { type: "custom:floorplan-studio-card" } } : null),
     });
 }
 defineElement("floorplan-studio-card", FloorplanStudioCard, CARD_VERSION);

@@ -263,9 +263,9 @@ test.describe("S20.2 selecting a floor from its pill", () => {
     await card(page).locator("css=button.fp-scenes-head").click(); // the Scenes section starts folded
     await expect(card(page).locator("css=button", { hasText: /^All off$/ })).toHaveCount(0);
     await expect(allOff(page)).toHaveText("Lights off");
-    await expect(allOff(page)).toHaveAttribute("aria-label", 'Turn off all lights in "><b>x</b>');
+    await expect(allOff(page)).toHaveAttribute("aria-label", 'Lights off in "><b>x</b>');
     await pill(page, "Ground").click();
-    await expect(allOff(page)).toHaveAttribute("aria-label", "Turn off all lights in Ground");
+    await expect(allOff(page)).toHaveAttribute("aria-label", "Lights off in Ground");
   });
 
   test("setConfig clears a picked room too", async ({ page }) => {

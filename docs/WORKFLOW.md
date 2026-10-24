@@ -125,6 +125,12 @@ separately. End with a release verdict.
 Only after Diego's yes. Once the push and the tag are approved, finish every
 step without asking again.
 
+One release a week, tagged on Friday (Diego, 2026-10-22). Work merges to
+`main` during the week; the CHANGELOG's Unreleased section opens with a
+short paragraph a user can read. A fix that cannot wait is the exception,
+and says why in its CHANGELOG line. After the tag, one reply on the forum
+thread from `docs/ANNOUNCE.md`.
+
 Run the steps one at a time, never chained in one command, and read each
 exit status on its own line. The tag is made, and pushed, last: only after
 the merge commit exists on `main`. On 2026-10-02 a chained command tagged and
@@ -166,7 +172,7 @@ this file, so the next agent does not repeat it.
 | `npm run shots` | builds, then renders the demo (card, all floors, three states, every theme, and the editor) to `shots/current/`; open `index.html` and look. `-- --accept` after you have looked, `-- --strict` to fail on any change |
 | `npm run build` | vite: `dist/floorplan-studio-card.js`, `dist/floorplan-studio-panel.js`, `dist/editor.html` |
 | `npm run dev` | vite dev server for the standalone editor, on 127.0.0.1 |
-| `npm run demo-gif` | builds, then records the README GIF to `docs/img/demo.gif` (ffmpeg, under 3 MB) |
+| `npm run demo-gif` | builds (and the 3D test build), then records the README GIF from the demo home to `docs/img/demo.gif` (ffmpeg, under 3 MB) |
 | `npm run docs:schema` | regenerates `docs/schema.md` from the schema |
 | `npm run docs:check` | checks every link in `docs/*.md`, `README.md`, `CONTRIBUTING.md` |
 | `pytest` | integration tests. One-time: `uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -r requirements_test.txt`, then `.venv/bin/pytest` |

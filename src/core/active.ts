@@ -108,7 +108,7 @@ const COLOR_VAR: Partial<Record<DeviceType, string>> = {
 };
 
 /** What `renderFloor` takes besides state, so the list reads a plug exactly as the plan does. */
-export type ActiveOpts = Pick<RenderOpts, "plugWatts" | "powerLinks">;
+export type ActiveOpts = Pick<RenderOpts, "plugWatts" | "powerLinks" | "formatState">;
 
 export function colorVarFor(d: Device, state: StateOverlay | undefined): string {
   if (d.type === "ac") {

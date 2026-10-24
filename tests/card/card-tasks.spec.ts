@@ -15,7 +15,7 @@ for (const [name, size] of Object.entries(SIZES) as [keyof typeof SIZES, TouchSi
     test("K1 turn off the Kitchen's lights: the room, then Lights off (2 taps)", async ({ page }) => {
       await bootTouch(page, size);
       await tapPlan(page, `svg polygon[data-r="${roomIndex("ground", "Kitchen")}"]`);
-      await tapRole(page, "button", /^Turn off all lights in Kitchen$/);
+      await tapRole(page, "button", /^Lights off in Kitchen$/);
       expect(taps(page)).toBe(2);
       expect(await calls(page)).toEqual([["light", "turn_off", { entity_id: ["light.kitchen_spot_1"] }]]);
     });

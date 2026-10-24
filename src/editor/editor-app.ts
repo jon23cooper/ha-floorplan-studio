@@ -583,6 +583,8 @@ export class FloorplanStudioEditor extends LitElement {
     .door-hit-open:hover{stroke:var(--fp-door);stroke-opacity:.3}
     .furn{pointer-events:all}
     .hl{fill:none;stroke:var(--fp-window);stroke-width:2;vector-effect:non-scaling-stroke;pointer-events:none}
+    /* S36.5: a selected zone keeps reading as a zone: heavier and dashed. A class rule, not attributes, so it outranks nothing by accident (finding 18). */
+    .hl.hl-zone{stroke-width:3;stroke-dasharray:6 4}
     .h{cursor:move} .h.on{fill:var(--fp-ink)}
     .align-pivot{pointer-events:none} .align-pivot line{stroke:var(--fp-window);stroke-width:2;vector-effect:non-scaling-stroke}
     .len{fill:var(--fp-text);paint-order:stroke;stroke:var(--fp-outline);stroke-width:3;stroke-linejoin:round;pointer-events:none;user-select:none}
@@ -3083,7 +3085,7 @@ export class FloorplanStudioEditor extends LitElement {
     if (s?.t === "opening" && f.openings[s.i]) o.push(line(f.openings[s.i].a, f.openings[s.i].b, "hl", 'stroke-width="4"'));
     if (s?.t === "wall" && f.walls[s.i]) o.push(line(f.walls[s.i].a, f.walls[s.i].b, "hl", 'stroke-width="4"'));
     if (s?.t === "extra" && f.extras[s.i]) o.push(line(f.extras[s.i].a, f.extras[s.i].b, "hl", 'stroke-width="4"'));
-    if (s?.t === "room" && f.rooms[s.i]) o.push(`<polygon class="hl" points="${f.rooms[s.i].pts.map((p) => `${num(p[0])},${num(p[1])}`).join(" ")}"/>`);
+    if (s?.t === "room" && f.rooms[s.i]) o.push(`<polygon class="hl${f.rooms[s.i].kind === "zone" ? " hl-zone" : ""}" points="${f.rooms[s.i].pts.map((p) => `${num(p[0])},${num(p[1])}`).join(" ")}"/>`);
     if (s?.t === "stairs" && f.stairs[s.i]) o.push(`<polygon class="hl" ${stairsTurn(f.stairs[s.i])} points="${f.stairs[s.i].pts.map((p) => `${num(p[0])},${num(p[1])}`).join(" ")}"/>`);
     if (s?.t === "furn" && f.furniture[s.i]) {
       const m = f.furniture[s.i];
@@ -3163,7 +3165,7 @@ export class FloorplanStudioEditor extends LitElement {
           <div class="zoom" role="group" aria-label="Zoom">
             <button class="btn" id="zin" title="Zoom in" aria-label="Zoom in" @click=${() => this.zoomBy(1 / 1.25)}>+</button>
             <button class="btn" id="zout" title="Zoom out" aria-label="Zoom out" @click=${() => this.zoomBy(1.25)}>&minus;</button>
-            <button class="btn" id="zreset" title="Reset view: fit the whole floor, plan upright (Space)" aria-label="Reset view" @click=${() => this.resetView()}>0</button>
+            <button class="btn" id="zreset" title="Reset view: fit the whole floor, plan upright (Space)" aria-label="Reset view, 0" @click=${() => this.resetView()}>0</button>
             <button class="btn" id="vrotl" title="Rotate view left" aria-label="Rotate view left" @click=${() => this.turnBy(-ROTATION_STEP)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.rotateLeft} fill="currentColor"/></svg></button>
             <button class="btn" id="vrotr" title="Rotate view right" aria-label="Rotate view right" @click=${() => this.turnBy(ROTATION_STEP)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.rotateRight} fill="currentColor"/></svg></button>
           </div>

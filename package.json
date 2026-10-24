@@ -14,7 +14,7 @@
     "test:e2e": "playwright test",
     "build": "node scripts/build.mjs",
     "shots": "FP_TEST_BUILD=1 node scripts/build.mjs && node scripts/shots.mjs",
-    "demo-gif": "node scripts/build.mjs && node scripts/demo-gif.mjs",
+    "demo-gif": "node scripts/build.mjs && FP_TEST_BUILD=1 node scripts/build.mjs && node scripts/demo-gif.mjs",
     "dev": "vite --config vite.config.ts --mode editor --host 127.0.0.1 src/editor",
     "docs:schema": "node scripts/gen-schema-docs.mjs > docs/schema.md",
     "docs:check": "markdown-link-check docs/*.md README.md CONTRIBUTING.md"
@@ -24,6 +24,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@mdi/js": "^7.4.47",
     "@playwright/test": "^1.48.0",
     "@types/node": "^20.19.43",
