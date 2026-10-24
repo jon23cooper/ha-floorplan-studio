@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Docs: README and every image rebuilt from the demo home (hero in 3D, phone sheet, Studio, a grid of all 13 themes, a new demo GIF); the pictures of a real house and the "from before 0.29" notes are gone.
 - Studio: a selected zone is outlined with a heavier dashed line (3 px, dash 6 4); a selected room keeps the solid 2 px outline.
 - Card: Home Assistant 2026.6's "By entity" card picker now lists Floorplan Studio under Community, with a preview, when you pick an entity a plan can draw.
 - Demo: a furnished three-level demo home (basement, ground, first; about 10 x 8 m, aligned stairs, every device type, a car on the drive, a vacuum). File > Load demo in the Studio offers it, with a pleasant evening's states in `demo/home-states.json`.

@@ -172,7 +172,7 @@ this file, so the next agent does not repeat it.
 | `npm run shots` | builds, then renders the demo (card, all floors, three states, every theme, and the editor) to `shots/current/`; open `index.html` and look. `-- --accept` after you have looked, `-- --strict` to fail on any change |
 | `npm run build` | vite: `dist/floorplan-studio-card.js`, `dist/floorplan-studio-panel.js`, `dist/editor.html` |
 | `npm run dev` | vite dev server for the standalone editor, on 127.0.0.1 |
-| `npm run demo-gif` | builds, then records the README GIF to `docs/img/demo.gif` (ffmpeg, under 3 MB) |
+| `npm run demo-gif` | builds (and the 3D test build), then records the README GIF from the demo home to `docs/img/demo.gif` (ffmpeg, under 3 MB) |
 | `npm run docs:schema` | regenerates `docs/schema.md` from the schema |
 | `npm run docs:check` | checks every link in `docs/*.md`, `README.md`, `CONTRIBUTING.md` |
 | `pytest` | integration tests. One-time: `uv venv --python 3.13 .venv && uv pip install --python .venv/bin/python -r requirements_test.txt`, then `.venv/bin/pytest` |
