@@ -2,6 +2,12 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-24: the demo home is a Load demo target only
+
+`demo/home.json` is what File > Load demo loads (panel and standalone). The standalone still starts on
+`demo/layout.json`: 150+ test files pin that fixture, and a first look at a small plan is quicker than a full house.
+Supersedes nothing.
+
 ## 2026-10-22: after the review, phase A (Diego)
 
 Answers to the decisions in `docs/REVIEW-2026-10-22.md`.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Demo: a furnished three-level demo home (basement, ground, first; about 10 x 8 m, aligned stairs, every device type, a car on the drive, a vacuum). File > Load demo in the Studio offers it, with a pleasant evening's states in `demo/home-states.json`.
 - Card: the room panel's device and sensor rows, and the Details State line, print Home Assistant's own state text (precision, translated state), as the plan and the popup already did.
 - Accessibility: the hover and focus background of the card's panel rows and buttons no longer drops light text to 2.9:1 contrast. "Lights off" and the Studio's reset-view button now carry their visible text in their accessible name, so voice control can say it. The Studio's shortcut hints meet 4.5:1.
 

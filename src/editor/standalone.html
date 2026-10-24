@@ -9,13 +9,14 @@
 <body>
 <floorplan-studio-editor id="editor"></floorplan-studio-editor>
 <script type="module">
-  import demo from "../../demo/layout.json";
+  import fixture from "../../demo/layout.json";
+  import home from "../../demo/home.json";
   import { restoreLayout } from "./state";
   import "./editor-app";
 
   const el = document.getElementById("editor");
-  el.demo = demo;
-  el.layout = restoreLayout() ?? demo;
+  el.demo = home; // File, Load demo: the furnished house
+  el.layout = restoreLayout() ?? fixture; // the page opens on the test fixture, which the specs pin
   // Standalone: the host of the element writes the file.
   el.addEventListener("save-request", (e) => {
     const blob = new Blob([JSON.stringify(e.detail, null, 1)], { type: "application/json" });
