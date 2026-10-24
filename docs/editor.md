@@ -198,7 +198,8 @@ room, one undo step, ready to drag to their real place.
    is selected or under the pointer (or in the alert colour when its sensor says
    open). Choose it over a plain **Opening** when the gap needs a name or sensors.
 4. **Stairs, zones, structures.** `Add → Areas`. A zone has no wall edges (it
-   can't — `wk` is forced to `boundary` throughout); a structure can.
+   can't — `wk` is forced to `boundary` throughout); a structure can. A selected zone is outlined with a heavier, dashed
+   line (a selected room keeps the thin solid one), so it still reads as a zone.
 5. **Furniture and devices.** `Add → Furniture` places a symbol you can move,
    resize and rotate. `Add → Entities` (inside Home Assistant) or
    `Device → <unplaced item>` places something tied to a real entity.

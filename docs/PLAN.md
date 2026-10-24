@@ -2679,7 +2679,7 @@ Branch `task/s23-visual`. From the visual review (V-ids, review of 2026-10-08). 
       solarized's outdoor ink.
 - [x] S23.F4 `strip-css-comments.mjs`: inside `url(`, skip a leading quoted string first, so `url("a)b")` cannot flip the
       quote state.
-- [ ] S23.F5 Left by the coders: paint dim in 3D; a heavier dash on a selected zone; 3D walls on HA dark still mix 55 %;
+- [x] S23.F5 (done as S36.5, 2026-10-22) Left by the coders: paint dim in 3D; a heavier dash on a selected zone; 3D walls on HA dark still mix 55 %;
       JSDoc still ships in the card (about 16 KB gzip); `docs/img/themes/*.png` are out of date.
       Status 2026-10-21: paint dim in 3D and 3D walls on HA dark were done in S28.9, JSDoc in S24.4, the theme PNGs
       regenerated (`scripts/theme-shots.mjs`). Open: "a heavier dash on a selected zone" is not defined (the Studio
@@ -4601,12 +4601,12 @@ feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>`
       the test says where. No cap rise: needs S36.4's room.
 - [ ] S36.4 Room in the card. Code that only the 3D view runs moves from the card file into the lazy 3D chunk. No
       behaviour change; the full suite is the test. Report `gzip -9` of card and chunk before and after.
-- [ ] S36.5 A selected zone in the Studio (S23.F5). Its selection outline is dashed and heavier (3 px, dash 6 4)
+- [x] S36.5 A selected zone in the Studio (S23.F5). Its selection outline is dashed and heavier (3 px, dash 6 4)
       where a selected room's is solid 2 px, so a selected zone still reads as a zone. Overlay only (finding 8).
       `getComputedStyle` pair: a selected zone's outline has a dash array; a selected room's has none.
 - [ ] S36.6 Verify S26.26 and S27.17. The screenshots both boxes ask for, from today's build, looked at; the two exit
       tests walked once by script. Then tick both with the date.
-- [ ] S36.7 Issue templates: bug, a layout that fails to load, feature request; a `config.yml` pointing questions to
+- [x] S36.7 Issue templates: bug, a layout that fails to load, feature request; a `config.yml` pointing questions to
       the forum thread.
 - [ ] S36.8 README and media, after S36.2. First line: the floor plan with a real editor. Hero: the demo home in 3D.
       Then the phone sheet, the Studio, the 13 themes, a new `demo.gif` from the demo home. Every image regenerated
