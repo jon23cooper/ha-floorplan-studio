@@ -4620,16 +4620,28 @@ Not in this sprint: GitHub Discussions (a repository setting, Diego's yes), the 
 
 From the review's plan B. Diego took the defaults on 2026-10-25 (`docs/DECISIONS.md`). S37.4 and S37.7 started first.
 
-- [ ] S37.1 Studio first run: three doors on a blank plan, Load the demo, Start from your Home Assistant areas, Blank.
-- [ ] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
+- [x] S37.1 Studio first run: three doors on a blank plan, Load the demo, Start from your Home Assistant areas, Blank.
+      Done on task/s37.1-first-run; the choice is HA-only (standalone always opens on a plan), see DECISIONS.
+- [x] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
       edge; the user drags corners after.
-- [ ] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
-- [ ] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
-- [ ] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
+- [x] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
+      Done on task/s37.3-narrow: the Studio's own width, a message and (in the panel) a dashboard link; the editor stays underneath.
+- [x] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
+- [x] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
       2026-10-22). Defaults: add pt-BR, zh-Hans and pl; zh-Hant later.
-- [ ] S37.6 2D icons on at the card's default size; dots only when the plan is small.
-- [ ] S37.7 Small layout defects from the S36.6 walk (2026-10-24): the "Plan unlocked" toast covers "Add floor"; wall
+      Done on task/s37.5-i18n. Backlog: a native speaker reviews each of the nine catalogues (none has); zh-Hant; the Studio is still English.
+- [x] S37.6 2D icons on at the card's default size; dots only when the plan is small.
+- [x] S37.7 Small layout defects from the S36.6 walk (2026-10-24): the "Plan unlocked" toast covers "Add floor"; wall
       handle dots hide part of the length labels; at 1024 wide the toolbar wraps and the toast sits on the search box;
       the light Studio sits on the standalone page's dark body; at 1024 the card's zoom buttons cover the ghost
       outline; the Align aside cuts off its angle-step row at 800 px high.
+      Done on task/s37.7-layout. Not fixed: at 1024 the toolbar still wraps (the toast no longer lands on it); the Align panel
+      still scrolls below 800 px high.
+- [x] S37 review fixes (Opus, 2026-10-25): one key per meaning (Home, Area), whole phrases instead of lower-cased words, plural-aware
+      chips, the release checks the nine language chunks, the first-run button gives two reasons. Done on task/s37-review-fixes.
+- Deferred from the S37 review (nits, not done):
+  - A stored error text is translated when it is set, not when it is drawn, so a language change leaves the old message in the old language.
+  - The plan's measured size reads width only near the 400 px bound (ghost-floor clearance can move it), and has no hysteresis.
+  - The raw-English lint covers 5 files, and misses the SVG `<title>` type names in `src/core/render.ts`.
+  - Two HA areas with the same name give equal `catalog.room` values.
 - Later (plan C): vacuum position and trail; sun on the 3D house; a 24 h history replay.

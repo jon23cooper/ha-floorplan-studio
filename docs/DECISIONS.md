@@ -2,6 +2,77 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-25: S37 review fixes
+
+Corrections from the Opus review of Sprint 37. Supersedes the S37.5 line "may be retried on the next `hass` update".
+
+- **One key, one meaning.** `Home|car` (the car at home: "W domu", "在家") is separate from `Home` (the breadcrumb root: "Dom", "家"). `Area|size` (a room's surface: "Fläche", "Powierzchnia") is separate from `Area` (the HA area name). English strips the context, so the English card is unchanged. Polish "Nothing on" is "Nic nie jest włączone".
+- **A translated word is never lower-cased.** A German noun loses its capital that way. The layer in "Layers: lights hidden" is its own key per family, `lights|layer` and ten more, written in the form the sentence needs (English: lower case, German: capital). Chosen over whole phrases (three sentences by eleven families, thirty keys in the card file) because the card is 157 gzip bytes under its cap. The sentence stays one phrase per language. The row confirm is a whole phrase per action (`Confirm unlock`, eight keys), carried on the op as `PopupOp.ask`; the `Confirm {action}` template is gone, and every op sets `ask` so a lock cannot reach a row with no confirm text.
+- **Counts go through `tn`.** `{n} heating`, `{n} playing`, `{n} other` and `Layers: {n} of {total} hidden`, with the plural forms of each language (Polish four). pt-BR used European Portuguese for heating and playing; fixed.
+- **A failed language chunk is not retried.** Chromium caches a failed dynamic import for the life of the page; the next `hass` update asks again and gets the same failure. The card stays English until a reload. The comment in `src/card/i18n.ts` now says so; no retry code.
+- **The release zip is checked for exactly nine `floorplan-studio-lang-*.js` files**, as it is for one 3D chunk.
+- **First-run areas button, two reasons**: no Home Assistant, or Home Assistant with no areas.
+- **Not reproduced: the clipped "Turn off on this floor…" button.** In `de-4-menu.png` and `pl-2-overview.png` the whole text shows, the trailing "…" is part of the string. Measured at 390, 320, 240 and 200 px in German and Polish, nothing is clipped and the text wraps to a second line when it has to. No CSS changed. `tests/card/card-i18n-fit.spec.ts` guards it.
+
+## 2026-10-25: S37.1 and S37.2, the first-run choice and rooms from areas
+
+Implements the 2026-10-25 "Sprint 37 defaults". Supersedes nothing.
+
+- **When it shows.** A new editor property `firstRun`, set by the host. The panel sets it when `floorplan_studio/load` replies `{ layout: null }` (the reply shape is `ws_load` in `websocket.py`); the editor shows the choice while `firstRun` is true and the plan is blank. Any choice ends it, and so does drawing anything. It is bound only in the panel's "no stored plan" template branch, inside the existing `guard([loadId])`, so a `hass` update never brings it back.
+- **Standalone.** The standalone page never sets `firstRun`. It always opens on a plan (the remembered one, else `demo/layout.json`), so there is no "no saved layout" state to ask about; File > Load demo is still there. The choice is therefore HA-only in practice. If a host sets `firstRun` without HA data, the areas button is disabled with a tooltip.
+- **Doors.** Load the demo calls `loadDemo()`, as File > Load demo does (one undo step, plan locked as for any plan with rooms). Blank only closes it: no undo step, today's empty plan. Start from your areas calls `roomsFromAreas()`.
+- **The builder.** `layoutFromAreas(ha)` in `src/editor/from-areas.ts`. One 400 cm square per area, areas by name, `ceil(sqrt(n))` columns, rooms touching, a `wall` on every edge, `area` = the HA area id (the existing room-to-area link), `name` = the area name (the id when blank). The outline is the box round the rooms. One floor, "Ground". Entities come from `placeableDevicesInArea`, run on a scratch `EditorState` through `placeArea`, so they are exactly what "Place" gives a room: one icon per HA device, `typeForEntity`, noise (`other`, `battery`, `person`) left out, an entity's own area before its device's (`haData` resolves that), plugs get their power sensor, 60 cm cells round the centre, shrinking for a crowded room. An area with nothing drawable gets no room.
+- **No layout for 0 rooms.** With 0 areas, or none with a drawable entity, the builder returns `null`: a layout with no rooms has no outline and is not valid. The editor then changes nothing and says "No Home Assistant area has anything the plan can draw".
+- **Applying.** `applyLayout` (validate, one undo step, the list of problems and no change on failure), with the plan left unlocked: the next thing a user does is drag a corner, and a locked plan refuses that. Tests: unit (0, 1, 13, 40 and 200 entities, `"><script>`, duplicate and blank areas, own area against device area read through `haData`) and Playwright with real mouse clicks for each door, including the undo step.
+- **Walls (coordinator check, same day; supersedes "the outline is the box round the rooms" and "a `wall` on every edge" above).** The outline is the union of the room cells: a rectangle, or an L (6 points, `validate` takes any polygon of 3 or more) when the last row is short, so an empty corner is not walled in. Each wall is data once: a perimeter edge is `external` on its room (as the outline, the demo's convention), a shared edge is `wall` on the earlier room and `none` on the later one (closed, not drawn). Toggling a wall in the Studio sets every room that has the edge, so the pair stays consistent. The outline edges still lie on room edges, as in every plan.
+- Not done: one plan floor per HA floor. Everything lands on one floor; the Floors menu can still link an HA floor.
+
+## 2026-10-25: S37.3, under 700 px the Studio shows a message
+
+Refines "S37.3" in the Sprint 37 defaults below.
+
+- **Measured on the Studio itself.** `FloorplanStudioEditor` watches its own host with a `ResizeObserver` (`NARROW_PX = 700`; narrow is `0 < width < 700`). Not `window`: in Home Assistant the panel sits beside the sidebar, so a 900 px window can hold a 600 px Studio. A width of 0 (not laid out yet) is not narrow.
+- **The message.** "The Studio needs a wider screen." and, in the panel only, a link "Open the dashboard". The link is `href="/"`, set by the panel through the `dashboard-href` attribute (a string, so the render `guard` and Lit's re-set of object properties do not touch it). Why `/`: Home Assistant routes it to the user's default dashboard; `/lovelace/0` exists only when the default dashboard still has its first view. The standalone page has no dashboard, so it shows the message alone.
+- **Hidden, not removed.** Under the bound the host gets `data-narrow`; `.bar` (toolbar), `.errors` and `.ed` are `display:none`, the notice is `display:block`. The editor element, its `EditorState` (plan, selection, zoom, undo history) and its DOM stay; widening shows what was there. Nothing is emitted, autosaved or reloaded by the notice. `measure()` already ignores a 0 x 0 plan, so the view is not refitted to nothing while hidden.
+- **Keys and focus.** `onKey` returns at once while narrow, Save chord included: a key must not act on what the person cannot see. `onFocusOut` also returns while narrow: hiding the editor blurs whatever was focused inside it, and that blur would otherwise clear the selection (the finding 13 race). Tests remove each guard and fail.
+- **The stacked layout stays for 700 to 900 px.** The `@media (max-width:900px)` single-column rule is what the Studio uses between the two bounds, where it works (full-width plan). Under 700 px nothing reaches it any more. Not removed; only its comment changed.
+- **Tests that pinned narrow widths.** See the commit: tests that ran the editor at 380, 480 or 600 px wide now run it at 700 or wider.
+
+## 2026-10-25: S37.6, the 2D plan draws icons unless it is small
+
+Supersedes the S25 default that `auto` is dots at zoom 1 (the 2026-10-09 thresholds stay for zoom).
+
+- Today the card's `detail` mode `auto` read the zoom alone: below 1.6, level `far`, so an idle device was not drawn and an on device was a bare disc. The review of 2026-10-22 found a first look at 2D did not say "light, speaker, motion".
+- Now `detailFor(fit, shown, mode, planPx)` (`src/core/detail.ts`): in `auto`, where zoom says `far`, a plan `planPx >= ICONS_MIN_PLAN_PX` (400) reads `mid`, icons without names. Under 400 it stays `far`: dots. `full`, `minimal`, the YAML `detail` key and the viewer's menu pick are untouched and win: explicit config wins over the width. No YAML changed meaning for anyone who wrote one; a card on `auto` (the default) is the only one that changes.
+- The measure: the whole floor at fit, `_px * fit.w` in the card (`_measurePx`, already run by the ResizeObserver): the svg's rendered size and the floor's aspect, not the window, not the card box, not the zoom. A card in a 1280 px window but a 360 px column is dots. A plan not measured yet (nothing laid out) reads icons: when we cannot tell, show.
+- One draw path: the card passes `planPx`; `renderFloor` writes `data-detail` and the stylesheet hides. The card draws no icon itself.
+- No oscillation, no hysteresis: the level only toggles CSS `display`; it changes no layout, so the width that decided it cannot move. The bound is a pure function of that width. A Playwright test straddles it 6 times (380/420 px boxes) and sees one switch per resize and nothing at rest. A later change that lets the level alter layout must add hysteresis.
+- The phone sheet: a phone-wide card is under 400 px, so it keeps dots; the plan above the sheet is small and crowded already. Zoom to 1.6 gives icons as before.
+- The Studio does not pass `planPx` and starts on `full`; its Auto is the zoom rule as before.
+
+## 2026-10-25: S37.5, the card speaks the user's language
+
+- The card translates its own strings, keyed on `hass.language` (HA's frontend code: `it`, `pt-BR`, `zh-Hans`). Now: it, es, pt, pt-BR, fr, de, nl, zh-Hans, pl. zh-Hant has no file yet and reads English. The Studio stays English.
+- English stays in the source as the key and the fallback, so the English card loads nothing. Each other language is one lazy chunk (`floorplan-studio-lang-<code>-<hash>.js`, about 3 KB gzip), fetched by dynamic import beside the card. Lookup is exact code, then base (`pt-PT` reads `pt`), then English. A failed fetch leaves English and may be retried on the next `hass` update.
+- Gettext style: `t("Cancel")`, `tn("{n} alert", "{n} alerts", n)` through `Intl.PluralRules` (Polish has four forms), `Light|theme` for a word with two meanings (the text after the bar is context, stripped in English). Placeholders are filled in one pass, so a value that looks like `{x}` is not expanded again. Label tables stay English and are translated at the call site.
+- HA's own text (state names, units, area and entity names) stays HA's. The 3D chunk may not import card code, so its two fallback messages are translated by the card.
+- A language change is a `hass` update: the card re-renders without a reload, and zoom, selection and the layout object survive.
+- Lit escapes every translation; string-built SVG still goes through `esc`. A test feeds a catalogue holding `<b>` and a script and checks they render as letters.
+- The size cap is unchanged (124,650 gzip for the card). Lang chunks do not count as the one 3D chunk the release checks for.
+- **No native speaker has reviewed any of these translations.** Claude wrote them in HA's wording. Review is on the backlog (`docs/PLAN.md`, S37.5).
+
+## 2026-10-25: S37.4, any user follows a save
+
+Supersedes the 2026-10-21 line "A `floorplan_studio/subscribe` command would fix that; not done".
+
+- `floorplan_studio/subscribe` (any user): answers with a bare result, then sends an event `{ rev }` to that connection after each save. It listens to the bus event, so the event stays and other listeners are untouched. The unsubscribe is HA's own `unsubscribe_events`, through `connection.subscriptions`. `ws_save` now fires the bus event with `{ rev }`.
+- Why: HA lets a non-admin subscribe only to a whitelist of bus events, so a wall tablet signed in as a normal user never heard `floorplan_studio_updated` and showed the old plan until reloaded.
+- The card tries `conn.subscribeMessage({ type: "floorplan_studio/subscribe" })` first. Only `unknown_command` (an integration older than this, 0.34.x and 0.35.0) falls back to `subscribeEvents("floorplan_studio_updated")`, as before; any other error leaves a card that loads once. One subscription per element: `_sub` guards it, so a `hass` update adds none; disconnect unsubscribes, reconnect subscribes again. The JS library resubscribes both kinds itself after a websocket reconnect; a save made while the socket was down is not replayed (unchanged from before).
+
+## 2026-10-25: S37.7, the Studio's message banner sits low in the plan
+
+Supersedes "the editor shows it at the top" (2026-09, banners). The banner moved from `position:fixed;top:64px` to the bottom of the plan, 40 px above its edge (above the status bar), inside `.canvas`. Why: a menu opens downward from the toolbar, so any place under the toolbar is where an open menu goes. "Plan unlocked" covered "Add floor" in the Floors menu, and at 1024 px wide, where the toolbar wraps, it covered the search box. The bottom is the one strip no menu uses. Text, levels, 20 s and the close button are unchanged; the banner still takes no pointer events except its own buttons.
+
 ## 2026-10-25: Sprint 37 defaults (Diego: "yes to the defaults")
 
 - S37.1 the first-run choice (Load demo, From your areas, Blank) shows only when there is no saved layout.

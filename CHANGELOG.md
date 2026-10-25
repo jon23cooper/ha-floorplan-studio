@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Card: translation fixes. The car "at home" and the breadcrumb root are two words now (Polish no longer says "W domu" for the root), a room's size reads as a surface ("Fläche"), Polish "Nothing on" says nothing is switched on, and the chip counts and the Layers line follow each language's plural forms.
+- Studio: the first time you open it with no saved plan, it offers three ways in: load the demo home, start from your Home Assistant areas, or a blank plan. Start from your areas draws one 4 x 4 m room per area that has a device the plan can draw, with those devices inside; drag the corners afterwards. Undo takes the whole thing back in one step.
+- Studio: when the Studio is under 700 px wide it now says "The Studio needs a wider screen." (with a link to the dashboard in Home Assistant) instead of showing a cramped, half-working layout. The plan, selection, zoom and undo history are kept and come back when the window is wider; nothing is saved or changed meanwhile.
+- Card: the 2D plan now draws device icons at the default zoom, idle devices included. Dots only when the plan is under 400 px wide (a phone). A `detail` key (`full`, `minimal`) or a Detail pick in the menu still wins.
+- Card: speaks your Home Assistant language: Italian, Spanish, Portuguese (also Brazilian), French, German, Dutch, Simplified Chinese and Polish. Other languages read English. The translations were written without a native speaker's review; corrections are welcome. The Studio is still English.
+- Card: wall tablets signed in as a normal user now follow a saved plan, without a page reload. Update the integration as well as the card.
+- Studio: messages ("Plan unlocked", "Saved") now show low in the plan, above the status bar. At the top they covered the open Floors menu (Add floor) and, when the toolbar wraps on a narrow window, the search box.
+- Studio: the length label of a wall is drawn over the handle dots, not under them. A short wall has its two end dots on its own label.
+- Studio (standalone page): the page behind the Studio takes the Studio's theme, so a light Studio is no longer framed in dark.
+- Studio: the Align panel's buttons are a little shorter, so its angle-step row shows in full on an 800 px high window instead of being cut off at the bottom.
+- Card: with "Floor below" on, the plan stops short of the zoom buttons, so they no longer sit on the faint outline of the floor below. The plan is 40 px narrower then (60 px on a touch screen).
+
 ## 0.35.0 - 2026-10-24
 
 A demo home to start from: File > Load demo in the Studio now opens a furnished house with a basement and two floors. The README and every picture are rebuilt from it. Home Assistant 2026.6's card picker offers the card when you pick an entity it can draw. Smaller things: a selected zone has a dashed outline, the room panel prints Home Assistant's own state text, and hover contrast is fixed.

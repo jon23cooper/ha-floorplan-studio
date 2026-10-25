@@ -1,3 +1,4 @@
+import { t } from "../core/i18n";
 import type { Device, Door, Furniture, Unlinked } from "../core";
 import { carEntities, carMain, carStatus, carText, entitiesOfDevice, entitiesOfDoor, pieceDevice, playerOf } from "../core";
 import type { Hass } from "./floorplan-studio-card";
@@ -165,7 +166,7 @@ export function bindDeviceActions(
         const main = carMain(m), d = pieceDevice(m);
         if (!main || !d) return;
         const ents = carEntities(m);
-        arm(popup({ device: d, index: i, piece: true }), () => (ents.length > 1 ? opts?.openChooser?.(m.name || "Car", ents, () => carText(carStatus(m, host.hass?.states))) : fireEvent(host, "hass-more-info", { entityId: main })));
+        arm(popup({ device: d, index: i, piece: true }), () => (ents.length > 1 ? opts?.openChooser?.(m.name || t("Car"), ents, () => carText(carStatus(m, host.hass?.states))) : fireEvent(host, "hass-more-info", { entityId: main })));
         return;
       }
       const own = m && pieceDevice(m)?.entity;
@@ -198,8 +199,8 @@ export function bindDeviceActions(
     const info = own ? () => fireEvent(host, "hass-more-info", { entityId: own }) : undefined;
     // `none` still arms a hold, doing nothing: the release of a long press must not turn into a tap.
     const onHold = holdA === "none" ? () => undefined : info;
-    const t: TapTarget = { device: d, index: i };
-    const asPopup = popup(t);
+    const tt: TapTarget = { device: d, index: i };
+    const asPopup = popup(tt);
     if (d.type === "vacuum") {
       // S33.4: a vacuum has no toggle; `popup` and `toggle` open its own dialog, which is the question: the robot is never started by a bare tap.
       arm(solo(tapA === "none" ? () => undefined : tapA === "more-info" && info ? info : () => opts?.openVacuumDialog?.(d)), holdA === "none" ? onHold : undefined);
@@ -208,7 +209,7 @@ export function bindDeviceActions(
     // A media player has its own, better panel: a tap is its more-info, as for a speaker or TV placed as an appliance (Diego, 2026-10-07).
     if (own?.startsWith("media_player.")) { if (longPress) arm(solo(tapA === "none" ? () => undefined : info!), onHold); return; }
     // The stack comes first for every tap action (`solo`): overlapped icons stay reachable, and a tap that fans a stack out toggles nothing.
-    const act = tapA === "none" ? () => undefined : tapA === "more-info" && info ? info : tapA === "toggle" && opts?.toggle ? () => opts.toggle!(t, at, popupFrom(target)) : asPopup;
+    const act = tapA === "none" ? () => undefined : tapA === "more-info" && info ? info : tapA === "toggle" && opts?.toggle ? () => opts.toggle!(tt, at, popupFrom(target)) : asPopup;
     arm(solo(act), onHold);
   };
 

@@ -51,11 +51,11 @@ export const inspectorCss = css`
     .imodes{border-bottom:1px solid var(--fp-idle)}
     /* S29.9: the Align panel's Move cross, Turn pair and step choices. Plain buttons in rows that wrap; 44 px targets on a coarse pointer. */
     .align-panel .al-cross{display:grid;grid-template-columns:repeat(3,minmax(36px,1fr));gap:4px;margin:6px 0}
-    .align-panel .al-cross .btn{min-height:32px;padding:2px 4px}
+    .align-panel .al-cross .btn{min-height:28px;padding:2px 4px}
     .align-panel .al-cross .up{grid-column:2} .align-panel .al-cross .left{grid-column:1;grid-row:2} .align-panel .al-cross .right{grid-column:3;grid-row:2} .align-panel .al-cross .down{grid-column:2;grid-row:3}
     .align-panel .al-stairs{margin:4px 0;padding-left:18px}
-    .align-panel .al-row{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
-    .align-panel .al-row .btn{flex:1 1 auto;min-width:36px;min-height:32px;padding:2px 6px}
+    .align-panel .al-row{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+    .align-panel .al-row .btn{flex:1 1 auto;min-width:36px;min-height:28px;padding:2px 6px}
     .align-panel .al-label{font-size:.85em;opacity:.8;margin:6px 0 0}
     @media (pointer:coarse){.align-panel .btn,.align-panel .al-cross .btn,.align-panel .al-row .btn{min-height:44px;min-width:44px} .align-panel input{min-height:44px}}
     .imodes .tab:disabled{opacity:.4;cursor:default}

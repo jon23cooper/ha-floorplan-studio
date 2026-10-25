@@ -1,16 +1,18 @@
 /** The card's websocket calls to the integration, kept out of the card file. */
 import { CARD_VERSION } from "./version";
+import { mark, t } from "../core/i18n";
 
 export interface Conn {
   sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T>;
   subscribeEvents?(cb: () => void, eventType: string): Promise<() => void>;
+  subscribeMessage?(cb: () => void, msg: Record<string, unknown>): Promise<() => void>;
   addEventListener?(name: string, cb: () => void): void;
   removeEventListener?(name: string, cb: () => void): void;
 }
 
-export const INSTALL_HINT = "No layout: install the Floorplan Studio integration or set layout_url";
-export const NOTHING_SAVED = "No plan saved yet. Open Floorplan Studio in the sidebar to draw one.";
-export const STALE_PAGE = "Floorplan Studio was updated. Reload this page.";
+export const INSTALL_HINT = mark("No layout: install the Floorplan Studio integration or set layout_url");
+export const NOTHING_SAVED = mark("No plan saved yet. Open Floorplan Studio in the sidebar to draw one.");
+export const STALE_PAGE = mark("Floorplan Studio was updated. Reload this page.");
 
 /** One load in flight per connection: a dashboard of cards asks once, not once per card. Dropped when it settles, so a
  * later card, or a reload after a save, asks again. Callers get the same reply object: copy it before use. */
@@ -29,8 +31,8 @@ export function loadShared(conn: Conn): Promise<{ layout: unknown }> {
  * is wrong. Only "unknown command" means the integration is missing, and only then is the install hint true. */
 export function loadErrorText(e: unknown): string {
   const { code, message } = (e ?? {}) as { code?: unknown; message?: unknown };
-  if (code === "unknown_command") return INSTALL_HINT;
-  return `Could not load the plan: ${message || "no answer"}`;
+  if (code === "unknown_command") return t(INSTALL_HINT);
+  return t("Could not load the plan: {message}", { message: message ? String(message) : t("no answer") });
 }
 
 /** True when the integration on the server is not the build this page runs: a cached card after an update. A dev build

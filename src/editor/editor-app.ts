@@ -32,6 +32,8 @@ import { EditorState, emptyLayout, isBlank, loadLayout, newId, polyPts, ptOf, sl
 import { floorGroups, toolbarCss, toolbarView } from "./toolbar";
 import { asideView, inspectorCss, parseAlignNumber, readAlignSteps, writeAlignSteps, type AlignSteps } from "./inspector";
 import type { AsideMode } from "./inspector";
+import { firstRunCss, firstRunView } from "./first-run";
+import { layoutFromAreas } from "./from-areas";
 import { ctxMenuCss, ctxMenuView, ctxTargetFor, fitCtxMenu, type CtxTarget } from "./ctx-menu";
 
 /**
@@ -39,6 +41,7 @@ import { ctxMenuCss, ctxMenuView, ctxTargetFor, fitCtxMenu, type CtxTarget } fro
  *   property `layout`  the layout to edit (validated; a bad one is refused and listed)
  *   property `floor`   the floor shown
  *   property `demo`    a demo home; File, Load demo puts it in, only while nothing is drawn (Reset first). No demo, no button.
+ *   property `firstRun` the host found no saved plan: while the plan is blank, three choices show (Load the demo, areas, Blank)
  *   event `layout-changed`  detail: the Layout, after every edit
  *   event `save-request`    detail: the Layout, File, Save (host writes it somewhere)
  *   method saveDone(ok, message?)  the host calls it when the write is over; status stays "Saving…" until then.
@@ -145,14 +148,20 @@ const EYE_OFF = "M11.83,9L15,12.16C15,12.11 15,12.05 15,12A3,3 0 0,0 12,9C11.94,
 /** S24.5: how long the ring stays round what a search or the Outline went to: three beats of `fp-locate`. */
 const LOCATE_MS = 2400;
 
+/** S37.3: under this width (px, the Studio's own) the Studio shows a message instead of the editor. Docs: DECISIONS 2026-10-25. */
+const NARROW_PX = 700;
+
 export class FloorplanStudioEditor extends LitElement {
   /** S25.7: the detail mode, kept by the editor state (View, Detail). */
   get detailMode(): DetailMode { return this.st.detail; }
   set detailMode(m: DetailMode) { this.st.detail = m; this.requestUpdate(); }
   static properties = {
     floor: { type: String },
+    dashboardHref: { type: String, attribute: "dashboard-href" },
+    narrow: { state: true },
     haDark: { attribute: false },
     demo: { attribute: false },
+    firstRun: { type: Boolean, attribute: false },
     errors: { state: true },
     status: { state: true },
     banner: { state: true },
@@ -162,9 +171,15 @@ export class FloorplanStudioEditor extends LitElement {
     haListErr: { state: true },
   };
   declare floor: string;
+  /** S37.3: where the "too narrow" message sends the person: the host (the panel) sets it to the dashboard. Unset on the standalone page, which has none. */
+  declare dashboardHref: string | undefined;
+  /** S37.3: the Studio's own width is under NARROW_PX. The editor stays drawn underneath (display:none), so nothing is lost; keys are ignored meanwhile. */
+  declare narrow: boolean;
   /** Home Assistant's dark mode, set by the panel host from `hass.themes.darkMode`. Read only by the `ha` theme; undefined (standalone) follows the OS instead. */
   declare haDark: boolean | undefined;
   declare demo: Layout | undefined;
+  /** S37.1: set by the host when nothing is stored (the panel, on `{ layout: null }`). The standalone page never sets it: it always opens on a plan. Any choice, or drawing anything, ends it. */
+  declare firstRun: boolean;
   declare errors: string[];
   declare status: string;
   /** `action`: one button in the banner that undoes what the message is about (S22.4: Untick Fix plan). */
@@ -265,6 +280,8 @@ export class FloorplanStudioEditor extends LitElement {
   constructor() {
     super();
     this.floor = "";
+    this.firstRun = false;
+    this.narrow = false;
     this.errors = [];
     this.status = "Ready";
     this.banner = null;
@@ -437,9 +454,15 @@ export class FloorplanStudioEditor extends LitElement {
     css`
     ${css([FLOORPLAN_CSS] as unknown as TemplateStringsArray)}
     :host{display:block;outline:none;background:var(--fp-bg);color:var(--fp-ink);font:14px/1.4 system-ui,sans-serif}
+    /* S37.3: under 700 px (the host's own width) the toolbar and the editor are hidden, not removed: the state underneath lives on. */
+    .narrow-note{display:none;padding:24px 16px}
+    :host([data-narrow]) .narrow-note{display:block}
+    :host([data-narrow]) :is(.bar,.errors,.ed){display:none}
+    .narrow-note a{color:var(--fp-ink);font-weight:600}
   `,
     toolbarCss,
     ctxMenuCss,
+    firstRunCss,
     css`
     .btn,.chip,select,input{font:inherit;color:var(--fp-ink);background:var(--fp-room);border:1px solid var(--fp-idle);border-radius:4px;padding:4px 8px}
     .btn,.chip,summary{cursor:pointer}
@@ -571,7 +594,7 @@ export class FloorplanStudioEditor extends LitElement {
     css`
     .errors{border:1px solid var(--fp-motion);border-radius:4px;padding:6px 10px;margin:6px 0}
     .errors ul{margin:4px 0;padding-left:18px}
-    .banner{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;max-width:min(40em,calc(100vw - 24px));padding:8px 8px 8px 14px;border:1px solid;border-radius:6px;font-size:.9em;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none}
+    .banner{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;max-width:min(40em,calc(100% - 24px));padding:8px 8px 8px 14px;border:1px solid;border-radius:6px;font-size:.9em;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none}
     .banner.info{background:#e8f1fb;color:#123a63;border-color:#6c9bd1}
     .banner.warning{background:#fff4d6;color:#5c4200;border-color:#d9a400}
     .banner.error{background:#fde4e1;color:#7a1410;border-color:#d4483f}
@@ -590,6 +613,7 @@ export class FloorplanStudioEditor extends LitElement {
     .len{fill:var(--fp-text);paint-order:stroke;stroke:var(--fp-outline);stroke-width:3;stroke-linejoin:round;pointer-events:none;user-select:none}
     .lbl{pointer-events:none;user-select:none}
     .dev,.door,.heater{cursor:move}
+    /* 700 to 900 px keeps the single column; under 700 px the notice above takes over (S37.3). */
     @media (max-width:900px){.ed{grid-template-columns:1fr}.side{height:auto;min-height:0}.side.open,.side.shut{width:auto}.side .tree{max-height:40vh}}
   `,
   ];
@@ -633,6 +657,7 @@ export class FloorplanStudioEditor extends LitElement {
     window.removeEventListener("click", this.onWindowClick);
     window.removeEventListener("pointerdown", this.onWindowPointerDown, true);
     this.ro?.disconnect();
+    this.roHost?.disconnect();
     this.stopFadeTimer();
     clearTimeout(this.locateTimer);
   }
@@ -643,7 +668,7 @@ export class FloorplanStudioEditor extends LitElement {
     try { return matchMedia("(prefers-color-scheme: dark)").matches; } catch { return false; }
   }
 
-  /** Shows a message as a top banner for 20 s, coloured by its situation. `level` overrides the guess from the text. */
+  /** Shows a message as a banner low in the plan for 20 s, coloured by its situation. `level` overrides the guess from the text. */
   private notify(text: string, level?: BannerLevel, action?: { id: string; label: string; run: () => void }) {
     clearTimeout(this.bannerTimer);
     if (isQuiet(text)) { this.banner = null; return; }
@@ -660,6 +685,7 @@ export class FloorplanStudioEditor extends LitElement {
     // Always named, never left to inherit: blueprint unless the viewer chose otherwise. Reflected on the host itself, not just the svg,
     // so the editor's own chrome (menus, panels, buttons) themes with the plan. data-mode is for the ha theme only.
     this.setAttribute("data-theme", this.st.theme);
+    this.toggleAttribute("data-narrow", this.narrow);
     if (this.st.theme === "ha" && this.isDark()) this.setAttribute("data-mode", "dark");
     else this.removeAttribute("data-mode");
   }
@@ -668,7 +694,16 @@ export class FloorplanStudioEditor extends LitElement {
     const s = this.svgEl;
     s?.addEventListener("wheel", this.onWheel, { passive: false });
     if (s && typeof ResizeObserver !== "undefined") { this.ro = new ResizeObserver(() => this.measure()); this.ro.observe(s); }
+    if (typeof ResizeObserver !== "undefined") { this.roHost = new ResizeObserver(() => this.measureHost()); this.roHost.observe(this); }
+    this.measureHost();
     this.measure();
+  }
+  private roHost?: ResizeObserver;
+  /** S37.3: the Studio's own width, not the window's: in Home Assistant the panel sits beside the sidebar. A width of 0 (not laid out) is not narrow. */
+  private measureHost() {
+    const w = this.getBoundingClientRect().width;
+    const narrow = w > 0 && w < NARROW_PX;
+    if (narrow !== this.narrow) this.narrow = narrow;
   }
 
   private get svgEl(): SVGSVGElement | null { return this.renderRoot.querySelector(".canvas > svg"); } // the plan, not the icons inside the buttons
@@ -1767,6 +1802,7 @@ export class FloorplanStudioEditor extends LitElement {
   private onKeyUp = (ev: KeyboardEvent) => { if (ev.key === "Alt") this.setAlt(false); };
   private onBlur = () => this.setAlt(false);
   private onKey = (ev: KeyboardEvent) => {
+    if (this.narrow) return; // S37.3: the editor is hidden; a key must not act on what the person cannot see
     if (ev.key === "Alt") this.setAlt(true);
     // Cmd/Ctrl+S is Save from anywhere in the editor, a text box included; the browser's own save-page dialog never opens.
     if (isSaveChord(ev) && !ev.defaultPrevented && !ev.isComposing) { ev.preventDefault(); this.saveByKey(); return; }
@@ -1855,8 +1891,10 @@ export class FloorplanStudioEditor extends LitElement {
   private onFocusOut = (ev: FocusEvent) => {
     const next = ev.relatedTarget as Node | null;
     if (next && (next === this || this.contains(next))) return; // into the panel or a menu (retargeted to this host)
+    if (this.narrow) return; // S37.3: hiding the editor blurs what was focused in it; that is not the person leaving the selection
     const src = ev.composedPath()[0], sel = this.st.sel;
     setTimeout(() => {
+      if (this.narrow) return;
       if (this.st.sel !== sel) return; // something was selected since: that is not the selection that lost focus
       if (src instanceof Node && !src.isConnected) return; // the focused control was replaced by a new panel, not left
       if (!document.hasFocus()) return; // the window lost focus; the user comes back to the same selection
@@ -3001,6 +3039,17 @@ export class FloorplanStudioEditor extends LitElement {
     if (!this.demo || !isBlank(this.st.layout)) return;
     this.applyLayout(this.demo, "Demo home loaded");
   }
+  /** S37.1: the three first-run choices. Each one ends it; the demo and the areas go through `applyLayout` (validate, one undo step, nothing changes on failure). */
+  private firstRunDemo() { this.firstRun = false; this.loadDemo(); }
+  private firstRunBlank() { this.firstRun = false; }
+  /** S37.2: one room per Home Assistant area. The plan stays unlocked, so the corners can be dragged next. */
+  roomsFromAreas() {
+    if (!isBlank(this.st.layout)) return;
+    const built = layoutFromAreas(this.ha);
+    if (!built) { this.status = "No Home Assistant area has anything the plan can draw"; this.requestUpdate(); return; }
+    this.firstRun = false;
+    this.applyLayout(built, `Drew ${built.floors.ground.rooms.length} rooms from your Home Assistant areas. Drag a corner to shape one`, false);
+  }
   /** Validates first; on any problem lists them and leaves the current layout untouched. */
   private applyLayout(x: unknown, status: string, lock = true): boolean {
     const r = loadLayout(x);
@@ -3080,8 +3129,10 @@ export class FloorplanStudioEditor extends LitElement {
     }
     const line = (a: Pt, b: Pt, cls: string, extra = "") => `<line class="${cls}" x1="${num(a[0])}" y1="${num(a[1])}" x2="${num(b[0])}" y2="${num(b[1])}" ${extra}/>`;
     const deg = st.turnDeg, upright = (x: number, y: number) => (deg % 360 ? ` transform="rotate(${num(-deg)} ${num(x)} ${num(y)})"` : "");
+    // S37.7: the length labels are written last among the handles (see below): a short wall puts its two end dots on its own label.
+    const lens: string[] = [];
     const len = (a: Pt, b: Pt) => `<text class="len" x="${num((a[0] + b[0]) / 2)}" y="${num((a[1] + b[1]) / 2)}"${upright((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)} text-anchor="middle" font-size="${num(10 * k)}">${(dist(a, b) / 100).toFixed(2)} m</text>`;
-    if (s?.t === "edge") { const pts = polyPts(f, s.poly); if (pts) { const a = pts[s.i], b = pts[(s.i + 1) % pts.length]; o.push(line(a, b, "hl", 'stroke-width="4"'), len(a, b)); } }
+    if (s?.t === "edge") { const pts = polyPts(f, s.poly); if (pts) { const a = pts[s.i], b = pts[(s.i + 1) % pts.length]; o.push(line(a, b, "hl", 'stroke-width="4"')); lens.push(len(a, b)); } }
     if (s?.t === "opening" && f.openings[s.i]) o.push(line(f.openings[s.i].a, f.openings[s.i].b, "hl", 'stroke-width="4"'));
     if (s?.t === "wall" && f.walls[s.i]) o.push(line(f.walls[s.i].a, f.walls[s.i].b, "hl", 'stroke-width="4"'));
     if (s?.t === "extra" && f.extras[s.i]) o.push(line(f.extras[s.i].a, f.extras[s.i].b, "hl", 'stroke-width="4"'));
@@ -3102,8 +3153,8 @@ export class FloorplanStudioEditor extends LitElement {
     }
     if (st.showLen) {
       const P = f.outline;
-      P.forEach((a, i) => o.push(len(a, P[(i + 1) % P.length])));
-      f.walls.forEach((w) => o.push(len(w.a, w.b)));
+      P.forEach((a, i) => lens.push(len(a, P[(i + 1) % P.length])));
+      f.walls.forEach((w) => lens.push(len(w.a, w.b)));
     }
     f.stairs.forEach((t, i) => { if (t.shape === "straight" && !t.rot) t.pts.forEach((p, j) => o.push(`<circle class="h" data-h="s${i}:${j}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`)); });
     const open = st.openDoor && f.doors.find((d) => d.id === st.openDoor);
@@ -3111,6 +3162,7 @@ export class FloorplanStudioEditor extends LitElement {
     for (const r of looseEnds(f)) { const p = f[r.k][r.i][r.end]; o.push(`<circle class="h" data-hp="${r.k}:${r.i}:${r.end}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(4.5 * k)}"/>`); }
     if (s?.t === "door" && f.doors[s.i]) for (const end of ["a", "b"] as const) { const p = f.doors[s.i][end]; o.push(`<circle class="h" data-dh="${s.i}:${end}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`); }
     if (s?.t === "v") { const p = ptOf(f, s.ref); if (p) o.push(`<circle class="h on" pointer-events="none" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`); }
+    o.push(...lens); // over every handle dot; a label takes no pointer, so the dots under it stay grabbable
     // Draw mode: the placed points and a dashed rubber band. Only the editor draws these; the card never sees them.
     const dr = this.draw;
     if (dr?.points.length) {
@@ -3154,7 +3206,7 @@ export class FloorplanStudioEditor extends LitElement {
     const body = turnG(grid) + renderFloor(f, { scale: s, selection: sel, keep: st.sel && (st.sel.t === "furn" || st.sel.t === "unl") ? { t: st.sel.t, i: st.sel.i } : null, hiddenLayers: st.hidden, detail: detailFor(viewBoxFor(f, 80, st.rotation), v, this.detailMode), showNames: st.showNames, editor: true, handles: !(this.asideMode === "align" && this.alignKey === st.floor), trace: true, rotate: rot, colors: st.layout.colors, theme: st.theme, dark: this.isDark(), dimmed, night: st.night, state: this.stateForRender(), now: Date.now(), roomGlow: true, ghost: this.ghostOpts(), labels: st.labels, heat: st.heat, camThumb: st.cam.on ? { ...st.cam, bust: this.thumbs.bust, failed: this.thumbs.failed } : undefined, around: floorsAroundKey(st.layout, st.floor), locate: this.locate?.floor === st.floor ? { t: this.locate.t, i: this.locate.i } : null }) + turnG(overlay);
     const find = this.findData();
     return html`
-      ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}
+      <div class="narrow-note" id="narrowNote" role="status"><p>The Studio needs a wider screen.</p>${this.dashboardHref ? html`<p><a href=${this.dashboardHref}>Open the dashboard</a></p>` : nothing}</div>
       ${toolbarView(this, find.entries)}
       ${this.errors.length ? html`<div class="errors" id="errors" role="alert"><strong>That layout was not used.</strong><ul>${this.errors.map((e) => html`<li>${e}</li>`)}</ul><button class="btn" id="errclose" @click=${() => { this.errors = []; }}>Dismiss</button></div>` : nothing}
       <div class="ed">
@@ -3169,7 +3221,10 @@ export class FloorplanStudioEditor extends LitElement {
             <button class="btn" id="vrotl" title="Rotate view left" aria-label="Rotate view left" @click=${() => this.turnBy(-ROTATION_STEP)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.rotateLeft} fill="currentColor"/></svg></button>
             <button class="btn" id="vrotr" title="Rotate view right" aria-label="Rotate view right" @click=${() => this.turnBy(ROTATION_STEP)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.rotateRight} fill="currentColor"/></svg></button>
           </div>
+          <!-- S37.7: the message sits low in the plan, above the status bar. At the top it covered the open menus (Floors, Add floor) and, when the toolbar wraps, the search box. -->
+          ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}
           ${this.statusBarView()}
+          ${this.firstRun && isBlank(st.layout) ? firstRunView({ hasAreas: !!this.ha?.areas?.length, hasHa: !!this.ha, demo: () => this.firstRunDemo(), areas: () => this.roomsFromAreas(), blank: () => this.firstRunBlank() }) : nothing}
           ${this.ctxMenu ? ctxMenuView(this, this.ctxMenu) : nothing}
           ${this.devColsPos ? this.devColsView(st) : nothing}
           ${this.haPos && this.writer ? this.haView() : nothing}
