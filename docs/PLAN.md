@@ -4620,8 +4620,9 @@ Not in this sprint: GitHub Discussions (a repository setting, Diego's yes), the 
 
 From the review's plan B. Diego took the defaults on 2026-10-25 (`docs/DECISIONS.md`). S37.4 and S37.7 started first.
 
-- [ ] S37.1 Studio first run: three doors on a blank plan, Load the demo, Start from your Home Assistant areas, Blank.
-- [ ] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
+- [x] S37.1 Studio first run: three doors on a blank plan, Load the demo, Start from your Home Assistant areas, Blank.
+      Done on task/s37.1-first-run; the choice is HA-only (standalone always opens on a plan), see DECISIONS.
+- [x] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
       edge; the user drags corners after.
 - [ ] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
 - [x] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.

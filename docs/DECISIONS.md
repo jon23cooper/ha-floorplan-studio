@@ -2,6 +2,18 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-25: S37.1 and S37.2, the first-run choice and rooms from areas
+
+Implements the 2026-10-25 "Sprint 37 defaults". Supersedes nothing.
+
+- **When it shows.** A new editor property `firstRun`, set by the host. The panel sets it when `floorplan_studio/load` replies `{ layout: null }` (the reply shape is `ws_load` in `websocket.py`); the editor shows the choice while `firstRun` is true and the plan is blank. Any choice ends it, and so does drawing anything. It is bound only in the panel's "no stored plan" template branch, inside the existing `guard([loadId])`, so a `hass` update never brings it back.
+- **Standalone.** The standalone page never sets `firstRun`. It always opens on a plan (the remembered one, else `demo/layout.json`), so there is no "no saved layout" state to ask about; File > Load demo is still there. The choice is therefore HA-only in practice. If a host sets `firstRun` without HA data, the areas button is disabled with a tooltip.
+- **Doors.** Load the demo calls `loadDemo()`, as File > Load demo does (one undo step, plan locked as for any plan with rooms). Blank only closes it: no undo step, today's empty plan. Start from your areas calls `roomsFromAreas()`.
+- **The builder.** `layoutFromAreas(ha)` in `src/editor/from-areas.ts`. One 400 cm square per area, areas by name, `ceil(sqrt(n))` columns, rooms touching, a `wall` on every edge, `area` = the HA area id (the existing room-to-area link), `name` = the area name (the id when blank). The outline is the box round the rooms. One floor, "Ground". Entities come from `placeableDevicesInArea`, run on a scratch `EditorState` through `placeArea`, so they are exactly what "Place" gives a room: one icon per HA device, `typeForEntity`, noise (`other`, `battery`, `person`) left out, an entity's own area before its device's (`haData` resolves that), plugs get their power sensor, 60 cm cells round the centre, shrinking for a crowded room. An area with nothing drawable gets no room.
+- **No layout for 0 rooms.** With 0 areas, or none with a drawable entity, the builder returns `null`: a layout with no rooms has no outline and is not valid. The editor then changes nothing and says "No Home Assistant area has anything the plan can draw".
+- **Applying.** `applyLayout` (validate, one undo step, the list of problems and no change on failure), with the plan left unlocked: the next thing a user does is drag a corner, and a locked plan refuses that. Tests: unit (0, 1, 13, 40 and 200 entities, `"><script>`, duplicate and blank areas, own area against device area read through `haData`) and Playwright with real mouse clicks for each door, including the undo step.
+- Not done: one plan floor per HA floor. Everything lands on one floor; the Floors menu can still link an HA floor.
+
 ## 2026-10-25: S37.4, any user follows a save
 
 Supersedes the 2026-10-21 line "A `floorplan_studio/subscribe` command would fix that; not done".

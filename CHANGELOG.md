@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Studio: the first time you open it with no saved plan, it offers three ways in: load the demo home, start from your Home Assistant areas, or a blank plan. Start from your areas draws one 4 x 4 m room per area that has a device the plan can draw, with those devices inside; drag the corners afterwards. Undo takes the whole thing back in one step.
 - Card: wall tablets signed in as a normal user now follow a saved plan, without a page reload. Update the integration as well as the card.
 - Studio: messages ("Plan unlocked", "Saved") now show low in the plan, above the status bar. At the top they covered the open Floors menu (Add floor) and, when the toolbar wraps on a narrow window, the search box.
 - Studio: the length label of a wall is drawn over the handle dots, not under them. A short wall has its two end dots on its own label.

@@ -32,6 +32,8 @@ import { EditorState, emptyLayout, isBlank, loadLayout, newId, polyPts, ptOf, sl
 import { floorGroups, toolbarCss, toolbarView } from "./toolbar";
 import { asideView, inspectorCss, parseAlignNumber, readAlignSteps, writeAlignSteps, type AlignSteps } from "./inspector";
 import type { AsideMode } from "./inspector";
+import { firstRunCss, firstRunView } from "./first-run";
+import { layoutFromAreas } from "./from-areas";
 import { ctxMenuCss, ctxMenuView, ctxTargetFor, fitCtxMenu, type CtxTarget } from "./ctx-menu";
 
 /**
@@ -39,6 +41,7 @@ import { ctxMenuCss, ctxMenuView, ctxTargetFor, fitCtxMenu, type CtxTarget } fro
  *   property `layout`  the layout to edit (validated; a bad one is refused and listed)
  *   property `floor`   the floor shown
  *   property `demo`    a demo home; File, Load demo puts it in, only while nothing is drawn (Reset first). No demo, no button.
+ *   property `firstRun` the host found no saved plan: while the plan is blank, three choices show (Load the demo, areas, Blank)
  *   event `layout-changed`  detail: the Layout, after every edit
  *   event `save-request`    detail: the Layout, File, Save (host writes it somewhere)
  *   method saveDone(ok, message?)  the host calls it when the write is over; status stays "Saving…" until then.
@@ -153,6 +156,7 @@ export class FloorplanStudioEditor extends LitElement {
     floor: { type: String },
     haDark: { attribute: false },
     demo: { attribute: false },
+    firstRun: { type: Boolean, attribute: false },
     errors: { state: true },
     status: { state: true },
     banner: { state: true },
@@ -165,6 +169,8 @@ export class FloorplanStudioEditor extends LitElement {
   /** Home Assistant's dark mode, set by the panel host from `hass.themes.darkMode`. Read only by the `ha` theme; undefined (standalone) follows the OS instead. */
   declare haDark: boolean | undefined;
   declare demo: Layout | undefined;
+  /** S37.1: set by the host when nothing is stored (the panel, on `{ layout: null }`). The standalone page never sets it: it always opens on a plan. Any choice, or drawing anything, ends it. */
+  declare firstRun: boolean;
   declare errors: string[];
   declare status: string;
   /** `action`: one button in the banner that undoes what the message is about (S22.4: Untick Fix plan). */
@@ -265,6 +271,7 @@ export class FloorplanStudioEditor extends LitElement {
   constructor() {
     super();
     this.floor = "";
+    this.firstRun = false;
     this.errors = [];
     this.status = "Ready";
     this.banner = null;
@@ -440,6 +447,7 @@ export class FloorplanStudioEditor extends LitElement {
   `,
     toolbarCss,
     ctxMenuCss,
+    firstRunCss,
     css`
     .btn,.chip,select,input{font:inherit;color:var(--fp-ink);background:var(--fp-room);border:1px solid var(--fp-idle);border-radius:4px;padding:4px 8px}
     .btn,.chip,summary{cursor:pointer}
@@ -3001,6 +3009,17 @@ export class FloorplanStudioEditor extends LitElement {
     if (!this.demo || !isBlank(this.st.layout)) return;
     this.applyLayout(this.demo, "Demo home loaded");
   }
+  /** S37.1: the three first-run choices. Each one ends it; the demo and the areas go through `applyLayout` (validate, one undo step, nothing changes on failure). */
+  private firstRunDemo() { this.firstRun = false; this.loadDemo(); }
+  private firstRunBlank() { this.firstRun = false; }
+  /** S37.2: one room per Home Assistant area. The plan stays unlocked, so the corners can be dragged next. */
+  roomsFromAreas() {
+    if (!isBlank(this.st.layout)) return;
+    const built = layoutFromAreas(this.ha);
+    if (!built) { this.status = "No Home Assistant area has anything the plan can draw"; this.requestUpdate(); return; }
+    this.firstRun = false;
+    this.applyLayout(built, `Drew ${built.floors.ground.rooms.length} rooms from your Home Assistant areas. Drag a corner to shape one`, false);
+  }
   /** Validates first; on any problem lists them and leaves the current layout untouched. */
   private applyLayout(x: unknown, status: string, lock = true): boolean {
     const r = loadLayout(x);
@@ -3174,6 +3193,7 @@ export class FloorplanStudioEditor extends LitElement {
           <!-- S37.7: the message sits low in the plan, above the status bar. At the top it covered the open menus (Floors, Add floor) and, when the toolbar wraps, the search box. -->
           ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}
           ${this.statusBarView()}
+          ${this.firstRun && isBlank(st.layout) ? firstRunView({ hasAreas: !!this.ha?.areas?.length, demo: () => this.firstRunDemo(), areas: () => this.roomsFromAreas(), blank: () => this.firstRunBlank() }) : nothing}
           ${this.ctxMenu ? ctxMenuView(this, this.ctxMenu) : nothing}
           ${this.devColsPos ? this.devColsView(st) : nothing}
           ${this.haPos && this.writer ? this.haView() : nothing}
