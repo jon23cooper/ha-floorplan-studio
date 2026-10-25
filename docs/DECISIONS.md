@@ -2,6 +2,17 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-25: S37.5, the card speaks the user's language
+
+- The card translates its own strings, keyed on `hass.language` (HA's frontend code: `it`, `pt-BR`, `zh-Hans`). Now: it, es, pt, pt-BR, fr, de, nl, zh-Hans, pl. zh-Hant has no file yet and reads English. The Studio stays English.
+- English stays in the source as the key and the fallback, so the English card loads nothing. Each other language is one lazy chunk (`floorplan-studio-lang-<code>-<hash>.js`, about 3 KB gzip), fetched by dynamic import beside the card. Lookup is exact code, then base (`pt-PT` reads `pt`), then English. A failed fetch leaves English and may be retried on the next `hass` update.
+- Gettext style: `t("Cancel")`, `tn("{n} alert", "{n} alerts", n)` through `Intl.PluralRules` (Polish has four forms), `Light|theme` for a word with two meanings (the text after the bar is context, stripped in English). Placeholders are filled in one pass, so a value that looks like `{x}` is not expanded again. Label tables stay English and are translated at the call site.
+- HA's own text (state names, units, area and entity names) stays HA's. The 3D chunk may not import card code, so its two fallback messages are translated by the card.
+- A language change is a `hass` update: the card re-renders without a reload, and zoom, selection and the layout object survive.
+- Lit escapes every translation; string-built SVG still goes through `esc`. A test feeds a catalogue holding `<b>` and a script and checks they render as letters.
+- The size cap is unchanged (124,650 gzip for the card). Lang chunks do not count as the one 3D chunk the release checks for.
+- **No native speaker has reviewed any of these translations.** Claude wrote them in HA's wording. Review is on the backlog (`docs/PLAN.md`, S37.5).
+
 ## 2026-10-25: S37.4, any user follows a save
 
 Supersedes the 2026-10-21 line "A `floorplan_studio/subscribe` command would fix that; not done".

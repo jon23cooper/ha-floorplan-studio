@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Card: speaks your Home Assistant language: Italian, Spanish, Portuguese (also Brazilian), French, German, Dutch, Simplified Chinese and Polish. Other languages read English. The translations were written without a native speaker's review; corrections are welcome. The Studio is still English.
 - Card: wall tablets signed in as a normal user now follow a saved plan, without a page reload. Update the integration as well as the card.
 - Studio: messages ("Plan unlocked", "Saved") now show low in the plan, above the status bar. At the top they covered the open Floors menu (Add floor) and, when the toolbar wraps on a narrow window, the search box.
 - Studio: the length label of a wall is drawn over the handle dots, not under them. A short wall has its two end dots on its own label.
