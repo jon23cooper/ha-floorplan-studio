@@ -41,6 +41,13 @@ describe("notesFor", () => {
   it("finds the section of the repo's own CHANGELOG for the manifest version or says so", () => {
     const v = (JSON.parse(readFileSync("custom_components/floorplan_studio/manifest.json", "utf8")) as { version: string }).version;
     const notes = notesFor(readFileSync("CHANGELOG.md", "utf8"), v);
-    expect(notes === null || notes.startsWith("- ")).toBe(true);
+    // Since 2026-10-22 a release opens with a paragraph for users, then the bullets (docs/WORKFLOW.md, Release).
+    expect(notes, `CHANGELOG has no section for ${v}`).not.toBeNull();
+    expect(notes).toMatch(/^- /m);
+  });
+
+  it("keeps the opening paragraph above the bullets", () => {
+    const log = "## 1.0.0 - 2026-01-01\n\nWhat is new, in a sentence.\n\n- A bullet.\n\n## 0.9.0 - 2025-01-01\n- x\n";
+    expect(notesFor(log, "1.0.0")).toBe("What is new, in a sentence.\n\n- A bullet.\n");
   });
 });
