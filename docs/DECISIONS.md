@@ -2,6 +2,14 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-25: Sprint 37 defaults (Diego: "yes to the defaults")
+
+- S37.1 the first-run choice (Load demo, From your areas, Blank) shows only when there is no saved layout.
+- S37.2 rooms from areas are 4 x 4 m on a grid; an area with no entities is skipped.
+- S37.3 under 700 px wide the Studio shows a message and a link to the card, not the stacked layout.
+- S37.5 the card speaks it, es, pt, pt-BR, fr, de, nl, zh-Hans and pl now; zh-Hant later.
+- S37.6 the 2D plan draws icons, and dots only when the plan is under about 400 px wide.
+
 ## 2026-10-24: the demo home is a Load demo target only
 
 `demo/home.json` is what File > Load demo loads (panel and standalone). The standalone still starts on
