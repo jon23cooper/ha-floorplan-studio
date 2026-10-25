@@ -571,7 +571,7 @@ export class FloorplanStudioEditor extends LitElement {
     css`
     .errors{border:1px solid var(--fp-motion);border-radius:4px;padding:6px 10px;margin:6px 0}
     .errors ul{margin:4px 0;padding-left:18px}
-    .banner{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;max-width:min(40em,calc(100vw - 24px));padding:8px 8px 8px 14px;border:1px solid;border-radius:6px;font-size:.9em;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none}
+    .banner{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;max-width:min(40em,calc(100% - 24px));padding:8px 8px 8px 14px;border:1px solid;border-radius:6px;font-size:.9em;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none}
     .banner.info{background:#e8f1fb;color:#123a63;border-color:#6c9bd1}
     .banner.warning{background:#fff4d6;color:#5c4200;border-color:#d9a400}
     .banner.error{background:#fde4e1;color:#7a1410;border-color:#d4483f}
@@ -643,7 +643,7 @@ export class FloorplanStudioEditor extends LitElement {
     try { return matchMedia("(prefers-color-scheme: dark)").matches; } catch { return false; }
   }
 
-  /** Shows a message as a top banner for 20 s, coloured by its situation. `level` overrides the guess from the text. */
+  /** Shows a message as a banner low in the plan for 20 s, coloured by its situation. `level` overrides the guess from the text. */
   private notify(text: string, level?: BannerLevel, action?: { id: string; label: string; run: () => void }) {
     clearTimeout(this.bannerTimer);
     if (isQuiet(text)) { this.banner = null; return; }
@@ -3080,8 +3080,10 @@ export class FloorplanStudioEditor extends LitElement {
     }
     const line = (a: Pt, b: Pt, cls: string, extra = "") => `<line class="${cls}" x1="${num(a[0])}" y1="${num(a[1])}" x2="${num(b[0])}" y2="${num(b[1])}" ${extra}/>`;
     const deg = st.turnDeg, upright = (x: number, y: number) => (deg % 360 ? ` transform="rotate(${num(-deg)} ${num(x)} ${num(y)})"` : "");
+    // S37.7: the length labels are written last among the handles (see below): a short wall puts its two end dots on its own label.
+    const lens: string[] = [];
     const len = (a: Pt, b: Pt) => `<text class="len" x="${num((a[0] + b[0]) / 2)}" y="${num((a[1] + b[1]) / 2)}"${upright((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)} text-anchor="middle" font-size="${num(10 * k)}">${(dist(a, b) / 100).toFixed(2)} m</text>`;
-    if (s?.t === "edge") { const pts = polyPts(f, s.poly); if (pts) { const a = pts[s.i], b = pts[(s.i + 1) % pts.length]; o.push(line(a, b, "hl", 'stroke-width="4"'), len(a, b)); } }
+    if (s?.t === "edge") { const pts = polyPts(f, s.poly); if (pts) { const a = pts[s.i], b = pts[(s.i + 1) % pts.length]; o.push(line(a, b, "hl", 'stroke-width="4"')); lens.push(len(a, b)); } }
     if (s?.t === "opening" && f.openings[s.i]) o.push(line(f.openings[s.i].a, f.openings[s.i].b, "hl", 'stroke-width="4"'));
     if (s?.t === "wall" && f.walls[s.i]) o.push(line(f.walls[s.i].a, f.walls[s.i].b, "hl", 'stroke-width="4"'));
     if (s?.t === "extra" && f.extras[s.i]) o.push(line(f.extras[s.i].a, f.extras[s.i].b, "hl", 'stroke-width="4"'));
@@ -3102,8 +3104,8 @@ export class FloorplanStudioEditor extends LitElement {
     }
     if (st.showLen) {
       const P = f.outline;
-      P.forEach((a, i) => o.push(len(a, P[(i + 1) % P.length])));
-      f.walls.forEach((w) => o.push(len(w.a, w.b)));
+      P.forEach((a, i) => lens.push(len(a, P[(i + 1) % P.length])));
+      f.walls.forEach((w) => lens.push(len(w.a, w.b)));
     }
     f.stairs.forEach((t, i) => { if (t.shape === "straight" && !t.rot) t.pts.forEach((p, j) => o.push(`<circle class="h" data-h="s${i}:${j}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`)); });
     const open = st.openDoor && f.doors.find((d) => d.id === st.openDoor);
@@ -3111,6 +3113,7 @@ export class FloorplanStudioEditor extends LitElement {
     for (const r of looseEnds(f)) { const p = f[r.k][r.i][r.end]; o.push(`<circle class="h" data-hp="${r.k}:${r.i}:${r.end}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(4.5 * k)}"/>`); }
     if (s?.t === "door" && f.doors[s.i]) for (const end of ["a", "b"] as const) { const p = f.doors[s.i][end]; o.push(`<circle class="h" data-dh="${s.i}:${end}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`); }
     if (s?.t === "v") { const p = ptOf(f, s.ref); if (p) o.push(`<circle class="h on" pointer-events="none" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`); }
+    o.push(...lens); // over every handle dot; a label takes no pointer, so the dots under it stay grabbable
     // Draw mode: the placed points and a dashed rubber band. Only the editor draws these; the card never sees them.
     const dr = this.draw;
     if (dr?.points.length) {
@@ -3154,7 +3157,6 @@ export class FloorplanStudioEditor extends LitElement {
     const body = turnG(grid) + renderFloor(f, { scale: s, selection: sel, keep: st.sel && (st.sel.t === "furn" || st.sel.t === "unl") ? { t: st.sel.t, i: st.sel.i } : null, hiddenLayers: st.hidden, detail: detailFor(viewBoxFor(f, 80, st.rotation), v, this.detailMode), showNames: st.showNames, editor: true, handles: !(this.asideMode === "align" && this.alignKey === st.floor), trace: true, rotate: rot, colors: st.layout.colors, theme: st.theme, dark: this.isDark(), dimmed, night: st.night, state: this.stateForRender(), now: Date.now(), roomGlow: true, ghost: this.ghostOpts(), labels: st.labels, heat: st.heat, camThumb: st.cam.on ? { ...st.cam, bust: this.thumbs.bust, failed: this.thumbs.failed } : undefined, around: floorsAroundKey(st.layout, st.floor), locate: this.locate?.floor === st.floor ? { t: this.locate.t, i: this.locate.i } : null }) + turnG(overlay);
     const find = this.findData();
     return html`
-      ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}
       ${toolbarView(this, find.entries)}
       ${this.errors.length ? html`<div class="errors" id="errors" role="alert"><strong>That layout was not used.</strong><ul>${this.errors.map((e) => html`<li>${e}</li>`)}</ul><button class="btn" id="errclose" @click=${() => { this.errors = []; }}>Dismiss</button></div>` : nothing}
       <div class="ed">
@@ -3169,6 +3171,8 @@ export class FloorplanStudioEditor extends LitElement {
             <button class="btn" id="vrotl" title="Rotate view left" aria-label="Rotate view left" @click=${() => this.turnBy(-ROTATION_STEP)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.rotateLeft} fill="currentColor"/></svg></button>
             <button class="btn" id="vrotr" title="Rotate view right" aria-label="Rotate view right" @click=${() => this.turnBy(ROTATION_STEP)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.rotateRight} fill="currentColor"/></svg></button>
           </div>
+          <!-- S37.7: the message sits low in the plan, above the status bar. At the top it covered the open menus (Floors, Add floor) and, when the toolbar wraps, the search box. -->
+          ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}
           ${this.statusBarView()}
           ${this.ctxMenu ? ctxMenuView(this, this.ctxMenu) : nothing}
           ${this.devColsPos ? this.devColsView(st) : nothing}

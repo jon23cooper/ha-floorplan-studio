@@ -7872,7 +7872,7 @@ test("S7.2: the floor panel says Need help and its button opens Help", async ({ 
   await expect(page.locator("#panel .guide")).toBeVisible();
 });
 
-test("messages are banners at the top, not text in the toolbar: Save still says Saved there, with a close button", async ({ page }) => {
+test("messages are banners over the plan, not text in the toolbar: Save still says Saved there, with a close button", async ({ page }) => {
   await expect(page.locator(".bar #status")).toHaveCount(0);
   if (await page.locator("#bannerClose").count()) await page.locator("#bannerClose").click(); // whatever the page said while loading
   await expect(page.locator("#status")).toHaveCount(0);
@@ -7883,8 +7883,9 @@ test("messages are banners at the top, not text in the toolbar: Save still says 
   const status = page.locator("#status");
   await expect(status).toHaveText("Saved");
   await expect(page.locator(".banner.info")).toBeVisible();
-  const b = (await page.locator(".banner").boundingBox())!, bar = (await page.locator(".bar").boundingBox())!;
-  expect(b.y).toBeLessThan(bar.y + bar.height + 20); // at the top of the editor, just under the toolbar
+  const b = (await page.locator(".banner").boundingBox())!, bar = (await page.locator(".bar").boundingBox())!, sb = (await page.locator("#statusBar").boundingBox())!;
+  expect(b.y).toBeGreaterThan(bar.y + bar.height); // S37.7: low in the plan, clear of the toolbar and its open menus, not on top of them
+  expect(b.y + b.height).toBeLessThanOrEqual(sb.y); // and above the status bar
   await page.locator("#bannerClose").click();
   await expect(status).toHaveCount(0);
 });

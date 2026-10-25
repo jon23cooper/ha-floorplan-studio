@@ -4628,8 +4628,10 @@ From the review's plan B. Diego took the defaults on 2026-10-25 (`docs/DECISIONS
 - [ ] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
       2026-10-22). Defaults: add pt-BR, zh-Hans and pl; zh-Hant later.
 - [ ] S37.6 2D icons on at the card's default size; dots only when the plan is small.
-- [ ] S37.7 Small layout defects from the S36.6 walk (2026-10-24): the "Plan unlocked" toast covers "Add floor"; wall
+- [x] S37.7 Small layout defects from the S36.6 walk (2026-10-24): the "Plan unlocked" toast covers "Add floor"; wall
       handle dots hide part of the length labels; at 1024 wide the toolbar wraps and the toast sits on the search box;
       the light Studio sits on the standalone page's dark body; at 1024 the card's zoom buttons cover the ghost
       outline; the Align aside cuts off its angle-step row at 800 px high.
+      Done on task/s37.7-layout. Not fixed: at 1024 the toolbar still wraps (the toast no longer lands on it); the Align panel
+      still scrolls below 800 px high.
 - Later (plan C): vacuum position and trail; sun on the 3D house; a 24 h history replay.
