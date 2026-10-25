@@ -2,6 +2,17 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-25: S37.3, under 700 px the Studio shows a message
+
+Refines "S37.3" in the Sprint 37 defaults below.
+
+- **Measured on the Studio itself.** `FloorplanStudioEditor` watches its own host with a `ResizeObserver` (`NARROW_PX = 700`; narrow is `0 < width < 700`). Not `window`: in Home Assistant the panel sits beside the sidebar, so a 900 px window can hold a 600 px Studio. A width of 0 (not laid out yet) is not narrow.
+- **The message.** "The Studio needs a wider screen." and, in the panel only, a link "Open the dashboard". The link is `href="/"`, set by the panel through the `dashboard-href` attribute (a string, so the render `guard` and Lit's re-set of object properties do not touch it). Why `/`: Home Assistant routes it to the user's default dashboard; `/lovelace/0` exists only when the default dashboard still has its first view. The standalone page has no dashboard, so it shows the message alone.
+- **Hidden, not removed.** Under the bound the host gets `data-narrow`; `.bar` (toolbar), `.errors` and `.ed` are `display:none`, the notice is `display:block`. The editor element, its `EditorState` (plan, selection, zoom, undo history) and its DOM stay; widening shows what was there. Nothing is emitted, autosaved or reloaded by the notice. `measure()` already ignores a 0 x 0 plan, so the view is not refitted to nothing while hidden.
+- **Keys and focus.** `onKey` returns at once while narrow, Save chord included: a key must not act on what the person cannot see. `onFocusOut` also returns while narrow: hiding the editor blurs whatever was focused inside it, and that blur would otherwise clear the selection (the finding 13 race). Tests remove each guard and fail.
+- **The stacked layout stays for 700 to 900 px.** The `@media (max-width:900px)` single-column rule is what the Studio uses between the two bounds, where it works (full-width plan). Under 700 px nothing reaches it any more. Not removed; only its comment changed.
+- **Tests that pinned narrow widths.** See the commit: tests that ran the editor at 380, 480 or 600 px wide now run it at 700 or wider.
+
 ## 2026-10-25: S37.4, any user follows a save
 
 Supersedes the 2026-10-21 line "A `floorplan_studio/subscribe` command would fix that; not done".
