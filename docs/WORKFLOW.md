@@ -140,7 +140,9 @@ transient git write error.
 1. Bump `version` in `custom_components/floorplan_studio/manifest.json`.
    `package.json` stays at 0.1.0.
 2. Rename the CHANGELOG `## Unreleased` heading to the version.
-3. Commit, then merge into `main` with `git merge --no-ff`.
+3. Run `npm run lint` and `npm test` on the bump, then commit and merge into `main` with
+   `git merge --no-ff`. The bump is not "only a version": tests read the manifest
+   version and its CHANGELOG section. Skipping this turned CI red on 0.35.0.
 4. Check that every new commit's author email is the GitHub no-reply
    address, and that no token or private URL is in the tree.
 5. `git tag -a vX.Y.Z -m X.Y.Z`, then push `main` and the tag.
