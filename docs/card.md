@@ -275,6 +275,10 @@ house. `icon_size` scales them further on top of that, from half size to
 three times, for a plan that still reads small, or a tablet viewed from
 across the room.
 
+## Language
+
+The card's own text (buttons, the Overview, the room panel, search, the View menu) follows `hass.language`: Italian, Spanish, Portuguese (`pt` and `pt-BR`), French, German, Dutch, Simplified Chinese (`zh-Hans`) and Polish. Any other language, and Traditional Chinese for now, reads English. Home Assistant's own words (state names, units, area and entity names) are left as Home Assistant gives them. Each language is a small file (about 3 KB) fetched when needed, so an English dashboard loads nothing extra. Change the profile language and the card follows at the next update, with no reload. No native speaker has reviewed the translations yet.
+
 ## Studio and card
 
 The card's chrome sits around the plan, not over it: a 52 px header (floor tabs, Search, ⋯), one sheet (the Overview, see

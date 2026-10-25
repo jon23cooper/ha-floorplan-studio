@@ -36,7 +36,9 @@ export default defineConfig(({ mode }) => {
       lib: { entry, formats: ["es" as const], fileName: () => fileName },
       // The card lazy-loads its 3D code (three.js) with import(). That becomes a chunk beside the card, named by a hash of
       // its content so a browser never keeps a stale one under the same name, and found from the card's own URL.
-      rollupOptions: { output: { chunkFileNames: "floorplan-studio-3d-[hash].js" } },
+      // S37.5: each language of the card's own words is a chunk too (src/card/i18n/<code>.ts, loaded by import() for `hass.language`).
+      // Its own prefix keeps it from counting as the one 3D chunk the release checks for.
+      rollupOptions: { output: { chunkFileNames: (c: { name: string; facadeModuleId?: string | null }) => (/[\\/]card[\\/]i18n[\\/]/.test(c.facadeModuleId ?? "") ? `floorplan-studio-lang-${c.name}-[hash].js` : "floorplan-studio-3d-[hash].js") } },
     },
   });
   if (mode === "card") return lib("src/card/floorplan-studio-card.ts", "floorplan-studio-card.js");

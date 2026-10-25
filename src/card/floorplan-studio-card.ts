@@ -20,6 +20,8 @@ import { defineElement } from "./define";
 import { strategyElement } from "./strategy";
 import { CARD_VERSION } from "./version";
 import { INSTALL_HINT, NOTHING_SAVED, STALE_PAGE, loadErrorText, loadShared, pageIsStale, type Conn } from "./load";
+import { mark, t, tn } from "../core/i18n";
+import { useLanguage } from "./i18n";
 import { MAX_ZOOM, MIN_ZOOM, clamp, panBy, pinch, pinnedView, sameView, zoomAt, type Pt, type View } from "./viewport";
 import { PAN_STEP, isSearchChord, planKeyFor, type ViewKey } from "./view-keys";
 import { firstFocus, nextInDirection, type FocusDir } from "./plan-focus";
@@ -48,6 +50,9 @@ export interface Hass {
   connection?: Conn;
   /** Only `is_admin` is read: the Studio's sidebar entry is admin only, so a link to it is for admins. */
   user?: { is_admin?: boolean };
+  /** S37.5: the user's language code as HA writes it ("it", "pt-BR", "zh-Hans"); `locale.language` is the same value on a frontend that has no top-level field. */
+  language?: string;
+  locale?: { language?: string };
   callService?(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
   /** HA's own display text for a state ("21.5 °C", "Heat/Cool"). Absent on an old frontend; the card then prints the raw state. */
   formatEntityState?(stateObj: HassEntity): string;
@@ -158,13 +163,17 @@ const VIEW_OPTIONS: readonly { value: CardView; label: string }[] = [
   { value: "2.5d", label: "2.5D" },
   { value: "3d", label: "3D" },
 ];
+/** The Camera thumbnail menu's words for `CAM_SIZES` and `CAM_POS`; shown through `t(CAM_WORDS[x])`. */
+const CAM_WORDS: Record<(typeof CAM_SIZES)[number] | (typeof CAM_POS)[number], string> = {
+  small: mark("Small"), medium: mark("Medium"), large: mark("Large"), above: mark("Above"), below: mark("Below"), left: mark("Left"), right: mark("Right"),
+};
 /** S31.6: the Tilt slider is a menu of steps. A stored or YAML tilt in between reads as the nearest step. */
 const TILT_STEPS: readonly number[] = [0, 0.25, 0.5, 0.75, 1];
 const isView = (v: unknown): v is CardView => VIEW_OPTIONS.some((o) => o.value === v);
 
 /** The Theme dropdown's labels. A Record over `Theme`, so a theme added to core fails the build here until it has a name. */
-const THEME_LABELS: Record<Theme, string> = {
-  blueprint: "Blueprint", midnight: "Midnight", light: "Light", slate: "Slate", terminal: "Terminal", solarized: "Solarized",
+export const THEME_LABELS: Record<Theme, string> = {
+  blueprint: "Blueprint", midnight: "Midnight", light: "Light|theme", slate: "Slate", terminal: "Terminal", solarized: "Solarized",
   ha: "Home Assistant", coffee: "Coffee", "a-team": "A-Team", space: "Space", cyberpunk: "Cyberpunk",
   "carpenter-brut": "Carpenter Brut", "beach-house": "Beach house",
 };
@@ -186,10 +195,18 @@ export const DOUBLE_TAP_MS = 350;
 export const DOUBLE_TAP_PX = 24;
 /** One click of a zoom button. */
 const BUTTON_ZOOM = 1.5;
+/** The 3D chunk (three/host.ts) sets these English texts as `_fallback3d` and cannot call `t`; the card translates them where it shows them. Listed here so the catalogue test sees the keys. */
+export const FALLBACK_3D_KEYS = [mark("3D view unavailable: this browser has no WebGL. Showing 2D."), mark("3D view unavailable: it could not start. Showing 2D.")] as const;
 /** The words the side panel says for a room and for a floor (S20.2): the same panel, one subject. */
 interface Scope { unnamed: string; clear: string; noDevices: string; nothingOn: string; activeHere: string; onlyHere: string }
-const ROOM_SCOPE: Scope = { unnamed: "Unnamed room", clear: "Clear the room selection", noDevices: "No devices in this room", nothingOn: "Nothing on in this room", activeHere: "Active in this room", onlyHere: "This room only" };
-const FLOOR_SCOPE: Scope = { unnamed: "Unnamed floor", clear: "Clear the floor selection", noDevices: "No devices on this floor", nothingOn: "Nothing is on, on this floor", activeHere: "Active on this floor", onlyHere: "This floor only" };
+const ROOM_SCOPE: Scope = {
+  get unnamed() { return t("Unnamed room"); }, get clear() { return t("Clear the room selection"); }, get noDevices() { return t("No devices in this room"); },
+  get nothingOn() { return t("Nothing on in this room"); }, get activeHere() { return t("Active in this room"); }, get onlyHere() { return t("This room only"); },
+};
+const FLOOR_SCOPE: Scope = {
+  get unnamed() { return t("Unnamed floor"); }, get clear() { return t("Clear the floor selection"); }, get noDevices() { return t("No devices on this floor"); },
+  get nothingOn() { return t("Nothing is on, on this floor"); }, get activeHere() { return t("Active on this floor"); }, get onlyHere() { return t("This floor only"); },
+};
 /** What a double tap restores: the room or floor pick as it stood before the first tap changed it. */
 export interface PickMemo { pick: { floor: string; id: string } | null; floor: string | null; filter: boolean }
 /** The Scenes section starts folded, so its fold set entry means "opened by the user" (the other groups start open and the entry means folded). */
@@ -203,21 +220,22 @@ const PULSE_MS = 2400;
 interface OverviewRow { entity: string; name: string; floor: string; at: ThingRef; room?: string; state: string; age?: string; type?: DeviceType; colorVar: string; attn: boolean }
 /** What an Attention row says after its name. Every kind is a decision (finding 17): a new kind fails to compile here. */
 const ATTENTION_TEXT: Record<AttentionKind, (it: AttentionItem, level: string) => string> = {
-  "alarm-triggered": () => "triggered",
-  "alarm-armed": (it) => it.state.replace(/_/g, " "),
-  open: () => "open",
-  jammed: () => "jammed",
-  unlocked: () => "unlocked",
-  leak: () => "leak",
-  smoke: () => "smoke",
-  "battery-low": (_it, level) => (level ? `battery ${level} %` : "battery low"),
-  unavailable: () => "unavailable",
+  "alarm-triggered": () => t("triggered"),
+  "alarm-armed": (it) => it.state.replace(/_/g, " "), // Home Assistant's own state word
+  open: () => t("open"),
+  jammed: () => t("jammed"),
+  unlocked: () => t("unlocked"),
+  leak: () => t("leak"),
+  smoke: () => t("smoke"),
+  "battery-low": (_it, level) => (level ? t("battery {level} %", { level }) : t("battery low")),
+  unavailable: () => t("unavailable"),
 };
 /** The header's count chips, short: "6 lights · 2 alerts". Singular and plural per category; every category is a decision. */
-const CHIP_NOUN: Record<CategoryId, [string, string]> = {
-  lights: ["light", "lights"], climate: ["heating", "heating"], security: ["sensor", "sensors"], media: ["playing", "playing"],
-  power: ["plug", "plugs"], covers: ["cover", "covers"], computing: ["computer", "computers"], sensors: ["sensor", "sensors"],
-  people: ["person", "people"], other: ["other", "other"],
+const CHIP_TEXT: Record<CategoryId, (n: number) => string> = {
+  lights: (n) => tn("{n} light", "{n} lights", n), climate: (n) => t("{n} heating", { n }), security: (n) => tn("{n} sensor", "{n} sensors", n),
+  media: (n) => t("{n} playing", { n }), power: (n) => tn("{n} plug", "{n} plugs", n), covers: (n) => tn("{n} cover", "{n} covers", n),
+  computing: (n) => tn("{n} computer", "{n} computers", n), sensors: (n) => tn("{n} sensor", "{n} sensors", n),
+  people: (n) => tn("{n} person", "{n} people", n), other: (n) => t("{n} other", { n }),
 };
 /** S9.2: `icon_size` default and clamp range. */
 const DEFAULT_ICON_SIZE = 1;
@@ -1285,6 +1303,8 @@ export class FloorplanStudioCard extends LitElement {
     this._hass = h;
     if (!this._layout) this._loadLayout();
     this._syncTimer();
+    // S37.5: a language change is a re-render and nothing else. The layout, the view and the selection are not touched, so zoom and edits survive.
+    void useLanguage(h?.language ?? h?.locale?.language).then((changed) => { if (changed) this.requestUpdate(); });
     this.requestUpdate();
   }
 
@@ -1430,7 +1450,7 @@ export class FloorplanStudioCard extends LitElement {
       this._error = null;
     } catch (e) {
       const why = e instanceof Error ? e.message : "";
-      this._error = why ? `The plan could not be used: ${why}` : NO_LAYOUT;
+      this._error = why ? t("The plan could not be used: {why}", { why }) : NO_LAYOUT;
       // A plan this build rejects may be one a newer Studio wrote: a cached card after an update. Say so.
       if (why && this._hass?.connection) void pageIsStale(this._hass.connection).then((stale) => { if (stale && !this._layout) { this._error = STALE_PAGE; this.requestUpdate(); } });
     }
@@ -1922,7 +1942,7 @@ export class FloorplanStudioCard extends LitElement {
     if (this._viewPick() !== "3d" || !f) { this._dispose3d(); return; }
     if (this._fallback3d !== null) { this._dispose3d(); return; }
     if (!lib3d) {
-      loadLib3d().then(() => this.requestUpdate(), () => { this._fallback3d = "3D view unavailable: its code did not load. Showing 2D."; this.requestUpdate(); });
+      loadLib3d().then(() => this.requestUpdate(), () => { this._fallback3d = mark("3D view unavailable: its code did not load. Showing 2D."); this.requestUpdate(); });
       return;
     }
     lib3d.sync3d(this, DEPS_3D);
@@ -2166,7 +2186,7 @@ export class FloorplanStudioCard extends LitElement {
     if (!lg || this._shows3d() || !f) return null;
     const cls = this._fallback3d && this._viewPick() === "3d" ? "fp-heat-legend fp-heat-legend-up" : "fp-heat-legend";
     // Same check as the Studio's status bar: a scale with no room on it would explain colours that are not there.
-    if (!anyRoomHeated(f, lg.kind, this._stateForRender())) return html`<div class=${cls}><span class="fp-heat-end">Heat map: no readings</span></div>`;
+    if (!anyRoomHeated(f, lg.kind, this._stateForRender())) return html`<div class=${cls}><span class="fp-heat-end">${t("Heat map: no readings")}</span></div>`;
     const ramp = `background:linear-gradient(to right in oklch,${lg.stops.map((s) => `var(${s.token})`).join(",")})`;
     return html`<div class=${cls}><span class="fp-heat-end">${lg.from}</span><span class="fp-heat-ramp" style=${ramp} aria-hidden="true"></span><span class="fp-heat-end">${lg.to}</span></div>`;
   }
@@ -2328,7 +2348,7 @@ export class FloorplanStudioCard extends LitElement {
     return popupTemplate({
       subject: s, text: this._subjectText(s), op, confirming: p.confirming, kiosk: this._kiosk(), caps, fan,
       info: this._kiosk() || !(s.entity ?? s.entities[0]) ? [] : deviceInfo((s.entity ?? s.entities[0])!, { ...this._hass, states: this._stateForRender() }, this._format),
-      doorLabel: s.door?.cover ? (this._coverService(s.door) === "close_cover" ? "Close" : "Open") : null,
+      doorLabel: s.door?.cover ? (this._coverService(s.door) === "close_cover" ? t("Close") : t("Open")) : null,
       level: { b: caps?.brightness ? level("b") : null, s: fan ? level("s") : null, t: caps?.temp ? level("t") : null, h: caps?.hue ? level("h") : null },
       act: () => this._popupAct(),
       cancel: () => { if (this._popup) { this._popup.confirming = false; this.requestUpdate(); } },
@@ -2362,7 +2382,7 @@ export class FloorplanStudioCard extends LitElement {
     const call = this._hass?.callService;
     if (!call) return;
     const failed = (e: unknown) => {
-      const m = e && typeof e === "object" && typeof (e as { message?: unknown }).message === "string" ? (e as { message: string }).message : typeof e === "string" ? e : "the call failed";
+      const m = e && typeof e === "object" && typeof (e as { message?: unknown }).message === "string" ? (e as { message: string }).message : typeof e === "string" ? e : t("the call failed");
       fireEvent(this, "hass-notification", { message: `${domain}.${service}: ${m}` });
     };
     try { Promise.resolve(call.call(this._hass, domain, service, data)).catch(failed); } catch (e) { failed(e); }
@@ -2605,7 +2625,7 @@ export class FloorplanStudioCard extends LitElement {
   private _header() {
     if (this._kiosk()) return null;
     const tabs = this._floorChips();
-    const search = this._activeListVisible() && this._layout ? html`<button type="button" class="fp-head-btn" aria-label="Search" title="Search" @click=${() => { this._openSearch(); }}>Search</button>` : null;
+    const search = this._activeListVisible() && this._layout ? html`<button type="button" class="fp-head-btn" aria-label=${t("Search")} title=${t("Search")} @click=${() => { this._openSearch(); }}>${t("Search")}</button>` : null;
     const options = this._optionsMenu();
     if (!tabs && !search && !options) return null;
     return html`<div class="fp-head">${tabs}<span class="fp-head-gap"></span>${search}${options}</div>`;
@@ -2614,7 +2634,7 @@ export class FloorplanStudioCard extends LitElement {
   /** S31.6: the ⋯ menu, or `null` when it would hold nothing (`view_switch: false` with no rotate, no layers, no detail). */
   private _optionsMenu() {
     const sections = this._menuSections();
-    return sections.length ? html`<fp-menu label="View options" .items=${sections} @fp-menu-pick=${this._onMenuPick}></fp-menu>` : null;
+    return sections.length ? html`<fp-menu label=${t("View options")} .items=${sections} @fp-menu-pick=${this._onMenuPick}></fp-menu>` : null;
   }
 
   /** S31.6, spec D3, in its order: View, Tilt (2.5D), Walls (2.5D and 3D), Floors below (3D) or Floor below (2D and 2.5D), Theme,
@@ -2628,45 +2648,45 @@ export class FloorplanStudioCard extends LitElement {
     const view = this._viewPick(), live3d = view === "3d" && this._shows3d(), f = this._floor();
     const radio = (label: string, value: string, checked: boolean): MenuItem => ({ kind: "radio", label, value, checked });
     if (this._viewSwitchOn()) {
-      out.push({ label: "View", items: VIEW_OPTIONS.map((o) => radio(o.label, `view:${o.value}`, o.value === view)) });
+      out.push({ label: t("View"), items: VIEW_OPTIONS.map((o) => radio(o.label, `view:${o.value}`, o.value === view)) });
       if (view === "2.5d") {
         const near = TILT_STEPS.reduce((a, b) => (Math.abs(b - this._tilt()) < Math.abs(a - this._tilt()) ? b : a));
-        out.push({ label: "Tilt", items: TILT_STEPS.map((t) => radio(`${Math.round(t * 100)}%`, `tilt:${t}`, t === near)) });
+        out.push({ label: t("Tilt"), items: TILT_STEPS.map((s) => radio(`${Math.round(s * 100)}%`, `tilt:${s}`, s === near)) });
       }
-      if (live3d || view === "2.5d") out.push({ label: "Walls", items: WALLS_MODES.map((m) => radio(WALLS_LABELS[m], `walls:${m}`, m === this._walls())) });
-      if (live3d) out.push({ label: "Floors below", items: BELOW_MODES.map((m) => radio(BELOW_LABELS[m], `below:${m}`, m === this._below())) });
+      if (live3d || view === "2.5d") out.push({ label: t("Walls"), items: WALLS_MODES.map((m) => radio(t(WALLS_LABELS[m]), `walls:${m}`, m === this._walls())) });
+      if (live3d) out.push({ label: t("Floors below"), items: BELOW_MODES.map((m) => radio(t(BELOW_LABELS[m]), `below:${m}`, m === this._below())) });
       else {
         const key = this._floorKey(), none = !key || !this._layout || floorBelow(this._layout, key) === null;
-        out.push({ items: [{ kind: "check", label: "Floor below", value: "ghost", checked: this._ghostOn(), disabled: none }] });
+        out.push({ items: [{ kind: "check", label: t("Floor below"), value: "ghost", checked: this._ghostOn(), disabled: none }] });
       }
-      out.push({ items: [{ kind: "select", label: "Theme", value: "theme", selected: `theme:${this._theme()}`, options: THEMES.map((t) => ({ label: THEME_LABELS[t], value: `theme:${t}` })) }] });
+      out.push({ items: [{ kind: "select", label: t("Theme"), value: "theme", selected: `theme:${this._theme()}`, options: THEMES.map((k) => ({ label: t(THEME_LABELS[k]), value: `theme:${k}` })) }] });
       out.push({ items: [
-        { kind: "check", label: "Labels", value: "labels", checked: this._labels() },
-        { kind: "check", label: "Device names", value: "names", checked: this._names() },
+        { kind: "check", label: t("Labels"), value: "labels", checked: this._labels() },
+        { kind: "check", label: t("Device names"), value: "names", checked: this._names() },
       ] });
     }
     const saved = this._savedViews();
-    if (saved.length) out.push({ label: "Views", items: saved.map((v) => radio(v.name, `view:${v.id}`, v.id === this._appliedView)) });
+    if (saved.length) out.push({ label: t("Views"), items: saved.map((v) => radio(v.name, `view:${v.id}`, v.id === this._appliedView)) });
     if (this._activeListVisible() && f && !this._shows3d()) {
-      out.push({ label: "Detail", items: DETAIL_MODES.map((m) => radio(DETAIL_LABELS[m], `detail:${m}`, m === this._detailMode())) });
+      out.push({ label: t("Detail"), items: DETAIL_MODES.map((m) => radio(t(DETAIL_LABELS[m]), `detail:${m}`, m === this._detailMode())) });
       const n = layerCounts(f), hidden = this._hiddenLayers;
-      const layers = LAYERS.filter((l) => n[l.id] > 0).map((l): MenuItem => ({ kind: "check", label: l.label, value: `layer:${l.id}`, checked: !hidden.includes(l.id) }));
-      if (layers.length) out.push({ label: "Layers", items: layers });
+      const layers = LAYERS.filter((l) => n[l.id] > 0).map((l): MenuItem => ({ kind: "check", label: t(l.label), value: `layer:${l.id}`, checked: !hidden.includes(l.id) }));
+      if (layers.length) out.push({ label: t("Layers"), items: layers });
     }
     // S34.8: the Heat map is data, like Detail and Layers, and keeps their condition: it stays under `view_switch: false`, is not in live
     // 3D, and kiosk and `active_list: false` have no menu for it (the YAML key still applies there).
-    if (this._activeListVisible() && f && !this._shows3d()) out.push({ label: "Heat map", items: HEAT_KINDS.map((k) => radio(HEAT_LABELS[k], `heat:${k}`, k === this._heatKind())) });
+    if (this._activeListVisible() && f && !this._shows3d()) out.push({ label: t("Heat map"), items: HEAT_KINDS.map((k) => radio(t(HEAT_LABELS[k]), `heat:${k}`, k === this._heatKind())) });
     // S16.3: the Camera thumbnail is a view choice too, offered while the shown floor has a camera. In 3D as well: the picture floats beside the icon there.
     if (this._activeListVisible() && f?.devices.some((d) => d.type === "camera")) {
-      const t = this._camThumb(), cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
-      out.push({ label: "Camera thumbnail", items: [radio("Off", "cam:off", !t.on), radio("On", "cam:on", t.on)] },
-        { label: "Thumbnail size", items: CAM_SIZES.map((s) => radio(cap(s), `camsize:${s}`, s === t.size)) },
-        { label: "Thumbnail position", items: CAM_POS.map((p) => radio(cap(p), `campos:${p}`, p === t.pos)) });
+      const th = this._camThumb();
+      out.push({ label: t("Camera thumbnail"), items: [radio(t("Off"), "cam:off", !th.on), radio(t("On"), "cam:on", th.on)] },
+        { label: t("Thumbnail size"), items: CAM_SIZES.map((s) => radio(t(CAM_WORDS[s]), `camsize:${s}`, s === th.size)) },
+        { label: t("Thumbnail position"), items: CAM_POS.map((p) => radio(t(CAM_WORDS[p]), `campos:${p}`, p === th.pos)) });
     }
     if (!this._shows3d() && this._hasViewControls()) {
       const acts: MenuItem[] = [];
-      if (this._rotateOn()) acts.push({ kind: "action", label: "Rotate left", value: "rotate:-1" }, { kind: "action", label: "Rotate right", value: "rotate:1" });
-      acts.push({ kind: "action", label: "Reset view", value: "reset", disabled: !this._modified() });
+      if (this._rotateOn()) acts.push({ kind: "action", label: t("Rotate left"), value: "rotate:-1" }, { kind: "action", label: t("Rotate right"), value: "rotate:1" });
+      acts.push({ kind: "action", label: t("Reset view"), value: "reset", disabled: !this._modified() });
       out.push({ items: acts });
     }
     return out;
@@ -3052,14 +3072,14 @@ export class FloorplanStudioCard extends LitElement {
    *  nothing behind it (no sensor, no state) is left out, never printed empty; doors and lights always say "none". */
   private _roomSection(s: RoomSummary, active: unknown, scope: Scope) {
     const facts: [string, string][] = [
-      ["Area", s.areaM2 === null ? "" : `${s.areaM2} m²`],
-      ["Temperature", s.temperature],
-      ["Humidity", s.humidity],
-      ["Motion", s.motion ? `${s.motion.on ? "on" : "off"} since ${formatChanged(s.motion.since)}` : ""],
+      [t("Area"), s.areaM2 === null ? "" : `${s.areaM2} m²`],
+      [t("Temperature"), s.temperature],
+      [t("Humidity"), s.humidity],
+      [t("Motion"), s.motion ? (s.motion.on ? t("on since {when}", { when: formatChanged(s.motion.since) }) : t("off since {when}", { when: formatChanged(s.motion.since) })) : ""],
       // S24.3 (G3): an unlocked door is not an open one. "Unlocked" shows only where a door carries a lock.
-      ["Open", s.openings.join(", ") || "none"],
-      ["Unlocked", s.hasLocks ? s.unlocked.join(", ") || "none" : ""],
-      ["Lights on", s.lightsOn.join(", ") || "none"],
+      [t("Open|openings"), s.openings.join(", ") || t("none")],
+      [t("Unlocked"), s.hasLocks ? s.unlocked.join(", ") || t("none") : ""],
+      [t("Lights on"), s.lightsOn.join(", ") || t("none")],
     ];
     return html`<div class="fp-room">
       <div class="fp-room-head">
@@ -3067,14 +3087,14 @@ export class FloorplanStudioCard extends LitElement {
         ${this._frame === "side" ? nothing : html`<button type="button" class="fp-room-clear" aria-label=${scope.clear} @click=${() => this._pickRoom(null)}>×</button>`}
       </div>
       <dl class="fp-room-facts">${facts.filter(([, v]) => v).map(([k, v]) => html`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl>
-      ${s.offEntities.length || scope === FLOOR_SCOPE ? html`<div class="fp-alloff-row">${s.offEntities.length ? html`<button type="button" class="fp-alloff" aria-label=${`Lights off in ${s.name || scope.unnamed}`} title=${this._layout ? allOffTitle(this._layout.floors, this._floorKey() ?? "", s) : ALL_OFF_TITLE} @click=${() => this._allOff(s.offEntities)}>Lights off</button>` : nothing}${scope === FLOOR_SCOPE ? this._floorOffButton() : nothing}</div>` : nothing}
+      ${s.offEntities.length || scope === FLOOR_SCOPE ? html`<div class="fp-alloff-row">${s.offEntities.length ? html`<button type="button" class="fp-alloff" aria-label=${t("Lights off in {name}", { name: s.name || scope.unnamed })} title=${this._layout ? allOffTitle(this._layout.floors, this._floorKey() ?? "", s) : t(ALL_OFF_TITLE)} @click=${() => this._allOff(s.offEntities)}>${t("Lights off")}</button>` : nothing}${scope === FLOOR_SCOPE ? this._floorOffButton() : nothing}</div>` : nothing}
       ${this._scenesBlock()}
       ${active}
-      <div class="fp-active-group-label">Devices</div>
+      <div class="fp-active-group-label">${t("Devices")}</div>
       <div class="fp-room-devices">
         ${s.devices.length || s.sensors.length
           ? groupByCategory([...s.devices.map((r) => ({ type: r.type, tpl: this._roomDeviceRow(r) })), ...s.sensors.map((r) => ({ type: (r.kind === "temps" ? "temp" : r.kind) as DeviceType, tpl: this._roomSensorRow(r) }))])
-              .map((g) => this._catGroup("r", g.id, g.label, g.items.length, g.items.map((i) => i.tpl)))
+              .map((g) => this._catGroup("r", g.id, t(g.label), g.items.length, g.items.map((i) => i.tpl)))
           : html`<p class="fp-active-empty">${scope.noDevices}</p>`}
       </div>
     </div>`;
@@ -3143,19 +3163,19 @@ export class FloorplanStudioCard extends LitElement {
       const confirm = op ? this._favConfirm(op, r.entity) : null;
       const asking = !!confirm && this._favAsk === r.entity;
       const act = !op ? nothing : asking
-        ? html`<div class="fp-fav-confirm"><button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${confirm}</button><button type="button" class="fp-fav-cancel" @click=${() => { this._favAsk = null; this.requestUpdate(); }}>Cancel</button></div>`
+        ? html`<div class="fp-fav-confirm"><button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${confirm}</button><button type="button" class="fp-fav-cancel" @click=${() => { this._favAsk = null; this.requestUpdate(); }}>${t("Cancel")}</button></div>`
         : html`<button type="button" class="fp-fav-act" @click=${() => this._favAct(s, op)}>${op.label}</button>`;
       return [html`<div class=${state === "unavailable" || state === "unknown" ? "fp-fav-row fp-fav-gone" : "fp-fav-row"} data-entity=${r.entity}>${this._ovRow(row, badge)}${act}</div>`];
     });
     if (!rows.length) return nothing;
-    return html`<section class="fp-ov-section fp-ov-fav">${this._catGroup("f", "favourites", "Favourites", rows.length, rows)}</section>`;
+    return html`<section class="fp-ov-section fp-ov-fav">${this._catGroup("f", "favourites", t("Favourites"), rows.length, rows)}</section>`;
   }
 
   /** The confirm text a row button asks with, or null when it acts at once. Same rule as `tap_action: toggle`: only a plain
    *  on/off (`TOGGLE_AT_ONCE`) acts on one tap; a lock or a cover asks, so one phone tap never unlocks or opens anything (S33). */
   private _favConfirm(op: PopupOp, entity: string): string | null {
     if (op.confirm) return op.confirm;
-    return TOGGLE_AT_ONCE.has(entity.split(".")[0] ?? "") ? null : `Confirm ${op.label.toLowerCase()}`;
+    return TOGGLE_AT_ONCE.has(entity.split(".")[0] ?? "") ? null : t("Confirm {action}", { action: op.label.toLowerCase() });
   }
 
   /** The row button: one service call, or (a turn OFF that asks) the first press only opens the confirm step. */
@@ -3172,25 +3192,25 @@ export class FloorplanStudioCard extends LitElement {
     const unOpen = this._foldedCats.has(UNAVAILABLE_OPEN);
     const attnRows = attn.items.map((it) => this._attnRow(it, now));
     const groups = groupByCategory(items.map((it) => ({ type: it.type, row: this._activeRow(it) })));
-    return html`${attnRows.length || attn.unavailable.length ? html`<section class="fp-ov-section fp-ov-attn"><div class="fp-ov-head">Attention · ${attnRows.length}</div>
+    return html`${attnRows.length || attn.unavailable.length ? html`<section class="fp-ov-section fp-ov-attn"><div class="fp-ov-head">${t("Attention · {n}", { n: attnRows.length })}</div>
         ${attnRows.map((o) => this._ovRow(o, badge))}
         ${attn.unavailable.length ? html`<div class="fp-active-group" data-cat="unavailable">
           <button type="button" class="fp-active-group-label fp-cat" aria-expanded=${unOpen ? "true" : "false"} @click=${() => this._toggleCat(UNAVAILABLE_OPEN)}>
-            <span class="fp-cat-chev" aria-hidden="true">${unOpen ? "▾" : "▸"}</span><span class="fp-cat-name">Unavailable</span><span class="fp-active-count">${attn.unavailable.length}</span>
+            <span class="fp-cat-chev" aria-hidden="true">${unOpen ? "▾" : "▸"}</span><span class="fp-cat-name">${t("Unavailable")}</span><span class="fp-active-count">${attn.unavailable.length}</span>
           </button>${unOpen ? attn.unavailable.map((it) => this._ovRow(this._attnRow(it, now), badge)) : nothing}
         </div>` : nothing}
       </section>` : nothing}
-      <section class="fp-ov-section fp-ov-act"><div class="fp-ov-head">Active · ${items.length}</div>
-        ${groups.length ? groups.map((g) => this._catGroup("a", g.id, g.label, g.items.length, g.items.map((i) => this._ovRow(i.row, badge)))) : html`<p class="fp-active-empty">${empty}</p>`}
+      <section class="fp-ov-section fp-ov-act"><div class="fp-ov-head">${t("Active · {n}", { n: items.length })}</div>
+        ${groups.length ? groups.map((g) => this._catGroup("a", g.id, t(g.label), g.items.length, g.items.map((i) => this._ovRow(i.row, badge)))) : html`<p class="fp-active-empty">${empty}</p>`}
       </section>`;
   }
 
   /** The header's chips: the alerts, then one per category with something on, short ("2 alerts · 6 lights"). */
   private _chips(items: ActiveDevice[], alerts: number) {
-    const parts = groupByCategory(items).map((g) => ({ text: `${g.items.length} ${CHIP_NOUN[g.id][g.items.length === 1 ? 0 : 1]}`, warn: false }));
+    const parts = groupByCategory(items).map((g) => ({ text: CHIP_TEXT[g.id](g.items.length), warn: false }));
     // What is wrong comes first, so a folded header that cuts the line short still shows it.
-    if (alerts) parts.unshift({ text: `${alerts} ${alerts === 1 ? "alert" : "alerts"}`, warn: true });
-    return html`<span class="fp-ov-chips" title=${parts.map((p) => p.text).join(" · ")}>${parts.length ? parts.map((p, i) => html`${i ? " · " : ""}<span class=${p.warn ? "fp-chip fp-chip-warn" : "fp-chip"}>${p.text}</span>`) : "Nothing on"}</span>`;
+    if (alerts) parts.unshift({ text: tn("{n} alert", "{n} alerts", alerts), warn: true });
+    return html`<span class="fp-ov-chips" title=${parts.map((p) => p.text).join(" · ")}>${parts.length ? parts.map((p, i) => html`${i ? " · " : ""}<span class=${p.warn ? "fp-chip fp-chip-warn" : "fp-chip"}>${p.text}</span>`) : t("Nothing on")}</span>`;
   }
 
   /** S9.5, S24.7: the floating Overview, card chrome outside the `<svg>` (finding 8). What is wrong (`attention`) comes before
@@ -3223,38 +3243,38 @@ export class FloorplanStudioCard extends LitElement {
     const flagged = new Set(attn.items.filter((it) => it.kind !== "battery-low").map((it) => it.entity));
     const items = inScope(activeDevices(this._layout, state, opts)).filter((it) => !flagged.has(it.entity));
     const badge = all && many;
-    const list = this._overviewList(attn, items, badge, summary && this._roomFilter ? scope.nothingOn : "Nothing on");
-    const crumb = summary ? (shown ? this._floorTitle(shown) : "") : all && many ? "All floors" : shown ? this._floorTitle(shown) : "";
+    const list = this._overviewList(attn, items, badge, summary && this._roomFilter ? scope.nothingOn : t("Nothing on"));
+    const crumb = summary ? (shown ? this._floorTitle(shown) : "") : all && many ? t("All floors") : shown ? this._floorTitle(shown) : "";
     // S31.5: from 640 px it is the side sheet (a cell of the grid, a 52 px rail when folded); S31.8: under it, the bottom sheet.
     const side = this._frame === "side";
-    const name = summary ? summary.name || scope.unnamed : "Overview";
+    const name = summary ? summary.name || scope.unnamed : t("Overview");
     const content = () => summary
-      ? this._roomSection(summary, html`<div class="fp-filter"><span>${this._roomFilter ? scope.activeHere : "Active everywhere"}</span><button type="button" class="fp-show-all" @click=${() => { this._roomFilter = !this._roomFilter; this.requestUpdate(); }}>${this._roomFilter ? "Show all" : scope.onlyHere}</button></div>
+      ? this._roomSection(summary, html`<div class="fp-filter"><span>${this._roomFilter ? scope.activeHere : t("Active everywhere")}</span><button type="button" class="fp-show-all" @click=${() => { this._roomFilter = !this._roomFilter; this.requestUpdate(); }}>${this._roomFilter ? t("Show all") : scope.onlyHere}</button></div>
                 <div class="fp-filtered">${list}</div>`, scope)
-      : html`<div class="fp-ov-search" data-slot="search"><fp-search .entries=${this._searchEntries()} .first=${this._favSet} label="Search the plan" placeholder="Search rooms and devices" @fp-pick=${(e: CustomEvent<SearchEntry>) => this._onSearchPick(e)}></fp-search></div>
-                <div class="fp-ov-scopes">${this._floorOffButton()}${many ? html`<button type="button" class="fp-ov-scope" aria-pressed=${this._overviewAll ? "true" : "false"} @click=${() => this._toggleOverviewAll()}>All floors</button>` : nothing}</div>
+      : html`<div class="fp-ov-search" data-slot="search"><fp-search .entries=${this._searchEntries()} .first=${this._favSet} label=${t("Search the plan")} placeholder=${t("Search rooms and devices")} @fp-pick=${(e: CustomEvent<SearchEntry>) => this._onSearchPick(e)}></fp-search></div>
+                <div class="fp-ov-scopes">${this._floorOffButton()}${many ? html`<button type="button" class="fp-ov-scope" aria-pressed=${this._overviewAll ? "true" : "false"} @click=${() => this._toggleOverviewAll()}>${t("All floors")}</button>` : nothing}</div>
                 <div class="fp-ov-layers" data-slot="layers">${this._layerNote()}</div>
                 ${this._favouriteSection()}${list}
-                <p class="fp-ov-hint">Tap a row: the plan goes to it.</p>`;
+                <p class="fp-ov-hint">${t("Tap a row: the plan goes to it.")}</p>`;
     if (!side) return this._bottomSheet(name, crumb, summary !== null, this._chips(items, attn.items.length), content);
     const folded = this._activeCollapsed && !summary;
     const cls = ["fp-active", "fp-side", summary ? "fp-room-open" : folded ? "fp-rail" : ""].filter(Boolean).join(" ");
     if (folded) {
       const n = attn.items.length;
-      return html`<div class=${cls} role="region" aria-label="Overview">
-        <button type="button" class="fp-rail-open" aria-label="Open overview" aria-expanded="false" title=${n ? `Open overview, ${n} ${n === 1 ? "alert" : "alerts"}` : "Open overview"} @click=${() => this._toggleActiveCollapsed()}>▸${n ? html`<span class="fp-rail-count">${n}</span>` : nothing}</button>
+      return html`<div class=${cls} role="region" aria-label=${t("Overview")}>
+        <button type="button" class="fp-rail-open" aria-label=${t("Open overview")} aria-expanded="false" title=${n ? t("Open overview, {alerts}", { alerts: tn("{n} alert", "{n} alerts", n) }) : t("Open overview")} @click=${() => this._toggleActiveCollapsed()}>▸${n ? html`<span class="fp-rail-count">${n}</span>` : nothing}</button>
       </div>`;
     }
     return html`<div class=${cls} role="region" aria-label=${name}>
       <div class="fp-active-head">
-        ${summary ? html`<button type="button" class="fp-back" aria-label="Back" title="Back" @click=${() => this._back()}>←</button>` : nothing}
-        <span class="fp-active-title">Home${crumb ? html`<span class="fp-crumb"> › ${crumb}</span>` : nothing}</span>
+        ${summary ? html`<button type="button" class="fp-back" aria-label=${t("Back")} title=${t("Back")} @click=${() => this._back()}>←</button>` : nothing}
+        <span class="fp-active-title">${t("Home")}${crumb ? html`<span class="fp-crumb"> › ${crumb}</span>` : nothing}</span>
         ${summary
           ? nothing
           : html`<button
           type="button"
           class="fp-active-collapse"
-          aria-label=${this._activeCollapsed ? "Open overview" : "Fold overview"}
+          aria-label=${this._activeCollapsed ? t("Open overview") : t("Fold overview")}
           aria-expanded=${this._activeCollapsed ? "false" : "true"}
           @click=${() => this._toggleActiveCollapsed()}
         >${this._activeCollapsed ? "▸" : "▾"}</button>`}
@@ -3278,12 +3298,12 @@ export class FloorplanStudioCard extends LitElement {
     const drag = this._sheetDrag;
     return html`<div class=${drag ? "fp-active fp-bottom fp-dragging" : "fp-active fp-bottom"} data-stop=${this._sheetStop} role="region" aria-label=${level} style=${drag ? `height:${drag.h}px` : ""}>
       <div class="fp-sheet-top">
-        ${deeper || pop || this._sheetStop !== "peek" ? html`<button type="button" class="fp-back" aria-label="Back" title="Back" @click=${() => this._back()}>←</button>` : nothing}
-        <button type="button" class="fp-handle" aria-label="Overview" aria-expanded=${this._sheetStop === "peek" ? "false" : "true"}
+        ${deeper || pop || this._sheetStop !== "peek" ? html`<button type="button" class="fp-back" aria-label=${t("Back")} title=${t("Back")} @click=${() => this._back()}>←</button>` : nothing}
+        <button type="button" class="fp-handle" aria-label=${t("Overview")} aria-expanded=${this._sheetStop === "peek" ? "false" : "true"}
           @pointerdown=${this._onHandleDown} @pointermove=${this._onHandleMove} @pointerup=${this._onHandleUp} @pointercancel=${this._onHandleCancel}
           @click=${this._onHandleClick} @keydown=${this._onHandleKey}>
           <span class="fp-grab" aria-hidden="true"></span>
-          <span class="fp-handle-line"><span class="fp-active-title">${pop ? pop.name : deeper ? name : html`Home${crumb ? html`<span class="fp-crumb"> › ${crumb}</span>` : nothing}`}</span>${pop ? html` <span class="fp-ov-chips">${this._subjectText(pop)}</span>` : chips}</span>
+          <span class="fp-handle-line"><span class="fp-active-title">${pop ? pop.name : deeper ? name : html`${t("Home")}${crumb ? html`<span class="fp-crumb"> › ${crumb}</span>` : nothing}`}</span>${pop ? html` <span class="fp-ov-chips">${this._subjectText(pop)}</span>` : chips}</span>
         </button>
       </div>
       <div class="fp-active-body" ?inert=${peek}>${pop ? this._popupTemplate(true) : content()}</div>
@@ -3482,8 +3502,8 @@ export class FloorplanStudioCard extends LitElement {
     const f = this._floor(), k = this._keptHere();
     if (!f || this._shows3d() || !k) return nothing;
     const hidden = this._hiddenLayers;
-    const word = (id: LayerId) => (LAYERS.find((l) => l.id === id)?.label ?? id).toLowerCase();
-    return html`<p class="fp-layer-note" role="status">Hidden by Layers: ${word(k.fam)} <button type="button" @click=${() => this._setLayers(hidden.filter((x) => x !== k.fam))}>Show</button></p>`;
+    const word = (id: LayerId) => t(LAYERS.find((l) => l.id === id)?.label ?? id).toLowerCase();
+    return html`<p class="fp-layer-note" role="status">${t("Hidden by Layers: {layer}", { layer: word(k.fam) })} <button type="button" @click=${() => this._setLayers(hidden.filter((x) => x !== k.fam))}>${t("Show")}</button></p>`;
   }
 
   private _setLayers(next: LayerId[]): void {
@@ -3506,7 +3526,7 @@ export class FloorplanStudioCard extends LitElement {
     const f = this._floor(), key = this._floorKey();
     if (!f || !key) return nothing;
     const none = floorOffRows(f, this._stateForRender()).length === 0;
-    return html`<button type="button" class="fp-floor-off" ?disabled=${none} title=${none ? "Nothing is on on this floor" : "Choose what to turn off on this floor"} @click=${() => this._openOffDialog()}>Turn off on this floor…</button>`;
+    return html`<button type="button" class="fp-floor-off" ?disabled=${none} title=${none ? t("Nothing is on on this floor") : t("Choose what to turn off on this floor")} @click=${() => this._openOffDialog()}>${t("Turn off on this floor…")}</button>`;
   }
 
   private _openOffDialog(): void {
@@ -3552,7 +3572,7 @@ export class FloorplanStudioCard extends LitElement {
 
   protected render() {
     const f = this._floor();
-    if (!f) return html`<p class="msg">${this._error ?? NO_LAYOUT}${this._error === NOTHING_SAVED && this._hass?.user?.is_admin !== false ? html` <a class="fp-studio-link" href="/floorplan-studio" @click=${this._openStudio}>Open Floorplan Studio</a>` : nothing}</p>`;
+    if (!f) return html`<p class="msg">${t(this._error ?? NO_LAYOUT)}${this._error === NOTHING_SAVED && this._hass?.user?.is_admin !== false ? html` <a class="fp-studio-link" href="/floorplan-studio" @click=${this._openStudio}>${t("Open Floorplan Studio")}</a>` : nothing}</p>`;
     this._syncFloorMemory();
     const rotate = this._rotate();
     const view = this._planView();
@@ -3621,10 +3641,10 @@ export class FloorplanStudioCard extends LitElement {
     });
     // The zoom buttons come after the plan's <svg> in the DOM (they are positioned, so order is not placement):
     // their own icon is an <svg> too, and `querySelector("svg")` must keep finding the plan first.
-    const stage = live3d ? html`<div class="fp-3d" style="aspect-ratio:${fit.w} / ${fit.h}${deviceColourVars(this._layout!.colors).map((v) => `;${v}`).join("")}"></div>` : html`<svg class=${svgClass} viewBox="${box.x} ${box.y} ${box.w} ${box.h}" tabindex="0" role="group" aria-label=${`Floor plan, ${this._floorTitle(this._floorKey() ?? "")}`} @focus=${this._onStageFocus} @blur=${this._onStageBlur} @pointerdown=${this._dropFocus} ${planPatch(body)}></svg>`;
-    const note = this._fallback3d && this._viewPick() === "3d" ? html`<p class="fp-3d-note">${this._fallback3d}</p>` : null;
+    const stage = live3d ? html`<div class="fp-3d" style="aspect-ratio:${fit.w} / ${fit.h}${deviceColourVars(this._layout!.colors).map((v) => `;${v}`).join("")}"></div>` : html`<svg class=${svgClass} viewBox="${box.x} ${box.y} ${box.w} ${box.h}" tabindex="0" role="group" aria-label=${t("Floor plan, {floor}", { floor: this._floorTitle(this._floorKey() ?? "") })} @focus=${this._onStageFocus} @blur=${this._onStageBlur} @pointerdown=${this._dropFocus} ${planPatch(body)}></svg>`;
+    const note = this._fallback3d && this._viewPick() === "3d" ? html`<p class="fp-3d-note">${t(this._fallback3d)}</p>` : null;
     this._measureFrame();
-    const stack3d = live3d ? (this._kiosk() ? null : html`<div class="fp-stack"><button type="button" aria-label="Reset camera" title="Reset camera" @click=${() => { this._forgetCamera(); this._saveViewNow(); this.requestUpdate(); }}>${this._icon(UI_ICONS.reset)}</button></div>`) : undefined;
+    const stack3d = live3d ? (this._kiosk() ? null : html`<div class="fp-stack"><button type="button" aria-label=${t("Reset camera")} title=${t("Reset camera")} @click=${() => { this._forgetCamera(); this._saveViewNow(); this.requestUpdate(); }}>${this._icon(UI_ICONS.reset)}</button></div>`) : undefined;
     const stackEl = stack3d !== undefined ? stack3d : showZoomButtons ? this._viewStack(box, home, fit) : null;
     // Kiosk has no header: a menu the config still brings (`rotate_switch: true`) sits in the cluster, over the stack.
     const kioskMenu = this._kiosk() ? this._optionsMenu() : null;
@@ -3886,10 +3906,10 @@ export class FloorplanStudioCard extends LitElement {
     const atMax = box.w <= (fit.w / MAX_ZOOM) * (1 + 1e-6);
     const pinned = !sameView(home, fit, fit);
     // Fit only fits; "Reset view" (every view option back to the config) is in the ⋯ menu since S31.6.
-    const resetLabel = pinned ? "Home view" : "Fit";
+    const resetLabel = pinned ? t("Home view") : t("Fit");
     return html`<div class="fp-stack">
-      <button type="button" aria-label="Zoom in" title="Zoom in" ?disabled=${atMax} @click=${() => this._zoomCentre(BUTTON_ZOOM)}>+</button>
-      <button type="button" aria-label="Zoom out" title="Zoom out" ?disabled=${atMin} @click=${() => this._zoomCentre(1 / BUTTON_ZOOM)}>−</button>
+      <button type="button" aria-label=${t("Zoom in")} title=${t("Zoom in")} ?disabled=${atMax} @click=${() => this._zoomCentre(BUTTON_ZOOM)}>+</button>
+      <button type="button" aria-label=${t("Zoom out")} title=${t("Zoom out")} ?disabled=${atMin} @click=${() => this._zoomCentre(1 / BUTTON_ZOOM)}>−</button>
       <button type="button" aria-label=${resetLabel} title=${resetLabel} ?disabled=${atHome} @click=${() => this._fitView()}>
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 5V1h4M11 1h4v4M15 11v4h-4M5 15H1v-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
       </button>
@@ -4036,14 +4056,14 @@ export class FloorplanStudioCard extends LitElement {
   private _coverDialogTemplate() {
     const door = this._coverDialog;
     if (!door?.cover) return null;
-    const verb = this._coverService(door) === "close_cover" ? "Close" : "Open";
+    const closing = this._coverService(door) === "close_cover";
     return html`
       <div class="fp-dialog-backdrop" @keydown=${this._onDialogKeydown}>
         <div class="fp-dialog" role="dialog" aria-modal="true" aria-labelledby="fp-dialog-title">
-          <p id="fp-dialog-title">${verb} ${door.name}?</p>
+          <p id="fp-dialog-title">${closing ? t("Close {name}?", { name: door.name }) : t("Open {name}?", { name: door.name })}</p>
           <div class="fp-dialog-actions">
-            <button type="button" class="cancel" @click=${() => this._closeCoverDialog()}>Cancel</button>
-            <button type="button" class="confirm" @click=${() => this._confirmCoverDialog()}>${verb}</button>
+            <button type="button" class="cancel" @click=${() => this._closeCoverDialog()}>${t("Cancel")}</button>
+            <button type="button" class="confirm" @click=${() => this._confirmCoverDialog()}>${closing ? t("Close") : t("Open")}</button>
           </div>
         </div>
       </div>
@@ -4059,18 +4079,18 @@ export class FloorplanStudioCard extends LitElement {
     return html`
       <div class="fp-dialog-backdrop" @keydown=${this._onDialogKeydown}>
         <div class="fp-dialog fp-off-dialog" role="dialog" aria-modal="true" aria-labelledby="fp-off-title">
-          <p id="fp-off-title">Turn off on ${d.title}</p>
+          <p id="fp-off-title">${t("Turn off on {name}", { name: d.title })}</p>
           <div class="fp-off-list">
             ${OFF_GROUPS.map((g) => {
               const idx = d.rows.flatMap((r, i) => (r.group === g ? [i] : []));
-              return idx.length ? html`<fieldset class="fp-off-group"><legend>${OFF_GROUP_LABEL[g]} · ${idx.length}</legend>
-                ${idx.map((i) => { const r = d.rows[i]!; return html`<label class="fp-off-row" data-entity=${r.entity}><input type="checkbox" .checked=${d.ticked[i] ?? false} @change=${(e: Event) => this._tickOff(i, (e.target as HTMLInputElement).checked)} /><span>${r.name}${r.via ? html` <span class="fp-off-via">with ${r.via}</span>` : nothing}</span></label>`; })}
+              return idx.length ? html`<fieldset class="fp-off-group"><legend>${t("{group} · {n}", { group: t(OFF_GROUP_LABEL[g]), n: idx.length })}</legend>
+                ${idx.map((i) => { const r = d.rows[i]!; return html`<label class="fp-off-row" data-entity=${r.entity}><input type="checkbox" .checked=${d.ticked[i] ?? false} @change=${(e: Event) => this._tickOff(i, (e.target as HTMLInputElement).checked)} /><span>${r.name}${r.via ? html` <span class="fp-off-via">${t("with {name}", { name: r.via })}</span>` : nothing}</span></label>`; })}
               </fieldset>` : nothing;
             })}
           </div>
           <div class="fp-dialog-actions">
-            <button type="button" class="cancel" @click=${() => this._closeOffDialog()}>Cancel</button>
-            <button type="button" class="confirm" ?disabled=${n === 0} @click=${() => this._confirmOffDialog()}>Turn off ${n}</button>
+            <button type="button" class="cancel" @click=${() => this._closeOffDialog()}>${t("Cancel")}</button>
+            <button type="button" class="confirm" ?disabled=${n === 0} @click=${() => this._confirmOffDialog()}>${t("Turn off {n}", { n })}</button>
           </div>
         </div>
       </div>
@@ -4092,10 +4112,10 @@ export class FloorplanStudioCard extends LitElement {
         <div class="fp-dialog fp-vacuum-dialog" role="dialog" aria-modal="true" aria-labelledby="fp-vacuum-dialog-title">
           <p id="fp-vacuum-dialog-title">${d.name ?? d.id}</p>
           <div class="fp-dialog-actions">
-            <button type="button" class="cancel" @click=${() => this._closeVacuumDialog()}>Cancel</button>
-            <button type="button" ?disabled=${disabled} @click=${() => this._vacuumAction("start")}>Start</button>
-            <button type="button" ?disabled=${disabled} @click=${() => this._vacuumAction("pause")}>Pause</button>
-            <button type="button" class="confirm" ?disabled=${disabled} @click=${() => this._vacuumAction("return_to_base")}>Return to dock</button>
+            <button type="button" class="cancel" @click=${() => this._closeVacuumDialog()}>${t("Cancel")}</button>
+            <button type="button" ?disabled=${disabled} @click=${() => this._vacuumAction("start")}>${t("Start")}</button>
+            <button type="button" ?disabled=${disabled} @click=${() => this._vacuumAction("pause")}>${t("Pause")}</button>
+            <button type="button" class="confirm" ?disabled=${disabled} @click=${() => this._vacuumAction("return_to_base")}>${t("Return to dock")}</button>
           </div>
         </div>
       </div>
@@ -4122,7 +4142,7 @@ export class FloorplanStudioCard extends LitElement {
             ${c.entities.map((id) => html`<button type="button" @click=${() => this._pickChooserEntity(id)}><span class="name">${this._chooserEntityName(id)}</span><span class="state">${this._chooserEntityState(id)}</span></button>`)}
           </div>
           <div class="fp-dialog-actions">
-            <button type="button" class="cancel" @click=${() => this._closeChooserDialog()}>Cancel</button>
+            <button type="button" class="cancel" @click=${() => this._closeChooserDialog()}>${t("Cancel")}</button>
           </div>
         </div>
       </div>

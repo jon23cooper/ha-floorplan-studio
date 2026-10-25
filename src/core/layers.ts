@@ -1,5 +1,6 @@
 import { CATEGORIES, CATEGORY_OF, type CategoryId } from "./categories";
 import type { DeviceType, Floor } from "./schema";
+import { t } from "./i18n";
 
 /**
  * S24.6 (U6): Layers, what the plan draws by family. The families are the card's categories (`CATEGORIES`, so the
@@ -70,14 +71,14 @@ export function layerCounts(f: Floor): Record<LayerId, number> {
   return out;
 }
 
-const lower = (id: LayerId) => (LAYERS.find((l) => l.id === id)?.label ?? id).toLowerCase();
+const lower = (id: LayerId) => t(LAYERS.find((l) => l.id === id)?.label ?? id).toLowerCase();
 
 /** The one line that says what is hidden; empty when nothing is. */
 export function layersSummary(hidden: readonly LayerId[]): string {
   const h = parseLayers(hidden);
   if (!h.length) return "";
-  if (h.length === 1) return `Layers: ${lower(h[0])} hidden`;
-  if (h.length === IDS.length) return "Layers: all hidden";
-  if (h.length === IDS.length - 1) return `Layers: only ${lower(IDS.find((id) => !h.includes(id))!)} shown`;
-  return `Layers: ${h.length} of ${IDS.length} hidden`;
+  if (h.length === 1) return t("Layers: {layer} hidden", { layer: lower(h[0]) });
+  if (h.length === IDS.length) return t("Layers: all hidden");
+  if (h.length === IDS.length - 1) return t("Layers: only {layer} shown", { layer: lower(IDS.find((id) => !h.includes(id))!) });
+  return t("Layers: {n} of {total} hidden", { n: h.length, total: IDS.length });
 }

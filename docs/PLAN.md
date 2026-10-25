@@ -4627,8 +4627,9 @@ From the review's plan B. Diego took the defaults on 2026-10-25 (`docs/DECISIONS
 - [x] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
       Done on task/s37.3-narrow: the Studio's own width, a message and (in the panel) a dashboard link; the editor stays underneath.
 - [x] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
-- [ ] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
+- [x] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
       2026-10-22). Defaults: add pt-BR, zh-Hans and pl; zh-Hant later.
+      Done on task/s37.5-i18n. Backlog: a native speaker reviews each of the nine catalogues (none has); zh-Hant; the Studio is still English.
 - [x] S37.6 2D icons on at the card's default size; dots only when the plan is small.
 - [x] S37.7 Small layout defects from the S36.6 walk (2026-10-24): the "Plan unlocked" toast covers "Add floor"; wall
       handle dots hide part of the length labels; at 1024 wide the toolbar wraps and the toast sits on the search box;
