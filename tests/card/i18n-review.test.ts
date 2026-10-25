@@ -74,3 +74,23 @@ describe("counts are plural-aware", () => {
     expect(layersSummary(["lights", "climate"])).toContain("masqués");
   });
 });
+
+// S37 review re-check: every layer word is a plural noun, so the adjective that says hidden or shown is plural too. It sits
+// before the colon, where it agrees with "layers" and not with a name it cannot know the gender of.
+describe("the layer summary agrees with its plural noun", () => {
+  const cases: [string, string, string][] = [
+    ["fr", "Calques masqués : {layer}", "Calques affichés : seulement {layer}"],
+    ["es", "Capas ocultas: {layer}", "Capas visibles: solo {layer}"],
+    ["it", "Livelli nascosti: {layer}", "Livelli visibili: solo {layer}"],
+    ["pt", "Camadas ocultas: {layer}", "Camadas visíveis: só {layer}"],
+    ["pt-BR", "Camadas ocultas: {layer}", "Camadas visíveis: só {layer}"],
+    ["pl", "Warstwy: ukryto {layer}", "Warstwy: widoczne tylko {layer}"],
+  ];
+  for (const [lang, hidden, only] of cases) {
+    it(lang, async () => {
+      await useLanguage(lang);
+      expect(t("Layers: {layer} hidden", { layer: "{layer}" })).toBe(hidden);
+      expect(t("Layers: only {layer} shown", { layer: "{layer}" })).toBe(only);
+    });
+  }
+});

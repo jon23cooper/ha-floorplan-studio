@@ -147,7 +147,7 @@ const c: Catalogue = {
   "Charging": "Ładowanie",
   "Layers: {layer} hidden": "Warstwy: ukryto {layer}",
   "Layers: all hidden": "Warstwy: wszystkie ukryte",
-  "Layers: only {layer} shown": "Warstwy: widoczna tylko {layer}",
+  "Layers: only {layer} shown": "Warstwy: widoczne tylko {layer}",
   "Layers: {n} of {total} hidden": { one: "Warstwy: ukryto {n} z {total}", few: "Warstwy: ukryto {n} z {total}", many: "Warstwy: ukryto {n} z {total}", other: "Warstwy: ukryto {n} z {total}" },
   "no state": "brak stanu",
   "unknown": "nieznany",
