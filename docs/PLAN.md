@@ -4612,14 +4612,13 @@ feature: this sprint shows what exists. Lanes branch off it as `task/s36-<lane>`
       Then the phone sheet, the Studio, the 13 themes, a new `demo.gif` from the demo home. Every image regenerated
       from `home.json`; the "from before 0.29" notes go.
 - [x] S36.9 Forum and Reddit drafts in `docs/ANNOUNCE.md` for Diego to post. Coordinator. Posting is Diego's.
-- [ ] S36.10 Integrate, full suite, Opus review, release 0.35.0 on a Friday after Diego's yes.
-  - 2026-10-24: integrated on `task/s36-phase-a`; Opus review found no defects (lint 0, unit 0, Playwright 2503 passed, 1 skipped). Nits fixed: a guard that the 3D chunk imports nothing from the card, the CHANGELOG opening paragraph, no "preview" claim for the picker. Open: the release itself.
-
+- [x] S36.10 Integrate, full suite, Opus review, release 0.35.0 on a Friday after Diego's yes.
+  - 2026-10-24: released 0.35.0 (a Saturday, Diego's call); HA reads 0.35.0 back on 2026-10-25. Integrated on `task/s36-phase-a`; Opus review found no defects (lint 0, unit 0, Playwright 2503 passed, 1 skipped). Nits fixed: a guard that the 3D chunk imports nothing from the card, the CHANGELOG opening paragraph, no "preview" claim for the picker. 
 Not in this sprint: GitHub Discussions (a repository setting, Diego's yes), the remote branches.
 
-## Sprint 37: phase B, the first five minutes (backlog, not started)
+## Sprint 37: phase B, the first five minutes
 
-From the review's plan B. Starts after Sprint 36 ships. Each item is a design question for Diego before it is a task.
+From the review's plan B. Diego took the defaults on 2026-10-25 (`docs/DECISIONS.md`). S37.4 and S37.7 started first.
 
 - [ ] S37.1 Studio first run: three doors on a blank plan, Load the demo, Start from your Home Assistant areas, Blank.
 - [ ] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
@@ -4627,7 +4626,7 @@ From the review's plan B. Starts after Sprint 36 ships. Each item is a design qu
 - [ ] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
 - [ ] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
 - [ ] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
-      2026-10-22). Open: zh-Hans and zh-Hant, pt and pt-BR, Polish.
+      2026-10-22). Defaults: add pt-BR, zh-Hans and pl; zh-Hant later.
 - [ ] S37.6 2D icons on at the card's default size; dots only when the plan is small.
 - [ ] S37.7 Small layout defects from the S36.6 walk (2026-10-24): the "Plan unlocked" toast covers "Add floor"; wall
       handle dots hide part of the length labels; at 1024 wide the toolbar wraps and the toast sits on the search box;
