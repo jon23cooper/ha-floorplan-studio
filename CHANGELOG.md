@@ -6,6 +6,7 @@
 - Studio: the length label of a wall is drawn over the handle dots, not under them. A short wall has its two end dots on its own label.
 - Studio (standalone page): the page behind the Studio takes the Studio's theme, so a light Studio is no longer framed in dark.
 - Studio: the Align panel's buttons are a little shorter, so its angle-step row shows in full on an 800 px high window instead of being cut off at the bottom.
+- Card: with "Floor below" on, the plan stops short of the zoom buttons, so they no longer sit on the faint outline of the floor below. The plan is 40 px narrower then (60 px on a touch screen).
 
 ## 0.35.0 - 2026-10-24
 

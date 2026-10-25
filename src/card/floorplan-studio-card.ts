@@ -398,6 +398,8 @@ export class FloorplanStudioCard extends LitElement {
        any other card; the browser still leaves a pinch and a double-tap to the plan (pan-y allows neither). */
     svg.fp-zoomable { touch-action: pan-y; }
     svg.fp-zoomable.fp-zoomed { touch-action: none; }
+    /* S37.7: room for the zoom buttons (28 px + the cluster's 8 px margin) beside the plan, so the floor below does not run under them. */
+    svg.fp-zoomable.fp-clear-stack { width: calc(100% - 40px); justify-self: start; }
     .fp-dialog-actions button.confirm { color: var(--fp-on-dark, #fff); background: var(--fp-primary); border-color: var(--fp-primary); }
     /* S7.10: the vacuum dialog has four buttons where the cover dialog has two; wrap rather than overflow the
        card on a narrow width, and a disabled action reads as inert (dimmed, no pointer) without a separate class. */
@@ -3575,7 +3577,8 @@ export class FloorplanStudioCard extends LitElement {
     // sideways pan at home's own width used to read as not-zoomed here, which left `touch-action` at `pan-y` (so
     // the page's own vertical scroll fought the pan) even while `_view` was already pinning a panned box.
     // `fp-zoomable` (the touch-action override) is unconditional too: it enables the drag gesture, not zoom.
-    const svgClass = (this._view !== null ? "fp-zoomable fp-zoomed" : "fp-zoomable") + (turn ? " fp-turning" : "");
+    // S37.7: with the floor below on, its outline runs past the fit box and under the zoom buttons; the plan then stops short of them.
+    const svgClass = (this._view !== null ? "fp-zoomable fp-zoomed" : "fp-zoomable") + (turn ? " fp-turning" : "") + (showZoomButtons && this._ghost() !== undefined ? " fp-clear-stack" : "");
     // S12.3: 3D takes the plan's place once its module is loaded and WebGL works; until then, and if it cannot, the 2D plan is on show.
     const live3d = this._shows3d();
     const body = live3d ? "" : renderFloor(f, {
