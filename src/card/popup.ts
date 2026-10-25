@@ -1,6 +1,7 @@
 // S14.2: the rules behind the tap popup, as plain functions: what its one button does for a device, where OFF asks first,
 // and what a light's controls may offer. No DOM here; the card draws it (floorplan-studio-card.ts).
 import { NO_TOGGLE } from "./actions";
+import { t } from "../core/i18n";
 import { lampOffCalls, type Device, type SceneCall, type StateOverlay } from "../core";
 
 export interface PopupOp {
@@ -29,18 +30,18 @@ export function popupOp(type: string, entity: string | undefined, state: string 
   const domain = entity.split(".")[0] ?? "";
   // G12: a scene and a button have no on/off; their state is the time they were last used, or `unknown` before the first use, so only `unavailable` rules them out.
   if (state !== "unavailable") {
-    if (domain === "scene") return { label: "Activate", domain, service: "turn_on", confirm: null };
-    if (domain === "button") return { label: "Press", domain, service: "press", confirm: null };
+    if (domain === "scene") return { label: t("Activate"), domain, service: "turn_on", confirm: null };
+    if (domain === "button") return { label: t("Press"), domain, service: "press", confirm: null };
   }
   if (GONE.has(state)) return null;
-  if (domain === "script") return { label: "Run", domain, service: "turn_on", confirm: null };
-  if (domain === "valve") return state === "open" ? { label: "Close", domain, service: "close_valve", confirm: null } : { label: "Open", domain, service: "open_valve", confirm: null };
-  if (domain === "lock") return state === "locked" ? { label: "Unlock", domain, service: "unlock", confirm: null } : { label: "Lock", domain, service: "lock", confirm: null };
-  if (domain === "cover") return state === "open" ? { label: "Close", domain, service: "close_cover", confirm: null } : { label: "Open", domain, service: "open_cover", confirm: null };
+  if (domain === "script") return { label: t("Run"), domain, service: "turn_on", confirm: null };
+  if (domain === "valve") return state === "open" ? { label: t("Close"), domain, service: "close_valve", confirm: null } : { label: t("Open"), domain, service: "open_valve", confirm: null };
+  if (domain === "lock") return state === "locked" ? { label: t("Unlock"), domain, service: "unlock", confirm: null } : { label: t("Lock"), domain, service: "lock", confirm: null };
+  if (domain === "cover") return state === "open" ? { label: t("Close"), domain, service: "close_cover", confirm: null } : { label: t("Open"), domain, service: "open_cover", confirm: null };
   if (!SWITCHABLE.has(domain)) return null;
   const call = domain === "group" ? "homeassistant" : domain; // the `group` domain has no turn_on / turn_off; `homeassistant.turn_*` does it
-  if (state === "off") return { label: "Turn on", domain: call, service: "turn_on", confirm: null };
-  return { label: "Turn off", domain: call, service: "turn_off", confirm: domain === "light" ? null : "Confirm turn off" };
+  if (state === "off") return { label: t("Turn on"), domain: call, service: "turn_on", confirm: null };
+  return { label: t("Turn off"), domain: call, service: "turn_off", confirm: domain === "light" ? null : t("Confirm turn off") };
 }
 
 /**
@@ -53,12 +54,12 @@ export function lampOp(d: Device, states: StateOverlay | undefined): PopupOp | n
   if (relay && states?.[relay]?.state === "on") {
     const calls = lampOffCalls(d, states);
     const first = calls[calls.length - 1]!; // the relay's call: presetCalls puts the light's first
-    return { label: "Turn off", domain: first.domain, service: "turn_off", confirm: null, calls };
+    return { label: t("Turn off"), domain: first.domain, service: "turn_off", confirm: null, calls };
   }
   // S22.F2: a bulb with no power reads unavailable; the relay is what turns it on.
   if (relay && states?.[relay]?.state === "off" && GONE.has(states?.[d.entity]?.state ?? "")) {
     const domain = relay.split(".")[0] === "switch" ? "switch" : "homeassistant";
-    return { label: "Turn on", domain, service: "turn_on", confirm: null, calls: [{ domain, service: "turn_on", data: { entity_id: [relay] } }] };
+    return { label: t("Turn on"), domain, service: "turn_on", confirm: null, calls: [{ domain, service: "turn_on", data: { entity_id: [relay] } }] };
   }
   return popupOp(d.type, d.entity, states?.[d.entity]?.state);
 }

@@ -9,6 +9,7 @@ import ts from "typescript";
 const PRE_3D_CARD = 90780;
 const CARD_GROWTH_LIMIT = 33870; // card file ≤ 124,650 gz (+550 for the leader search, S23.F1, 2026-10-21, Diego to confirm; 124,100 was +300 for task/card-gaps, 2026-10-21, Diego to confirm; 123,800 was +800 for the card's load, merged with the camera thumbnail, 2026-10-21, Diego to confirm; S16.3 camera thumbnail, 2026-10-21, docs/DECISIONS.md; was 121,000, Diego, 2026-10-17; Sprint 34 favourites and heat map, Sprint 35 car)
 const CHUNK_LIMIT = 233000; // Diego, 2026-10-06
+const LANG_CHUNK_LIMIT = 5000; // S37.5: one language of the card's own words, gzip; about 3.1-3.5 KB each when written, with room for the strings that follow
 /** The size `gzip -9` gives, the figure this budget is written in (node's zlib at level 9 differs by about 0.3 percent). */
 const gz = (file: string) => execFileSync("gzip", ["-9", "-c"], { input: readFileSync(file), maxBuffer: 1 << 26 }).length;
 
@@ -51,7 +52,7 @@ function comments(src: string): string[] {
   return [...at.values()];
 }
 
-test("the 3D chunk is at most 200 KB gzipped, and it is the only chunk", () => {
+test("the 3D chunk is at most 200 KB gzipped, and it is the only 3D chunk", () => {
   const chunks = readdirSync("dist").filter((f) => /^floorplan-studio-3d-.*\.js$/.test(f));
   expect(chunks).toHaveLength(1);
   const size = gz(`dist/${chunks[0]}`);
@@ -89,4 +90,36 @@ test("the test build does carry it (so the grep above can fail)", () => {
   const chunk = readdirSync("dist-test").find((n) => /^floorplan-studio-3d-.*\.js$/.test(n));
   expect(chunk).toBeTruthy();
   expect(readFileSync(`dist-test/${chunk}`, "utf8")).toContain("__fp3d");
+});
+
+// S37.5: each language of the card's own words is a chunk of its own (floorplan-studio-lang-<code>-<hash>.js), loaded by import()
+// for `hass.language`. A user who reads English downloads none of them.
+const LANG_CODES = ["it", "es", "pt", "pt-BR", "fr", "de", "nl", "zh-Hans", "pl"];
+const langChunks = () => readdirSync("dist").filter((f) => /^floorplan-studio-lang-.+-.+\.js$/.test(f));
+const codeOf = (f: string) => f.replace(/^floorplan-studio-lang-/, "").replace(/-[^-]+\.js$/, "");
+
+test("there is one language chunk for each language the card speaks, and no other", () => {
+  expect(langChunks().map(codeOf).sort()).toEqual([...LANG_CODES].sort());
+});
+
+test(`each language chunk is at most ${LANG_CHUNK_LIMIT} bytes gzipped`, () => {
+  for (const f of langChunks()) {
+    const size = gz(`dist/${f}`);
+    expect(size, `${f} is ${size} gzip`).toBeLessThanOrEqual(LANG_CHUNK_LIMIT);
+  }
+});
+
+test("the card does not carry the language chunks: a word of each is only in its own file, and the card asks for it by import()", () => {
+  const card = readFileSync("dist/floorplan-studio-card.js", "utf8");
+  // One word of each language that the card's English does not hold. A card that has it has inlined a catalogue.
+  // The build writes every non-ASCII character of a string as \\uXXXX, so the Chinese word is looked for in that form.
+  const esc = (s: string) => s.replace(/[^\x00-\x7f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`);
+  const word: Record<string, string> = { it: "Annulla", es: "Cancelar", pt: "Cancelar", "pt-BR": "Cancelar", fr: "Annuler", de: "Abbrechen", nl: "Annuleren", "zh-Hans": esc("取消"), pl: "Anuluj" };
+  for (const f of langChunks()) expect(readFileSync(`dist/${f}`, "utf8"), `${f} holds its Cancel`).toContain(word[codeOf(f)]!);
+  for (const w of ["Annulla", "Annuler", "Abbrechen", "Annuleren", esc("取消"), "Anuluj"]) expect(card, `the card holds ${w}`).not.toContain(w);
+  for (const code of LANG_CODES) expect(card, code).toMatch(new RegExp(`import\\(["']\\./floorplan-studio-lang-${code}-[^"']+\\.js["']\\)`));
+});
+
+test("a language chunk imports nothing: it is data", () => {
+  for (const f of langChunks()) expect(readFileSync(`dist/${f}`, "utf8"), f).not.toMatch(/\bfrom\s*["'][^"']+["']|\bimport\s*\(/);
 });
