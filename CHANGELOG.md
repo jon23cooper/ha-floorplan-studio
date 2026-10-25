@@ -4,6 +4,7 @@
 
 - Studio: messages ("Plan unlocked", "Saved") now show low in the plan, above the status bar. At the top they covered the open Floors menu (Add floor) and, when the toolbar wraps on a narrow window, the search box.
 - Studio: the length label of a wall is drawn over the handle dots, not under them. A short wall has its two end dots on its own label.
+- Studio (standalone page): the page behind the Studio takes the Studio's theme, so a light Studio is no longer framed in dark.
 
 ## 0.35.0 - 2026-10-24
 
