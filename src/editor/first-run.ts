@@ -4,6 +4,8 @@ import { css, html } from "lit";
 export interface FirstRunCtx {
   /** Whether Home Assistant's areas are at hand. Without them the areas choice is off. */
   hasAreas: boolean;
+  /** Whether Home Assistant is connected at all: it decides which reason the disabled button gives. */
+  hasHa: boolean;
   demo: () => void;
   areas: () => void;
   blank: () => void;
@@ -16,7 +18,7 @@ export interface FirstRunCtx {
 export function firstRunView(c: FirstRunCtx) {
   return html`<div class="firstrun" role="group" aria-label="Start">
     <button class="btn" id="frDemo" @click=${c.demo}>Load the demo</button>
-    <button class="btn" id="frAreas" ?disabled=${!c.hasAreas} title=${c.hasAreas ? "One room per Home Assistant area, with its devices" : "Needs Home Assistant: no areas to read here"} @click=${c.areas}>Start from your Home Assistant areas</button>
+    <button class="btn" id="frAreas" ?disabled=${!c.hasAreas} title=${c.hasAreas ? "One room per Home Assistant area, with its devices" : c.hasHa ? "Home Assistant has no areas yet" : "Needs Home Assistant: no areas to read here"} @click=${c.areas}>Start from your Home Assistant areas</button>
     <button class="btn" id="frBlank" @click=${c.blank}>Blank</button>
   </div>`;
 }
