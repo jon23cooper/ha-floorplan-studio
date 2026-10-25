@@ -322,8 +322,8 @@ export class FloorplanStudioPanel extends LitElement {
     // again, which it takes for a fresh load (zoom reset, selection gone, unsaved edits reverted, undo history wiped).
     // No stored plan: leave `layout` unset. A blank plan is not a valid layout (an outline needs 3 points), so the editor's own blank start is used.
     const editor = guard([this.loadId], () => this.layout
-      ? html`<floorplan-studio-editor .layout=${this.layout} .demo=${demoLayout} .haDark=${dark} @save-request=${this.onSave}></floorplan-studio-editor>`
-      : html`<floorplan-studio-editor .demo=${demoLayout} .firstRun=${true} .haDark=${dark} @save-request=${this.onSave}></floorplan-studio-editor>`); // S37.1: nothing stored, so the editor offers its three first choices
+      ? html`<floorplan-studio-editor dashboard-href="/" .layout=${this.layout} .demo=${demoLayout} .haDark=${dark} @save-request=${this.onSave}></floorplan-studio-editor>`
+      : html`<floorplan-studio-editor dashboard-href="/" .demo=${demoLayout} .firstRun=${true} .haDark=${dark} @save-request=${this.onSave}></floorplan-studio-editor>`); // S37.1: nothing stored, so the editor offers its three first choices
     return html`${this.bar()}${this.banner()}${this.draftBanner()}${this.conflictBanner()}${editor}`;
   }
 

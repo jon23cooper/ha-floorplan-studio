@@ -4624,7 +4624,8 @@ From the review's plan B. Diego took the defaults on 2026-10-25 (`docs/DECISIONS
       Done on task/s37.1-first-run; the choice is HA-only (standalone always opens on a plan), see DECISIONS.
 - [x] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
       edge; the user drags corners after.
-- [ ] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
+- [x] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
+      Done on task/s37.3-narrow: the Studio's own width, a message and (in the panel) a dashboard link; the editor stays underneath.
 - [x] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
 - [ ] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
       2026-10-22). Defaults: add pt-BR, zh-Hans and pl; zh-Hant later.

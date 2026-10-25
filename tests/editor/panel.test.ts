@@ -317,4 +317,13 @@ describe("<floorplan-studio-panel>", () => {
       expect(staleBox(dev)).toBeNull();
     });
   });
+
+  it("S37.3: the editor knows the dashboard link, with a saved plan and without one", async () => {
+    // "/" is routed by Home Assistant to the default dashboard; /lovelace/0 may not exist.
+    for (const reply of [() => ({ layout: L }), () => ({ layout: null })]) {
+      const el = await mount(stubHass(reply));
+      expect(editorOf(el)!.getAttribute("dashboard-href")).toBe("/");
+      el.remove();
+    }
+  });
 });
