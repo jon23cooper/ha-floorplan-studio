@@ -4,6 +4,7 @@ import { CARD_VERSION } from "./version";
 export interface Conn {
   sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T>;
   subscribeEvents?(cb: () => void, eventType: string): Promise<() => void>;
+  subscribeMessage?(cb: () => void, msg: Record<string, unknown>): Promise<() => void>;
   addEventListener?(name: string, cb: () => void): void;
   removeEventListener?(name: string, cb: () => void): void;
 }

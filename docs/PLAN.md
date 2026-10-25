@@ -4624,7 +4624,7 @@ From the review's plan B. Diego took the defaults on 2026-10-25 (`docs/DECISIONS
 - [ ] S37.2 Rooms from areas: one rectangle per HA area on a grid, its entities placed inside as icons, walls on every
       edge; the user drags corners after.
 - [ ] S37.3 The Studio under 700 px wide says it is a desktop tool, instead of a stacked layout that half works.
-- [ ] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
+- [x] S37.4 Non-admin wall tablets follow a save: `floorplan_studio/subscribe` in `websocket.py`; the card re-reads.
 - [ ] S37.5 Card translations for its own strings, keyed on `hass.language`: it, es, pt, fr, de, nl, zh (Diego,
       2026-10-22). Defaults: add pt-BR, zh-Hans and pl; zh-Hant later.
 - [ ] S37.6 2D icons on at the card's default size; dots only when the plan is small.
