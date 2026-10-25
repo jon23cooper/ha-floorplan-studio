@@ -2,6 +2,14 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-25: S37.4, any user follows a save
+
+Supersedes the 2026-10-21 line "A `floorplan_studio/subscribe` command would fix that; not done".
+
+- `floorplan_studio/subscribe` (any user): answers with a bare result, then sends an event `{ rev }` to that connection after each save. It listens to the bus event, so the event stays and other listeners are untouched. The unsubscribe is HA's own `unsubscribe_events`, through `connection.subscriptions`. `ws_save` now fires the bus event with `{ rev }`.
+- Why: HA lets a non-admin subscribe only to a whitelist of bus events, so a wall tablet signed in as a normal user never heard `floorplan_studio_updated` and showed the old plan until reloaded.
+- The card tries `conn.subscribeMessage({ type: "floorplan_studio/subscribe" })` first. Only `unknown_command` (an integration older than this, 0.34.x and 0.35.0) falls back to `subscribeEvents("floorplan_studio_updated")`, as before; any other error leaves a card that loads once. One subscription per element: `_sub` guards it, so a `hass` update adds none; disconnect unsubscribes, reconnect subscribes again. The JS library resubscribes both kinds itself after a websocket reconnect; a save made while the socket was down is not replayed (unchanged from before).
+
 ## 2026-10-25: Sprint 37 defaults (Diego: "yes to the defaults")
 
 - S37.1 the first-run choice (Load demo, From your areas, Blank) shows only when there is no saved layout.

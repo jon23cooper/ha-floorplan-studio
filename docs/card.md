@@ -100,8 +100,9 @@ With no `layout` and no `layout_url`, the card asks the integration for the save
   only when Home Assistant does not know the command. After a failure it tries once more on the next `hass` update and again when the
   connection is ready; it never loops.
 - **Nothing saved yet.** "No plan saved yet. Open Floorplan Studio in the sidebar to draw one." with a link to the Studio for admins.
-- **Follows a save.** A save in the Studio fires `floorplan_studio_updated`; an open card reloads the plan. Home Assistant lets only
-  admins subscribe to a custom event, so a card signed in as a non-admin user loads once and needs a page reload to see a save.
+- **Follows a save.** An open card reloads the plan after a save in the Studio, for any user, through the integration's
+  `floorplan_studio/subscribe`. Against an integration older than that, only admin sessions follow a save (Home Assistant lets only admins
+  subscribe to the `floorplan_studio_updated` event); anyone else needs a page reload.
 - **A page older than the server.** If the plan is refused and the installed version differs from the page's, the card says "Floorplan
   Studio was updated. Reload this page."
 

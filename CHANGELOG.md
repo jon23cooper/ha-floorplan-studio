@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Card: wall tablets signed in as a normal user now follow a saved plan, without a page reload. Update the integration as well as the card.
+
 ## 0.35.0 - 2026-10-24
 
 A demo home to start from: File > Load demo in the Studio now opens a furnished house with a basement and two floors. The README and every picture are rebuilt from it. Home Assistant 2026.6's card picker offers the card when you pick an entity it can draw. Smaller things: a selected zone has a dashed outline, the room panel prints Home Assistant's own state text, and hover contrast is fixed.

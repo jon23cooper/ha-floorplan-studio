@@ -1487,12 +1487,16 @@ export class FloorplanStudioCard extends LitElement {
     this.requestUpdate();
   }
 
-  /** G3: a Studio save fires `floorplan_studio_updated`; follow it. Only for a plan that comes from the websocket. HA lets only admins
-   * subscribe to a custom event, so for anyone else this quietly stays a card that loads once. */
+  /** G3: a Studio save pushes an event; follow it. Only for a plan that comes from the websocket. `floorplan_studio/subscribe` works
+   * for any user; an older integration lacks it (`unknown_command`), so fall back to the bus event, which only admins may subscribe to. */
   private _watchUpdates(): void {
     const conn = this._hass?.connection;
-    if (!conn?.subscribeEvents || this._sub || this._config.layout || this._config.layout_url) return;
-    this._sub = conn.subscribeEvents(() => { if (!this._config.layout && !this._config.layout_url) this._fetchLayout(true); }, "floorplan_studio_updated");
+    if (!conn || (!conn.subscribeMessage && !conn.subscribeEvents) || this._sub || this._config.layout || this._config.layout_url) return;
+    const onSave = (): void => { if (!this._config.layout && !this._config.layout_url) this._fetchLayout(true); };
+    const old = (): Promise<() => void> => conn.subscribeEvents ? conn.subscribeEvents(onSave, "floorplan_studio_updated") : Promise.reject(new Error("no subscribeEvents"));
+    this._sub = conn.subscribeMessage
+      ? conn.subscribeMessage(onSave, { type: "floorplan_studio/subscribe" }).catch((e: { code?: string }) => { if (e?.code === "unknown_command") return old(); throw e; })
+      : old();
     this._sub.catch(() => { this._sub = null; });
   }
 
