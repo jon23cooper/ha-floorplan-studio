@@ -3080,8 +3080,10 @@ export class FloorplanStudioEditor extends LitElement {
     }
     const line = (a: Pt, b: Pt, cls: string, extra = "") => `<line class="${cls}" x1="${num(a[0])}" y1="${num(a[1])}" x2="${num(b[0])}" y2="${num(b[1])}" ${extra}/>`;
     const deg = st.turnDeg, upright = (x: number, y: number) => (deg % 360 ? ` transform="rotate(${num(-deg)} ${num(x)} ${num(y)})"` : "");
+    // S37.7: the length labels are written last among the handles (see below): a short wall puts its two end dots on its own label.
+    const lens: string[] = [];
     const len = (a: Pt, b: Pt) => `<text class="len" x="${num((a[0] + b[0]) / 2)}" y="${num((a[1] + b[1]) / 2)}"${upright((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)} text-anchor="middle" font-size="${num(10 * k)}">${(dist(a, b) / 100).toFixed(2)} m</text>`;
-    if (s?.t === "edge") { const pts = polyPts(f, s.poly); if (pts) { const a = pts[s.i], b = pts[(s.i + 1) % pts.length]; o.push(line(a, b, "hl", 'stroke-width="4"'), len(a, b)); } }
+    if (s?.t === "edge") { const pts = polyPts(f, s.poly); if (pts) { const a = pts[s.i], b = pts[(s.i + 1) % pts.length]; o.push(line(a, b, "hl", 'stroke-width="4"')); lens.push(len(a, b)); } }
     if (s?.t === "opening" && f.openings[s.i]) o.push(line(f.openings[s.i].a, f.openings[s.i].b, "hl", 'stroke-width="4"'));
     if (s?.t === "wall" && f.walls[s.i]) o.push(line(f.walls[s.i].a, f.walls[s.i].b, "hl", 'stroke-width="4"'));
     if (s?.t === "extra" && f.extras[s.i]) o.push(line(f.extras[s.i].a, f.extras[s.i].b, "hl", 'stroke-width="4"'));
@@ -3102,8 +3104,8 @@ export class FloorplanStudioEditor extends LitElement {
     }
     if (st.showLen) {
       const P = f.outline;
-      P.forEach((a, i) => o.push(len(a, P[(i + 1) % P.length])));
-      f.walls.forEach((w) => o.push(len(w.a, w.b)));
+      P.forEach((a, i) => lens.push(len(a, P[(i + 1) % P.length])));
+      f.walls.forEach((w) => lens.push(len(w.a, w.b)));
     }
     f.stairs.forEach((t, i) => { if (t.shape === "straight" && !t.rot) t.pts.forEach((p, j) => o.push(`<circle class="h" data-h="s${i}:${j}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`)); });
     const open = st.openDoor && f.doors.find((d) => d.id === st.openDoor);
@@ -3111,6 +3113,7 @@ export class FloorplanStudioEditor extends LitElement {
     for (const r of looseEnds(f)) { const p = f[r.k][r.i][r.end]; o.push(`<circle class="h" data-hp="${r.k}:${r.i}:${r.end}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(4.5 * k)}"/>`); }
     if (s?.t === "door" && f.doors[s.i]) for (const end of ["a", "b"] as const) { const p = f.doors[s.i][end]; o.push(`<circle class="h" data-dh="${s.i}:${end}" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`); }
     if (s?.t === "v") { const p = ptOf(f, s.ref); if (p) o.push(`<circle class="h on" pointer-events="none" cx="${num(p[0])}" cy="${num(p[1])}" r="${num(5 * k)}"/>`); }
+    o.push(...lens); // over every handle dot; a label takes no pointer, so the dots under it stay grabbable
     // Draw mode: the placed points and a dashed rubber band. Only the editor draws these; the card never sees them.
     const dr = this.draw;
     if (dr?.points.length) {
