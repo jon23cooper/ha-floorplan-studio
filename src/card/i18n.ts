@@ -44,7 +44,8 @@ export const currentLanguage = (): string | null => current;
 /**
  * Makes `code` the card's language. English is at once; another language is loaded first and the words switch when it is there,
  * so the card shows English for the moment the chunk takes, never a half-translated one. A failed load leaves the words as they
- * were and may be tried again by the next call. Resolves true when the words changed.
+ * were. The next call does ask again, but Chromium keeps a failed dynamic import for the life of the page, so it fails the same
+ * way: the card stays English until the page is reloaded. No retry is added for that reason. Resolves true when the words changed.
  */
 export function useLanguage(code: unknown): Promise<boolean> {
   const want = resolveLanguage(code);
