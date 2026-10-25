@@ -7,10 +7,10 @@ export const AREA_ROOM_CM = 400;
 
 /**
  * S37.2: a first plan from Home Assistant's areas. One AREA_ROOM_CM square per area that has something the plan can draw,
- * on a grid that wraps (as square as it can be, areas by name), a wall on every edge, linked to the area by its id the way
+ * on a grid that wraps (as square as it can be, areas by name), a wall on every edge once, linked to the area by its id the way
  * a drawn room is. Each room gets the entities Place would give it (`placeableDevicesInArea`, so one icon per HA device,
  * noise such as a power reading left out, an entity in its own area before its device's): the same code runs, on a scratch
- * state, so the two cannot disagree. The outline is the box round the rooms.
+ * state, so the two cannot disagree. The outline is the union of the cells.
  *
  * Returns null when no area has a drawable entity (0 areas included): there is nothing to draw, and a layout with no
  * rooms is not a valid one. The caller still runs the result through `validate`; this never throws.
@@ -30,15 +30,24 @@ export function layoutFromAreas(ha: HaData | undefined): Layout | null {
   if (!drawn.length) return null;
 
   const cols = Math.ceil(Math.sqrt(drawn.length)), rows = Math.ceil(drawn.length / cols), S = AREA_ROOM_CM;
-  const wall: EdgeKind[] = ["wall", "wall", "wall", "wall"];
   const layout = emptyLayout();
   const floor = layout.floors.ground;
-  floor.outline = [[0, 0], [cols * S, 0], [cols * S, rows * S], [0, rows * S]];
-  floor.owk = ["external", "external", "external", "external"];
+  // The outline is the union of the cells: a rectangle, or an L when the last row is short. Never the box round them,
+  // which would wall in the empty corner.
+  const last = drawn.length - (rows - 1) * cols; // cells in the short last row, 1..cols
+  floor.outline = last === cols
+    ? [[0, 0], [cols * S, 0], [cols * S, rows * S], [0, rows * S]]
+    : [[0, 0], [cols * S, 0], [cols * S, (rows - 1) * S], [last * S, (rows - 1) * S], [last * S, rows * S], [0, rows * S]];
+  floor.owk = floor.outline.map((): EdgeKind => "external");
+  // Each wall once: a perimeter edge is "external" (as the outline), a shared edge is a "wall" on the earlier room and
+  // "none" on the later one, which stays closed but draws nothing.
+  const at = (c: number, r: number) => (c < 0 || r < 0 || c >= cols ? -1 : r * cols + c < drawn.length ? r * cols + c : -1);
   floor.rooms = drawn.map((a, i): Room => {
-    const x = (i % cols) * S, y = Math.floor(i / cols) * S;
+    const c = i % cols, r = Math.floor(i / cols), x = c * S, y = r * S;
     const pts: Pt[] = [[x, y], [x + S, y], [x + S, y + S], [x, y + S]];
-    return { id: `room-ground-${i + 1}`, name: a.name, area: a.id, kind: "room", pts, wk: [...wall] };
+    const across = [at(c, r - 1), at(c + 1, r), at(c, r + 1), at(c - 1, r)]; // the cell over each edge: top, right, bottom, left
+    const wk = across.map((j): EdgeKind => (j < 0 ? "external" : j > i ? "wall" : "none"));
+    return { id: `room-ground-${i + 1}`, name: a.name, area: a.id, kind: "room", pts, wk };
   });
 
   // Place's own spreading, on a scratch state that knows HA, one room at a time.

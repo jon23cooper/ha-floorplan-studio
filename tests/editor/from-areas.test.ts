@@ -34,7 +34,7 @@ describe("layoutFromAreas (S37.2)", () => {
     ]))!;
     const f = valid(l).floors.ground;
     expect(f.rooms).toHaveLength(1); // Attic has nothing: skipped
-    expect(f.rooms[0]).toMatchObject({ name: "Kitchen", area: "kitchen", kind: "room", pts: [[0, 0], [400, 0], [400, 400], [0, 400]], wk: ["wall", "wall", "wall", "wall"] });
+    expect(f.rooms[0]).toMatchObject({ name: "Kitchen", area: "kitchen", kind: "room", pts: [[0, 0], [400, 0], [400, 400], [0, 400]], wk: ["external", "external", "external", "external"] }); // a lone room: every edge is the outline
     expect(devs(f).map((d) => [d.entity, d.type]).sort()).toEqual([["binary_sensor.k_m", "motion"], ["light.k", "light"], ["sensor.k_t", "temp"]]);
     for (const d of devs(f)) expect(d.x > 0 && d.x < 400 && d.y > 0 && d.y < 400, `${d.entity} inside`).toBe(true);
     expect(l.catalog.map((c) => c.room)).toEqual(["Kitchen", "Kitchen", "Kitchen"]);
@@ -53,6 +53,33 @@ describe("layoutFromAreas (S37.2)", () => {
     expect(devs(f)).toHaveLength(13);
     const xs = f.outline.map((p) => p[0]), ys = f.outline.map((p) => p[1]);
     expect([Math.max(...xs), Math.max(...ys)]).toEqual([1600, 1600]); // the outline holds every room
+  });
+
+  it("walls sit only on room edges: every count with a short last row, the outline is the union of the cells and no wall is drawn twice", () => {
+    const S = 400, area = (pts: [number, number][]) => Math.abs(pts.reduce((s, p, i) => s + p[0] * pts[(i + 1) % pts.length][1] - pts[(i + 1) % pts.length][0] * p[1], 0)) / 2;
+    for (const n of [2, 5, 7, 13]) {
+      const areas = Array.from({ length: n }, (_, i) => ({ id: `a${i}`, name: `Area ${String(i).padStart(2, "0")}` }));
+      const f = valid(layoutFromAreas(ha(areas, areas.map((a, i) => ent(`light.l${i}`, a.id))))!).floors.ground;
+      const inUnion = (x: number, y: number) => f.rooms.some((r) => x > r.pts[0][0] && x < r.pts[2][0] && y > r.pts[0][1] && y < r.pts[2][1]);
+      // the two probe points either side of an edge, 1 cm off it, 37 % along (never on a cell line)
+      const sides = (a: number[], b: number[]) => {
+        const mx = a[0] + (b[0] - a[0]) * 0.37, my = a[1] + (b[1] - a[1]) * 0.37, nx = -(b[1] - a[1]), ny = b[0] - a[0], l = Math.hypot(nx, ny);
+        return [inUnion(mx + (nx / l), my + (ny / l)), inUnion(mx - (nx / l), my - (ny / l))];
+      };
+      expect(area(f.outline as [number, number][]), `${n} areas: outline area`).toBe(n * S * S);
+      f.outline.forEach((p, i) => expect(sides(p, f.outline[(i + 1) % f.outline.length]).filter(Boolean), `${n}: outline edge ${i} lies on the union's boundary`).toHaveLength(1));
+      const drawn = new Map<string, number>();
+      for (const r of f.rooms) r.pts.forEach((p, i) => {
+        const q = r.pts[(i + 1) % 4], kind = r.wk[i];
+        if (kind === "none" || kind === "boundary") return;
+        const key = [`${p}`, `${q}`].sort().join(">");
+        drawn.set(key, (drawn.get(key) ?? 0) + 1);
+        expect(sides(p, q).some(Boolean), `${n}: wall ${key} lies on a room`).toBe(true);
+      });
+      expect([...drawn.entries()].filter(([, c]) => c > 1), `${n}: walls drawn twice`).toEqual([]);
+      // every edge of every cell has a wall, once
+      for (const r of f.rooms) r.pts.forEach((p, i) => expect(drawn.has([`${p}`, `${r.pts[(i + 1) % 4]}`].sort().join(">")), `${n}: ${r.name} edge ${i} has a wall`).toBe(true));
+    }
   });
 
   it("an area name such as \"><script> stays text: valid, and never raw in the drawn plan", () => {
