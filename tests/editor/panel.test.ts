@@ -30,6 +30,22 @@ const settle = async (el: FloorplanStudioPanel) => { for (let i = 0; i < 4; i++)
 const editorOf = (el: FloorplanStudioPanel) => el.shadowRoot!.querySelector("floorplan-studio-editor") as FloorplanStudioEditor | null;
 
 describe("<floorplan-studio-panel>", () => {
+  it("S37.1: the first-run choice is asked for only when nothing is stored", async () => {
+    // `floorplan_studio/load` replies { layout: null } with no saved plan, { layout } otherwise (websocket.py ws_load).
+    const none = await mount(stubHass(() => ({ layout: null })));
+    expect(editorOf(none)!.firstRun).toBe(true);
+    const some = await mount(stubHass(() => ({ layout: L })));
+    expect(editorOf(some)!.firstRun).toBe(false);
+  });
+
+  it("S37.1: a state update after the first-run choice was taken does not bring it back", async () => {
+    const hass = stubHass(() => ({ layout: null }));
+    const el = await mount(hass);
+    editorOf(el)!.firstRun = false; // Blank was clicked
+    for (let i = 0; i < 3; i++) { el.hass = { ...hass, states: { "sensor.x": { state: String(i), attributes: {} } } } as never; await settle(el); }
+    expect(editorOf(el)!.firstRun).toBe(false);
+  });
+
   it("asks Home Assistant for the saved layout once, and the editor shows it", async () => {
     const hass = stubHass(() => ({ layout: L }));
     const el = await mount(hass);
