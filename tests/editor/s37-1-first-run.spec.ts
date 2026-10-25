@@ -135,6 +135,29 @@ test("areas with nothing the plan can draw change nothing and say so", async ({ 
 
 test("drawing something by hand closes the choice", async ({ page }) => {
   await boot(page);
-  await page.evaluate((tag) => { (document.querySelector(tag) as any).st.edit((f: any) => { f.walls.push({ id: "wall-ground-1", kind: "wall", a: [0, 0], b: [300, 0] }); }); (document.querySelector(tag) as any).requestUpdate(); }, EDITOR);
+  await expect(doors(page)).toBeVisible();
+  // The Draw room tool, then real clicks on the canvas: three corners and Enter (a gesture a person makes), not st.edit.
+  await page.evaluate((tag) => (document.querySelector(tag) as any).startDraw("wall"), EDITOR);
+  const c = (await page.locator(`${EDITOR} .canvas > svg`).boundingBox())!;
+  const x = c.x + c.width / 2 - 200, y = c.y + c.height / 2 - 100;
+  await page.mouse.click(x, y);
+  await page.mouse.click(x + 300, y);
+  await page.mouse.click(x + 300, y + 200);
+  await page.keyboard.press("Enter");
+  expect(await page.evaluate((tag) => (document.querySelector(tag) as any).st.f.walls.length as number, EDITOR)).toBeGreaterThan(0);
   await expect(doors(page)).toHaveCount(0);
+});
+
+test("the disabled areas button says why: no Home Assistant, or Home Assistant with no areas", async ({ page }) => {
+  await boot(page, { ha: false });
+  const b = page.locator(`${EDITOR} .firstrun #frAreas`);
+  const noHa = await b.getAttribute("title");
+  expect(noHa).toContain("Needs Home Assistant");
+  const empty = await haData({ states: {}, callWS: async <T,>() => [] as T });
+  await page.evaluate(([tag, h]) => { (document.querySelector(tag as string) as any).ha = h; }, [EDITOR, empty] as const);
+  await expect(b).toBeDisabled();
+  const noAreas = await b.getAttribute("title");
+  expect(noAreas).not.toContain("Needs Home Assistant");
+  expect(noAreas).toContain("no areas");
+  expect(noAreas).not.toBe(noHa);
 });

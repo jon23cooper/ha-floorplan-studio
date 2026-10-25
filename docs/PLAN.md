@@ -4637,4 +4637,11 @@ From the review's plan B. Diego took the defaults on 2026-10-25 (`docs/DECISIONS
       outline; the Align aside cuts off its angle-step row at 800 px high.
       Done on task/s37.7-layout. Not fixed: at 1024 the toolbar still wraps (the toast no longer lands on it); the Align panel
       still scrolls below 800 px high.
+- [x] S37 review fixes (Opus, 2026-10-25): one key per meaning (Home, Area), whole phrases instead of lower-cased words, plural-aware
+      chips, the release checks the nine language chunks, the first-run button gives two reasons. Done on task/s37-review-fixes.
+- Deferred from the S37 review (nits, not done):
+  - A stored error text is translated when it is set, not when it is drawn, so a language change leaves the old message in the old language.
+  - The plan's measured size reads width only near the 400 px bound (ghost-floor clearance can move it), and has no hysteresis.
+  - The raw-English lint covers 5 files, and misses the SVG `<title>` type names in `src/core/render.ts`.
+  - Two HA areas with the same name give equal `catalog.room` values.
 - Later (plan C): vacuum position and trail; sun on the 3D house; a 24 h history replay.

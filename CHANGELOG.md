@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Card: translation fixes. The car "at home" and the breadcrumb root are two words now (Polish no longer says "W domu" for the root), a room's size reads as a surface ("Fläche"), Polish "Nothing on" says nothing is switched on, and the chip counts and the Layers line follow each language's plural forms.
 - Studio: the first time you open it with no saved plan, it offers three ways in: load the demo home, start from your Home Assistant areas, or a blank plan. Start from your areas draws one 4 x 4 m room per area that has a device the plan can draw, with those devices inside; drag the corners afterwards. Undo takes the whole thing back in one step.
 - Studio: when the Studio is under 700 px wide it now says "The Studio needs a wider screen." (with a link to the dashboard in Home Assistant) instead of showing a cramped, half-working layout. The plan, selection, zoom and undo history are kept and come back when the window is wider; nothing is saved or changed meanwhile.
 - Card: the 2D plan now draws device icons at the default zoom, idle devices included. Dots only when the plan is under 400 px wide (a phone). A `detail` key (`full`, `minimal`) or a Detail pick in the menu still wins.

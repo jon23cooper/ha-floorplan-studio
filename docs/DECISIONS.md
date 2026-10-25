@@ -2,6 +2,18 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-25: S37 review fixes
+
+Corrections from the Opus review of Sprint 37. Supersedes the S37.5 line "may be retried on the next `hass` update".
+
+- **One key, one meaning.** `Home|car` (the car at home: "W domu", "在家") is separate from `Home` (the breadcrumb root: "Dom", "家"). `Area|size` (a room's surface: "Fläche", "Powierzchnia") is separate from `Area` (the HA area name). English strips the context, so the English card is unchanged. Polish "Nothing on" is "Nic nie jest włączone".
+- **A translated word is never lower-cased.** A German noun loses its capital that way. The layer in "Layers: lights hidden" is its own key per family, `lights|layer` and ten more, written in the form the sentence needs (English: lower case, German: capital). Chosen over whole phrases (three sentences by eleven families, thirty keys in the card file) because the card is 157 gzip bytes under its cap. The sentence stays one phrase per language. The row confirm is a whole phrase per action (`Confirm unlock`, eight keys), carried on the op as `PopupOp.ask`; the `Confirm {action}` template is gone, and every op sets `ask` so a lock cannot reach a row with no confirm text.
+- **Counts go through `tn`.** `{n} heating`, `{n} playing`, `{n} other` and `Layers: {n} of {total} hidden`, with the plural forms of each language (Polish four). pt-BR used European Portuguese for heating and playing; fixed.
+- **A failed language chunk is not retried.** Chromium caches a failed dynamic import for the life of the page; the next `hass` update asks again and gets the same failure. The card stays English until a reload. The comment in `src/card/i18n.ts` now says so; no retry code.
+- **The release zip is checked for exactly nine `floorplan-studio-lang-*.js` files**, as it is for one 3D chunk.
+- **First-run areas button, two reasons**: no Home Assistant, or Home Assistant with no areas.
+- **Not reproduced: the clipped "Turn off on this floor…" button.** In `de-4-menu.png` and `pl-2-overview.png` the whole text shows, the trailing "…" is part of the string. Measured at 390, 320, 240 and 200 px in German and Polish, nothing is clipped and the text wraps to a second line when it has to. No CSS changed. `tests/card/card-i18n-fit.spec.ts` guards it.
+
 ## 2026-10-25: S37.1 and S37.2, the first-run choice and rooms from areas
 
 Implements the 2026-10-25 "Sprint 37 defaults". Supersedes nothing.

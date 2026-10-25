@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from "lit";
 import { planPatch } from "./plan-patch"; // S25.6: the plan is patched, not replaced, on a state update
-import { carStatus, carText, ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, ICONS_MIN_PLAN_PX, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, CAM_POS, CAM_SIZES, ThumbFeed, camThumbOf, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
+import { layerWord, carStatus, carText, ALL_OFF_TITLE, SPIDER_MAX, STACK_PX, spiderLayout, stackGroups, DETAIL_LABELS, DETAIL_MODES, ICONS_MIN_PLAN_PX, detailFor, type DetailMode, DEFAULT_MOTION_FADE_S, allOffTitle, customCalls, NAME_MIN_PX, customScene, presetCalls, roomScenes, sceneNeedsConfirm, entitiesOfDevice, entitiesOfDoor, moreInfoEntities, stateText, wattsOf, DEVICE_ICONS, FLOORPLAN_CSS, THEMES, UI_ICONS, WALLS_LABELS, WALLS_MODES, wallsModeOf, type PlanView, activeDevices, findPowerSensor, floorsAroundKey, floorPlace, floorBelow, floorsBelow, floorElevation, floorSwitch, deviceColourVars, plugThreshold, heatRange, anyRoomHeated, heatKindOf, heatLegend, roomHeat, HEAT_KINDS, CAM_POS, CAM_SIZES, ThumbFeed, camThumbOf, pieceDevice, HEAT_FROM, HEAT_TO, clampTilt, groupByCategory, deviceInfo, filterToRoom, formatChanged, roomSummary, attention, deviceCentre, formatAge, relayText, floorSummary, floorOffRows, floorOffCalls, OFF_GROUPS, OFF_GROUP_LABEL, layoutEntries, LAYERS, layerCounts, layerOfType, soloLayer, toggleLayer, migrate, planPivot, renderFloor, rotateAbout, tag, validate, viewBoxFor } from "../core";
 import type { CamPos, CamSize, CamThumb, HeatKind, LayerId, OffRow, SearchEntry } from "../core";
 import type { ActiveDevice, Attention, AttentionItem, AttentionKind, CategoryId, DeviceType, ThingRef, PowerCandidate, RoomDeviceRow, RoomSensorRow, RoomSummary, Theme, WallsMode } from "../core";
 import type { Device, Door, Floor, Layout, SavedView } from "../core";
@@ -232,10 +232,10 @@ const ATTENTION_TEXT: Record<AttentionKind, (it: AttentionItem, level: string) =
 };
 /** The header's count chips, short: "6 lights · 2 alerts". Singular and plural per category; every category is a decision. */
 const CHIP_TEXT: Record<CategoryId, (n: number) => string> = {
-  lights: (n) => tn("{n} light", "{n} lights", n), climate: (n) => t("{n} heating", { n }), security: (n) => tn("{n} sensor", "{n} sensors", n),
-  media: (n) => t("{n} playing", { n }), power: (n) => tn("{n} plug", "{n} plugs", n), covers: (n) => tn("{n} cover", "{n} covers", n),
+  lights: (n) => tn("{n} light", "{n} lights", n), climate: (n) => tn("{n} heating", "{n} heating", n), security: (n) => tn("{n} sensor", "{n} sensors", n),
+  media: (n) => tn("{n} playing", "{n} playing", n), power: (n) => tn("{n} plug", "{n} plugs", n), covers: (n) => tn("{n} cover", "{n} covers", n),
   computing: (n) => tn("{n} computer", "{n} computers", n), sensors: (n) => tn("{n} sensor", "{n} sensors", n),
-  people: (n) => tn("{n} person", "{n} people", n), other: (n) => t("{n} other", { n }),
+  people: (n) => tn("{n} person", "{n} people", n), other: (n) => tn("{n} other", "{n} other", n),
 };
 /** S9.2: `icon_size` default and clamp range. */
 const DEFAULT_ICON_SIZE = 1;
@@ -3072,7 +3072,7 @@ export class FloorplanStudioCard extends LitElement {
    *  nothing behind it (no sensor, no state) is left out, never printed empty; doors and lights always say "none". */
   private _roomSection(s: RoomSummary, active: unknown, scope: Scope) {
     const facts: [string, string][] = [
-      [t("Area"), s.areaM2 === null ? "" : `${s.areaM2} m²`],
+      [t("Area|size"), s.areaM2 === null ? "" : `${s.areaM2} m²`],
       [t("Temperature"), s.temperature],
       [t("Humidity"), s.humidity],
       [t("Motion"), s.motion ? (s.motion.on ? t("on since {when}", { when: formatChanged(s.motion.since) }) : t("off since {when}", { when: formatChanged(s.motion.since) })) : ""],
@@ -3175,7 +3175,7 @@ export class FloorplanStudioCard extends LitElement {
    *  on/off (`TOGGLE_AT_ONCE`) acts on one tap; a lock or a cover asks, so one phone tap never unlocks or opens anything (S33). */
   private _favConfirm(op: PopupOp, entity: string): string | null {
     if (op.confirm) return op.confirm;
-    return TOGGLE_AT_ONCE.has(entity.split(".")[0] ?? "") ? null : t("Confirm {action}", { action: op.label.toLowerCase() });
+    return TOGGLE_AT_ONCE.has(entity.split(".")[0] ?? "") ? null : op.ask;
   }
 
   /** The row button: one service call, or (a turn OFF that asks) the first press only opens the confirm step. */
@@ -3502,8 +3502,7 @@ export class FloorplanStudioCard extends LitElement {
     const f = this._floor(), k = this._keptHere();
     if (!f || this._shows3d() || !k) return nothing;
     const hidden = this._hiddenLayers;
-    const word = (id: LayerId) => t(LAYERS.find((l) => l.id === id)?.label ?? id).toLowerCase();
-    return html`<p class="fp-layer-note" role="status">${t("Hidden by Layers: {layer}", { layer: word(k.fam) })} <button type="button" @click=${() => this._setLayers(hidden.filter((x) => x !== k.fam))}>${t("Show")}</button></p>`;
+    return html`<p class="fp-layer-note" role="status">${t("Hidden by Layers: {layer}", { layer: layerWord(k.fam) })} <button type="button" @click=${() => this._setLayers(hidden.filter((x) => x !== k.fam))}>${t("Show")}</button></p>`;
   }
 
   private _setLayers(next: LayerId[]): void {
