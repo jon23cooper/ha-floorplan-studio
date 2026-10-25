@@ -571,7 +571,7 @@ export class FloorplanStudioEditor extends LitElement {
     css`
     .errors{border:1px solid var(--fp-motion);border-radius:4px;padding:6px 10px;margin:6px 0}
     .errors ul{margin:4px 0;padding-left:18px}
-    .banner{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;max-width:min(40em,calc(100vw - 24px));padding:8px 8px 8px 14px;border:1px solid;border-radius:6px;font-size:.9em;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none}
+    .banner{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;max-width:min(40em,calc(100% - 24px));padding:8px 8px 8px 14px;border:1px solid;border-radius:6px;font-size:.9em;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none}
     .banner.info{background:#e8f1fb;color:#123a63;border-color:#6c9bd1}
     .banner.warning{background:#fff4d6;color:#5c4200;border-color:#d9a400}
     .banner.error{background:#fde4e1;color:#7a1410;border-color:#d4483f}
@@ -643,7 +643,7 @@ export class FloorplanStudioEditor extends LitElement {
     try { return matchMedia("(prefers-color-scheme: dark)").matches; } catch { return false; }
   }
 
-  /** Shows a message as a top banner for 20 s, coloured by its situation. `level` overrides the guess from the text. */
+  /** Shows a message as a banner low in the plan for 20 s, coloured by its situation. `level` overrides the guess from the text. */
   private notify(text: string, level?: BannerLevel, action?: { id: string; label: string; run: () => void }) {
     clearTimeout(this.bannerTimer);
     if (isQuiet(text)) { this.banner = null; return; }
@@ -3154,7 +3154,6 @@ export class FloorplanStudioEditor extends LitElement {
     const body = turnG(grid) + renderFloor(f, { scale: s, selection: sel, keep: st.sel && (st.sel.t === "furn" || st.sel.t === "unl") ? { t: st.sel.t, i: st.sel.i } : null, hiddenLayers: st.hidden, detail: detailFor(viewBoxFor(f, 80, st.rotation), v, this.detailMode), showNames: st.showNames, editor: true, handles: !(this.asideMode === "align" && this.alignKey === st.floor), trace: true, rotate: rot, colors: st.layout.colors, theme: st.theme, dark: this.isDark(), dimmed, night: st.night, state: this.stateForRender(), now: Date.now(), roomGlow: true, ghost: this.ghostOpts(), labels: st.labels, heat: st.heat, camThumb: st.cam.on ? { ...st.cam, bust: this.thumbs.bust, failed: this.thumbs.failed } : undefined, around: floorsAroundKey(st.layout, st.floor), locate: this.locate?.floor === st.floor ? { t: this.locate.t, i: this.locate.i } : null }) + turnG(overlay);
     const find = this.findData();
     return html`
-      ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}
       ${toolbarView(this, find.entries)}
       ${this.errors.length ? html`<div class="errors" id="errors" role="alert"><strong>That layout was not used.</strong><ul>${this.errors.map((e) => html`<li>${e}</li>`)}</ul><button class="btn" id="errclose" @click=${() => { this.errors = []; }}>Dismiss</button></div>` : nothing}
       <div class="ed">
@@ -3169,6 +3168,8 @@ export class FloorplanStudioEditor extends LitElement {
             <button class="btn" id="vrotl" title="Rotate view left" aria-label="Rotate view left" @click=${() => this.turnBy(-ROTATION_STEP)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.rotateLeft} fill="currentColor"/></svg></button>
             <button class="btn" id="vrotr" title="Rotate view right" aria-label="Rotate view right" @click=${() => this.turnBy(ROTATION_STEP)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d=${UI_ICONS.rotateRight} fill="currentColor"/></svg></button>
           </div>
+          <!-- S37.7: the message sits low in the plan, above the status bar. At the top it covered the open menus (Floors, Add floor) and, when the toolbar wraps, the search box. -->
+          ${this.banner ? html`<div class="banner ${this.banner.level}"><span class="banner-text" id="status" role=${this.banner.level === "error" ? "alert" : "status"}>${this.banner.text}</span>${this.banner.action ? html`<button class="banner-act" id=${this.banner.action.id} @click=${this.banner.action.run}>${this.banner.action.label}</button>` : nothing}<button class="banner-x" id="bannerClose" aria-label="Close message" @click=${() => this.closeBanner()}>×</button></div>` : nothing}
           ${this.statusBarView()}
           ${this.ctxMenu ? ctxMenuView(this, this.ctxMenu) : nothing}
           ${this.devColsPos ? this.devColsView(st) : nothing}
