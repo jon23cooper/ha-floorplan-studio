@@ -2,6 +2,18 @@
 
 Newest first. A change supersedes; nothing is edited.
 
+## 2026-10-25: S37.6, the 2D plan draws icons unless it is small
+
+Supersedes the S25 default that `auto` is dots at zoom 1 (the 2026-10-09 thresholds stay for zoom).
+
+- Today the card's `detail` mode `auto` read the zoom alone: below 1.6, level `far`, so an idle device was not drawn and an on device was a bare disc. The review of 2026-10-22 found a first look at 2D did not say "light, speaker, motion".
+- Now `detailFor(fit, shown, mode, planPx)` (`src/core/detail.ts`): in `auto`, where zoom says `far`, a plan `planPx >= ICONS_MIN_PLAN_PX` (400) reads `mid`, icons without names. Under 400 it stays `far`: dots. `full`, `minimal`, the YAML `detail` key and the viewer's menu pick are untouched and win: explicit config wins over the width. No YAML changed meaning for anyone who wrote one; a card on `auto` (the default) is the only one that changes.
+- The measure: the whole floor at fit, `_px * fit.w` in the card (`_measurePx`, already run by the ResizeObserver): the svg's rendered size and the floor's aspect, not the window, not the card box, not the zoom. A card in a 1280 px window but a 360 px column is dots. A plan not measured yet (nothing laid out) reads icons: when we cannot tell, show.
+- One draw path: the card passes `planPx`; `renderFloor` writes `data-detail` and the stylesheet hides. The card draws no icon itself.
+- No oscillation, no hysteresis: the level only toggles CSS `display`; it changes no layout, so the width that decided it cannot move. The bound is a pure function of that width. A Playwright test straddles it 6 times (380/420 px boxes) and sees one switch per resize and nothing at rest. A later change that lets the level alter layout must add hysteresis.
+- The phone sheet: a phone-wide card is under 400 px, so it keeps dots; the plan above the sheet is small and crowded already. Zoom to 1.6 gives icons as before.
+- The Studio does not pass `planPx` and starts on `full`; its Auto is the zoom rule as before.
+
 ## 2026-10-25: S37.4, any user follows a save
 
 Supersedes the 2026-10-21 line "A `floorplan_studio/subscribe` command would fix that; not done".
